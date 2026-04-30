@@ -65,7 +65,7 @@
                                 </router-link>
                             </span>
                             <span class="info-item">
-                                泡泡&nbsp;&nbsp;{{ prettyQuoteNum(user.tweets_count || 0) }}
+                                动态&nbsp;&nbsp;{{ prettyQuoteNum(user.tweets_count || 0) }}
                             </span>
                         </div>
                     </div>
@@ -90,7 +90,7 @@
                 <whisper-add-friend :show="showAddFriendWhisper" :user="user" @success="addFriendWhisperSuccess" />
             
                 <n-tabs v-if="!userLoading" class="profile-tabs-wrap" type="line" animated :value="pageType" @update:value="changeTab">
-                    <n-tab-pane name="post" tab="泡泡"></n-tab-pane>
+                    <n-tab-pane name="post" tab="动态"></n-tab-pane>
                     <n-tab-pane name="comment" tab="评论"></n-tab-pane>
                     <n-tab-pane name="highlight" tab="亮点"></n-tab-pane>
                     <n-tab-pane name="media" tab="图文"></n-tab-pane>
@@ -116,11 +116,11 @@
         </n-list>
 
         <n-space v-if="totalPage > 0" justify="center">
-            <InfiniteLoading class="load-more" :slots="{ complete: '没有更多泡泡了', error: '加载出错' }" @infinite="nextPage()">
+            <InfiniteLoading class="load-more" :slots="{ complete: '没有更多动态了', error: '加载出错' }" @infinite="nextPage()">
                 <template #spinner>
                     <div class="load-more-wrap">
                         <n-spin :size="14" v-if="!noMore" />
-                        <span class="load-more-spinner">{{ noMore ? '没有更多泡泡了' : '加载更多' }}</span>
+                        <span class="load-more-spinner">{{ noMore ? '没有更多动态了' : '加载更多' }}</span>
                     </div>
                 </template>
             </InfiniteLoading>

@@ -5,4 +5,5 @@ custom
 target
 *Dockerfile*
 web/node_modules
+web/dist
 web/src-tauri/target

@@ -7,15 +7,17 @@ ARG VITE_HOST=
 ARG NPM_REGISTRY=https://mirrors.tuna.tsinghua.edu.cn/npm/
 WORKDIR /app/web
 COPY .npmrc /root/.npmrc
-COPY web/ ./
+COPY web/package.json web/yarn.lock ./
 RUN env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy sh -c '\
     corepack enable && \
     npm config set registry "$NPM_REGISTRY" && \
     npm config set @opentiny:registry "https://registry.npmjs.org/" && \
     yarn config set registry "$NPM_REGISTRY" && \
-    printf "VITE_HOST=%s\n" "$VITE_HOST" > .env.local && \
     yarn install --network-timeout 600000 || \
-    (npm config set registry "https://registry.npmjs.org/" && yarn config set registry "https://registry.npmjs.org/" && yarn install --network-timeout 600000) && \
+    (npm config set registry "https://registry.npmjs.org/" && yarn config set registry "https://registry.npmjs.org/" && yarn install --network-timeout 600000)'
+COPY web/ ./
+RUN env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy sh -c '\
+    printf "VITE_HOST=%s\n" "$VITE_HOST" > .env.local && \
     yarn build'
 
 FROM ${RUST_VERSION} AS backend

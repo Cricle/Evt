@@ -6,7 +6,7 @@
             ? message.receiver_user.avatar
             : (message.sender_user.id > 0
               ? message.sender_user.avatar
-              : defaultavatar
+              : defaultUserAvatar
             )
           " />
       </template>
@@ -133,12 +133,10 @@ import {
 } from '@vicons/ionicons5';
 import { formatRelativeTime } from '@/utils/formatTime';
 import { MoreHorizFilled } from '@vicons/material';
+import defaultUserAvatar from '@/assets/img/logo.png';
 import { storeToRefs } from 'pinia';
 import { Api } from '@/utils/request';
 import UserAction from '@/composables/useUserAction';
-
-const defaultavatar =
-  'https://paopao-demo.vercel.app/avatar/default/admin.png';
 
 const router = useRouter();
 

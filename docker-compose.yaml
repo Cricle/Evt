@@ -28,6 +28,7 @@ services:
         NODE_VERSION: ${NODE_VERSION}
         RUST_VERSION: ${RUST_VERSION}
         ALPINE_VERSION: ${ALPINE_VERSION}
+        NPM_REGISTRY: ${NPM_REGISTRY}
         VITE_HOST: ${VITE_HOST}
     restart: always
     depends_on:

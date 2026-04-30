@@ -69,7 +69,7 @@
                     :mask-closable="false"
                     preset="dialog"
                     title="提示"
-                    content="确定删除该泡泡动态吗？"
+                    content="确定删除该动态吗？"
                     positive-text="确认"
                     negative-text="取消"
                     @positive-click="execDelAction"
@@ -83,7 +83,7 @@
                     :content="
                         '确定' +
                         (post.is_lock ? '解锁' : '锁定') +
-                        '该泡泡动态吗？'
+                        '该动态吗？'
                     "
                     positive-text="确认"
                     negative-text="取消"
@@ -98,7 +98,7 @@
                     :content="
                         '确定' +
                         (post.is_top ? '取消置顶' : '置顶') +
-                        '该泡泡动态吗？'
+                        '该动态吗？'
                     "
                     positive-text="确认"
                     negative-text="取消"
@@ -111,7 +111,7 @@
                     preset="dialog"
                     title="提示"
                     :content="
-                        '确定将该泡泡动态' +
+                        '确定将该动态' +
                         (post.is_essence ? '取消亮点' : '设为亮点') +
                         '吗？'
                     "
@@ -126,7 +126,7 @@
                     preset="dialog"
                     title="提示"
                     :content="
-                        '确定将该泡泡动态可见度修改为' +
+                        '确定将该动态可见度修改为' +
                         (tempVisibility == 0 ? '公开' : (tempVisibility == 1 ? '私密' : (tempVisibility == 2 ? '好友可见' : '关注可见'))) +
                         '吗？'
                     "

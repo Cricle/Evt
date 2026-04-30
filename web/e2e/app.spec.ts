@@ -54,7 +54,7 @@ test('guest can load spa shell and public site profile', async ({ page }) => {
 
   await page.goto('/#/');
   await expect(page.locator('#app')).toBeVisible();
-  await expect(page.getByText('泡泡广场', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Evt 广场', { exact: true }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: '登录' }).first()).toBeVisible();
 });
 
@@ -117,7 +117,7 @@ test.use({
 
 test('mobile guest layout can open drawer and navigate', async ({ page }) => {
   await page.goto('/#/');
-  await expect(page.getByText('泡泡广场', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Evt 广场', { exact: true }).first()).toBeVisible();
   await page.locator('.drawer-btn').click();
   await expect(page.getByRole('menuitem', { name: '话题' })).toBeVisible();
   await page.getByRole('menuitem', { name: '话题' }).click();

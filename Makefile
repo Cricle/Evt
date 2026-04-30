@@ -1,4 +1,4 @@
-.PHONY: all build build-web run test clean fmt tauri-build docker-build docker-build-allinone help
+.PHONY: all build build-web run test clean fmt tauri-build docker-build help
 
 APP_BIN = target/release/evt
 WEB_DIR = web
@@ -37,15 +37,6 @@ docker-build:
 		--build-arg NPM_REGISTRY="$(NPM_REGISTRY)" \
 		--build-arg VITE_HOST="$(VITE_HOST)" \
 		-f Dockerfile .
-
-docker-build-allinone:
-	@docker build \
-		--build-arg NODE_VERSION="$(NODE_VERSION)" \
-		--build-arg RUST_VERSION="$(RUST_VERSION)" \
-		--build-arg ALPINE_VERSION="$(ALPINE_VERSION)" \
-		--build-arg NPM_REGISTRY="$(NPM_REGISTRY)" \
-		--build-arg VITE_HOST="$(VITE_HOST)" \
-		-f Dockerfile.allinone .
 
 help:
 	@echo "make build: build the Rust backend"

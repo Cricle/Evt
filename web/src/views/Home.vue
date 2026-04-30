@@ -71,11 +71,11 @@
         </n-list>
 
         <n-space v-if="totalPage > 0" justify="center">
-            <InfiniteLoading class="load-more" :slots="{ complete: '没有更多泡泡了', error: '加载出错' }" @infinite="handleNextPage">
+            <InfiniteLoading class="load-more" :slots="{ complete: '没有更多动态了', error: '加载出错' }" @infinite="handleNextPage">
                 <template #spinner>
                     <div class="load-more-wrap">
                         <n-spin :size="14" v-if="!noMore" />
-                        <span class="load-more-spinner">{{ noMore ? '没有更多泡泡了' : '加载更多' }}</span>
+                        <span class="load-more-spinner">{{ noMore ? '没有更多动态了' : '加载更多' }}</span>
                     </div>
                 </template>
             </InfiniteLoading>
@@ -175,7 +175,7 @@ const user = reactive<Item.UserInfo>({
 });
 const inActionPost = ref<Item.PostProps | null>(null);
 
-const title = ref<string>('泡泡广场');
+const title = ref<string>('Evt 广场');
 const targetStyle = ref<number>(1);
 const targetUsername = ref<string>('');
 const list = ref<any[]>([]);
@@ -245,7 +245,7 @@ function postFollowAction(userId: number, isFollowing: boolean) {
 }
 
 const updateTitle = () => {
-  title.value = '泡泡广场';
+  title.value = 'Evt 广场';
   if (route.query && route.query.q) {
     if (route.query.t && route.query.t === 'tag') {
       title.value = '#' + decodeURIComponent(route.query.q as string);
