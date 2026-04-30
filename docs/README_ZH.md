@@ -2,7 +2,7 @@
 
 [English](README.md) | 简体中文
 
-本目录当前主要保留 Rust 版 PaoPao 的 API 文档资源与少量补充说明。
+本目录当前主要保留 Rust 版 Evt 的 API 文档资源与少量补充说明。
 
 ## 文档分区
 

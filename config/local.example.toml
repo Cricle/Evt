@@ -1,5 +1,5 @@
 [database]
-url = "mysql://root:root@127.0.0.1:3306/paopao"
+url = "mysql://root:root@127.0.0.1:3306/evt"
 
 [jwt]
 secret = "change-me"

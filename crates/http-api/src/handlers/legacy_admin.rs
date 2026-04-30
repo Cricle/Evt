@@ -235,7 +235,7 @@ pub async fn user_post_recharge(
         .await?;
     Ok(Json(success(WalletRechargeResponse {
         id: recharge.id,
-        pay: format!("paopao://recharge/{}", recharge.id),
+        pay: format!("evt://recharge/{}", recharge.id),
     })))
 }
 
@@ -287,7 +287,7 @@ pub async fn user_wallet_bills(
 }
 
 async fn require_admin(
-    app: &paopao_infra::AppContext,
+    app: &evt_infra::AppContext,
     headers: &HeaderMap,
 ) -> Result<(), HttpApiError> {
     let actor = authenticate_request(app, headers).await?;
@@ -298,7 +298,7 @@ async fn require_admin(
     Ok(())
 }
 
-fn into_admin_value_item(item: paopao_domain::SiteSettingValueItem) -> AdminSettingValueItem {
+fn into_admin_value_item(item: evt_domain::SiteSettingValueItem) -> AdminSettingValueItem {
     AdminSettingValueItem {
         key: item.key,
         value: item.value,

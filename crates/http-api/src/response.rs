@@ -3,7 +3,7 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use paopao_domain::AppError;
+use evt_domain::AppError;
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]

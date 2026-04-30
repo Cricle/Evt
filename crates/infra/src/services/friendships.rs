@@ -1,4 +1,4 @@
-use paopao_domain::{AppError, PagedResponse, UserIdentity, UserPreview};
+use evt_domain::{AppError, PagedResponse, UserIdentity, UserPreview};
 
 use crate::{
     AppContext,

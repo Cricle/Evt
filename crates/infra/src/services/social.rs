@@ -1,4 +1,4 @@
-use paopao_domain::{
+use evt_domain::{
     AppError, FollowActionResult, PagedResponse, UserIdentity, UserPreview, UserSummary,
 };
 

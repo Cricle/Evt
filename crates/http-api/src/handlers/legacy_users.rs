@@ -5,7 +5,7 @@ use axum::{
     extract::{Query, State},
     http::HeaderMap,
 };
-use paopao_domain::{LegacyPostState, PagedResponse, PostContentItem, PostSummary, UserPreview};
+use evt_domain::{LegacyPostState, PagedResponse, PostContentItem, PostSummary, UserPreview};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -425,8 +425,8 @@ pub(crate) fn contact_list_response(
 }
 
 pub(crate) async fn following_status_map(
-    app: &paopao_infra::AppContext,
-    actor: Option<&paopao_domain::UserIdentity>,
+    app: &evt_infra::AppContext,
+    actor: Option<&evt_domain::UserIdentity>,
     users: &[UserPreview],
 ) -> Result<HashMap<i64, bool>, HttpApiError> {
     let Some(actor) = actor else {
@@ -439,7 +439,7 @@ pub(crate) async fn following_status_map(
 }
 
 pub(crate) fn compat_user_from_profile(
-    profile: &paopao_domain::UserProfile,
+    profile: &evt_domain::UserProfile,
     is_following: bool,
     is_friend: bool,
 ) -> CompatUserInfo {
@@ -582,7 +582,7 @@ pub(crate) fn group_post_contents(
 
 #[cfg(test)]
 mod tests {
-    use paopao_domain::{UserPreview, UserProfile};
+    use evt_domain::{UserPreview, UserProfile};
 
     use super::{compat_user_from_post, compat_user_from_profile};
 

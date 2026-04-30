@@ -1,6 +1,6 @@
-# PaoPao CE
+# Evt
 
-PaoPao CE is a Rust + Vue 3 community platform. The repository now uses Rust as the only backend implementation, Vue 3 for the web client, and Tauri as a desktop shell over the same HTTP API.
+Evt is a Rust + Vue 3 community platform. The repository now uses Rust as the only backend implementation, Vue 3 for the web client, and Tauri as a desktop shell over the same HTTP API.
 
 ## Repository layout
 

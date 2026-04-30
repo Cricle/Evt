@@ -8,7 +8,7 @@ if [ -f ./.env ]; then
   set +a
 fi
 
-IMAGE="${1:-${DOCKER_IMAGE:-bitbus/paopao-ce}}"
+IMAGE="${1:-${DOCKER_IMAGE:-bitbus/evt}}"
 VERSION="${2:-${DOCKER_VERSION:-dev}}"
 
 docker buildx build \

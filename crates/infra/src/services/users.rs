@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-use paopao_domain::{
-    AppError, CommentSummary, CurrentUser, UserIdentity, UserPreview, UserProfile,
-};
+use evt_domain::{AppError, CommentSummary, CurrentUser, UserIdentity, UserPreview, UserProfile};
 
 use crate::AppContext;
 

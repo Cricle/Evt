@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use paopao_domain::{LegacyPostState, PostSummary, UserIdentity};
-use paopao_infra::AppContext;
+use evt_domain::{LegacyPostState, PostSummary, UserIdentity};
+use evt_infra::AppContext;
 
 use crate::response::{HttpApiError, legacy_error};
 
@@ -100,7 +100,7 @@ mod tests {
         LEGACY_VISIBILITY_FOLLOWING, LEGACY_VISIBILITY_FRIEND, LEGACY_VISIBILITY_PRIVATE,
         LEGACY_VISIBILITY_PUBLIC, can_view_post, legacy_no_permission, legacy_visibility,
     };
-    use paopao_domain::{LegacyPostState, UserIdentity};
+    use evt_domain::{LegacyPostState, UserIdentity};
 
     #[test]
     fn visibility_defaults_to_public_without_state() {

@@ -1,6 +1,6 @@
 .PHONY: all build build-web run test clean fmt tauri-build docker-build docker-build-allinone help
 
-APP_BIN = target/release/paopao-ce
+APP_BIN = target/release/evt
 WEB_DIR = web
 
 -include .env
@@ -9,13 +9,13 @@ export
 all: fmt test build
 
 build:
-	@cargo build --release --bin paopao-ce
+	@cargo build --release --bin evt
 
 build-web:
 	@cd $(WEB_DIR) && npm config set registry "$(NPM_REGISTRY)" && npm config set @opentiny:registry "https://registry.npmjs.org/" && corepack yarn config set registry "$(NPM_REGISTRY)" && (corepack yarn install || (npm config set registry "https://registry.npmjs.org/" && corepack yarn config set registry "https://registry.npmjs.org/" && corepack yarn install)) && VITE_HOST="$(VITE_HOST)" corepack yarn build
 
 run:
-	@cargo run --bin paopao-ce
+	@cargo run --bin evt
 
 test:
 	@cargo test --workspace

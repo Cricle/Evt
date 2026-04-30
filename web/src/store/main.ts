@@ -4,7 +4,7 @@ import { reactive, ref } from 'vue';
 export const useStoreMain = defineStore('main', () => {
   const refresh = ref(Date.now());
   const refreshTopicFollow = ref(Date.now());
-  const theme = ref(localStorage.getItem('PAOPAO_THEME'));
+  const theme = ref(localStorage.getItem('EVT_THEME'));
   const collapsedLeft = ref(document.body.clientWidth <= 821);
   const collapsedRight = ref(document.body.clientWidth <= 821);
   const drawerModelShow = ref(document.body.clientWidth <= 821);

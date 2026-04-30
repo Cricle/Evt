@@ -1,5 +1,5 @@
 use axum::{Json, extract::State};
-use paopao_domain::{LoginResult, RegisterResult};
+use evt_domain::{LoginResult, RegisterResult};
 use serde::Deserialize;
 
 use crate::{

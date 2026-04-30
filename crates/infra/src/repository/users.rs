@@ -1,7 +1,5 @@
 use chrono::{DateTime, Utc};
-use paopao_domain::{
-    AppError, CurrentUser, User, UserPreview, UserProfile, UserStatus, UserSummary,
-};
+use evt_domain::{AppError, CurrentUser, User, UserPreview, UserProfile, UserStatus, UserSummary};
 use sqlx::{FromRow, MySql, MySqlPool, QueryBuilder};
 use uuid::Uuid;
 

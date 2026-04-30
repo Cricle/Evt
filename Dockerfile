@@ -36,15 +36,15 @@ COPY docs/openapi ./docs/openapi
 COPY web ./web
 COPY --from=frontend /app/web/dist ./web/dist
 RUN env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy \
-    cargo build --locked --release --bin paopao-ce
+    cargo build --locked --release --bin evt
 
 FROM scratch
-ENV PAOPAO_RS__SERVER__HTTP__HOST=0.0.0.0
-ENV PAOPAO_RS__SERVER__HTTP__PORT=8008
-ENV PAOPAO_RS__SERVER__GRPC__HOST=0.0.0.0
-ENV PAOPAO_RS__SERVER__GRPC__PORT=18020
+ENV EVT_RS__SERVER__HTTP__HOST=0.0.0.0
+ENV EVT_RS__SERVER__HTTP__PORT=8008
+ENV EVT_RS__SERVER__GRPC__HOST=0.0.0.0
+ENV EVT_RS__SERVER__GRPC__PORT=18020
 WORKDIR /app
-COPY --from=backend /app/target/release/paopao-ce ./paopao-ce
+COPY --from=backend /app/target/release/evt ./evt
 COPY --from=backend /app/config ./config
 COPY --from=backend /app/migrations ./migrations
 COPY --from=backend /app/web/dist ./web/dist
@@ -53,4 +53,4 @@ COPY --from=backend /app/docs/openapi.json ./docs/openapi.json
 COPY --from=backend /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 VOLUME ["/app/custom"]
 EXPOSE 8008 18020
-ENTRYPOINT ["/app/paopao-ce"]
+ENTRYPOINT ["/app/evt"]

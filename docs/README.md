@@ -2,7 +2,7 @@
 
 English | [简体中文](README_ZH.md)
 
-This directory contains the current API assets and lightweight project notes for the Rust-based PaoPao repository.
+This directory contains the current API assets and lightweight project notes for the Rust-based Evt repository.
 
 ## Documentation Sections
 

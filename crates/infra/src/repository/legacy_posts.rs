@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
-use paopao_domain::{AppError, CommentReplySummary, LegacyCommentState, LegacyPostState};
+use evt_domain::{AppError, CommentReplySummary, LegacyCommentState, LegacyPostState};
 use sqlx::{FromRow, MySql, MySqlPool, QueryBuilder, Row};
 
 use super::map_db_error;

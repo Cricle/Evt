@@ -1,5 +1,5 @@
 [app]
-name = "paopao-ce"
+name = "evt"
 env = "development"
 
 [server.http]
@@ -11,12 +11,12 @@ host = "0.0.0.0"
 port = 18020
 
 [database]
-url = "mysql://paopao:paopao@127.0.0.1:3306/paopao"
+url = "mysql://evt:evt@127.0.0.1:3306/evt"
 max_connections = 10
 
 [jwt]
 secret = "replace-with-a-long-random-secret"
-issuer = "paopao-ce"
+issuer = "evt"
 expire_seconds = 86400
 
 [storage]
@@ -39,7 +39,7 @@ tweet_web_ellipsis_size = 220
 tweet_mobile_ellipsis_size = 140
 default_tweet_visibility = "public"
 default_msg_loop_interval = 5000
-copyright_top = "PaoPao"
+copyright_top = "Evt"
 copyright_left = "Self-hosted"
 copyright_left_link = ""
 copyright_right = "MIT"

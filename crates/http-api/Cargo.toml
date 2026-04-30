@@ -1,5 +1,5 @@
 [package]
-name = "paopao-http-api"
+name = "evt-http-api"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,14 +8,14 @@ license.workspace = true
 axum.workspace = true
 base64.workspace = true
 http.workspace = true
-paopao-domain = { path = "../domain" }
-paopao-infra = { path = "../infra" }
+evt-domain = { path = "../domain" }
+evt-infra = { path = "../infra" }
 rand.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tower-http.workspace = true
 
 [dev-dependencies]
-paopao-config = { path = "../config" }
+evt-config = { path = "../config" }
 tokio.workspace = true
 tower = { version = "0.5", features = ["util"] }

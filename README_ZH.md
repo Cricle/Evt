@@ -1,6 +1,6 @@
-# PaoPao CE
+# Evt
 
-PaoPao CE 现已切换为 Rust + Vue 3 技术栈。仓库内唯一后端实现是 Rust，Web 端使用 Vue 3，桌面端使用 Tauri 作为同一套 HTTP API 的壳。
+Evt 现已切换为 Rust + Vue 3 技术栈。仓库内唯一后端实现是 Rust，Web 端使用 Vue 3，桌面端使用 Tauri 作为同一套 HTTP API 的壳。
 
 ## 目录结构
 

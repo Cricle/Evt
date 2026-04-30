@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use axum::{Json, extract::State, http::HeaderMap};
-use paopao_domain::UserPreview;
+use evt_domain::UserPreview;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -183,7 +183,7 @@ pub async fn comment_reply_delete(
     let actor = authenticate_request(state.app(), &headers).await?;
     if let Err(err) = state.app().delete_comment_reply(&actor, payload.id).await {
         return match err {
-            paopao_domain::AppError::Unauthorized(_) => Err(legacy_no_permission()),
+            evt_domain::AppError::Unauthorized(_) => Err(legacy_no_permission()),
             other => Err(other.into()),
         };
     }
@@ -206,7 +206,7 @@ pub async fn comment_thumbsup(
 }
 
 fn reply_payload(
-    reply: &paopao_domain::CommentReplySummary,
+    reply: &evt_domain::CommentReplySummary,
     users: &HashMap<i64, UserPreview>,
 ) -> serde_json::Value {
     serde_json::json!({

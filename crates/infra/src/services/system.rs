@@ -1,5 +1,5 @@
 use chrono::Utc;
-use paopao_domain::{AppError, SiteProfile, VersionInfo};
+use evt_domain::{AppError, SiteProfile, VersionInfo};
 
 use crate::AppContext;
 

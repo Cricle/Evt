@@ -1,12 +1,12 @@
 [package]
-name = "paopao-grpc-api"
+name = "evt-grpc-api"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [dependencies]
-paopao-domain = { path = "../domain" }
-paopao-infra = { path = "../infra" }
+evt-domain = { path = "../domain" }
+evt-infra = { path = "../infra" }
 tokio.workspace = true
 tonic.workspace = true
 prost.workspace = true

@@ -1,4 +1,4 @@
-use paopao_domain::{AppError, SiteSettingSchemaItem, SiteSettingValueItem};
+use evt_domain::{AppError, SiteSettingSchemaItem, SiteSettingValueItem};
 use serde_json::{Value, json};
 
 use crate::AppContext;
@@ -202,7 +202,7 @@ impl AppContext {
     }
 }
 
-fn setting_value_from_profile(profile: &paopao_domain::SiteProfile, key: &str) -> Value {
+fn setting_value_from_profile(profile: &evt_domain::SiteProfile, key: &str) -> Value {
     match key {
         "use_friendship" => json!(profile.use_friendship),
         "enable_trends_bar" => json!(profile.enable_trends_bar),

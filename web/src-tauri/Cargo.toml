@@ -1,10 +1,10 @@
 [package]
-name = "paopao"
+name = "evt"
 version = "0.2.0"
-description = "Paopao App"
+description = "Evt App"
 authors = ["Rocboss"]
 license = "MIT License"
-repository = "https://github.com/rocboss/paopao-ce"
+repository = "https://github.com/Cricle/Evt"
 edition = "2021"
 rust-version = "1.60"
 

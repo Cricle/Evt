@@ -10,7 +10,7 @@
 </template>
 
 <script setup lang="ts">
-import PaopaoVideoPlayer from 'paopao-video-player';
+import EvtVideoPlayer from 'paopao-video-player';
 
 const props = withDefaults(
   defineProps<{

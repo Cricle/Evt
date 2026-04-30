@@ -1,4 +1,4 @@
-use paopao_domain::{AppError, UserMeta};
+use evt_domain::{AppError, UserMeta};
 use sqlx::{FromRow, MySqlPool};
 
 use super::map_db_error;

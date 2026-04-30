@@ -1,11 +1,11 @@
-use paopao_domain::{
+use evt_domain::{
     AppError, CommentContentItem, CommentSummary, CreateContentInput, PagedResponse,
     PostContentItem, PostSummary, UserIdentity,
 };
 
 use crate::AppContext;
 
-const LEGACY_CONTENT_PREFIX: &str = "__PAOPAO_LEGACY_CONTENT__:";
+const LEGACY_CONTENT_PREFIX: &str = "__EVT_LEGACY_CONTENT__:";
 
 impl AppContext {
     pub async fn create_post_with_contents(

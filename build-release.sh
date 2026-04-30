@@ -9,4 +9,4 @@ if [ -f ./.env ]; then
 fi
 
 make build-web
-cargo build --release --bin paopao-ce
+cargo build --release --bin evt

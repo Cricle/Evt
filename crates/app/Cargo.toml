@@ -1,20 +1,20 @@
 [package]
-name = "paopao-app"
+name = "evt-app"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [[bin]]
-name = "paopao-ce"
+name = "evt"
 path = "src/main.rs"
 
 [dependencies]
 anyhow.workspace = true
 axum.workspace = true
-paopao-config = { path = "../config" }
-paopao-grpc-api = { path = "../grpc-api" }
-paopao-http-api = { path = "../http-api" }
-paopao-infra = { path = "../infra" }
+evt-config = { path = "../config" }
+evt-grpc-api = { path = "../grpc-api" }
+evt-http-api = { path = "../http-api" }
+evt-infra = { path = "../infra" }
 tokio.workspace = true
 tonic.workspace = true
 tracing.workspace = true

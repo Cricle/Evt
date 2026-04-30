@@ -5,8 +5,8 @@ use std::{
 };
 
 use anyhow::Context;
-use paopao_config::Settings;
-use paopao_domain::SiteProfile;
+use evt_config::Settings;
+use evt_domain::SiteProfile;
 use sqlx::mysql::{MySqlPool, MySqlPoolOptions};
 
 use crate::auth::{JwtService, PasswordService};

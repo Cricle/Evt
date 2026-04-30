@@ -1,4 +1,4 @@
-use paopao_domain::AppError;
+use evt_domain::AppError;
 use serde_json::Value;
 use sqlx::MySqlPool;
 

@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use paopao_domain::{AppError, AttachmentSummary};
+use evt_domain::{AppError, AttachmentSummary};
 use sqlx::{FromRow, MySqlPool};
 
 use super::map_db_error;

@@ -280,13 +280,12 @@ fn consume_attachment_ticket(ticket: &str) -> Result<i64, HttpApiError> {
         .lock()
         .expect("attachment ticket lock poisoned");
     let Some((attachment_id, expires_at)) = store.remove(ticket) else {
-        return Err(paopao_domain::AppError::NotFound(
-            "attachment download ticket not found".into(),
-        )
-        .into());
+        return Err(
+            evt_domain::AppError::NotFound("attachment download ticket not found".into()).into(),
+        );
     };
     if Instant::now() > expires_at {
-        return Err(paopao_domain::AppError::Unauthorized(
+        return Err(evt_domain::AppError::Unauthorized(
             "attachment download ticket expired".into(),
         )
         .into());

@@ -608,6 +608,91 @@ dependencies = [
 ]
 
 [[package]]
+name = "evt-app"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "evt-config",
+ "evt-grpc-api",
+ "evt-http-api",
+ "evt-infra",
+ "tokio",
+ "tonic",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "evt-config"
+version = "0.1.0"
+dependencies = [
+ "config",
+ "serde",
+]
+
+[[package]]
+name = "evt-domain"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "http",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "evt-grpc-api"
+version = "0.1.0"
+dependencies = [
+ "evt-domain",
+ "evt-infra",
+ "prost",
+ "protoc-bin-vendored",
+ "tokio",
+ "tonic",
+ "tonic-build",
+]
+
+[[package]]
+name = "evt-http-api"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "base64 0.22.1",
+ "evt-config",
+ "evt-domain",
+ "evt-infra",
+ "http",
+ "rand",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tower 0.5.3",
+ "tower-http",
+]
+
+[[package]]
+name = "evt-infra"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "argon2",
+ "chrono",
+ "evt-config",
+ "evt-domain",
+ "jsonwebtoken",
+ "rand",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "fastrand"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1503,91 +1588,6 @@ dependencies = [
  "elliptic-curve",
  "primeorder",
  "sha2",
-]
-
-[[package]]
-name = "paopao-app"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "paopao-config",
- "paopao-grpc-api",
- "paopao-http-api",
- "paopao-infra",
- "tokio",
- "tonic",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "paopao-config"
-version = "0.1.0"
-dependencies = [
- "config",
- "serde",
-]
-
-[[package]]
-name = "paopao-domain"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "http",
- "serde",
- "serde_json",
- "thiserror",
-]
-
-[[package]]
-name = "paopao-grpc-api"
-version = "0.1.0"
-dependencies = [
- "paopao-domain",
- "paopao-infra",
- "prost",
- "protoc-bin-vendored",
- "tokio",
- "tonic",
- "tonic-build",
-]
-
-[[package]]
-name = "paopao-http-api"
-version = "0.1.0"
-dependencies = [
- "axum",
- "base64 0.22.1",
- "http",
- "paopao-config",
- "paopao-domain",
- "paopao-infra",
- "rand",
- "serde",
- "serde_json",
- "tokio",
- "tower 0.5.3",
- "tower-http",
-]
-
-[[package]]
-name = "paopao-infra"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "argon2",
- "chrono",
- "jsonwebtoken",
- "paopao-config",
- "paopao-domain",
- "rand",
- "serde",
- "serde_json",
- "sqlx",
- "tokio",
- "tracing",
- "uuid",
 ]
 
 [[package]]

@@ -24,7 +24,7 @@ pub use tags::TagRepository;
 pub use users::UserRepository;
 pub use wallet::WalletRepository;
 
-use paopao_domain::AppError;
+use evt_domain::AppError;
 
 pub(crate) fn map_db_error(err: sqlx::Error) -> AppError {
     if let sqlx::Error::Database(db_err) = &err {

@@ -1,4 +1,4 @@
-use paopao_domain::{AppError, LoginResult, RegisterResult, UserIdentity, UserStatus};
+use evt_domain::{AppError, LoginResult, RegisterResult, UserIdentity, UserStatus};
 
 use crate::AppContext;
 

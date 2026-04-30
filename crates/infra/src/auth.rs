@@ -4,8 +4,8 @@ use argon2::{
     Argon2,
     password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
 };
+use evt_domain::{AppError, JwtClaims, UserIdentity};
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation, decode, encode};
-use paopao_domain::{AppError, JwtClaims, UserIdentity};
 use rand::rngs::OsRng;
 
 #[derive(Clone)]
@@ -88,7 +88,7 @@ impl PasswordService {
 #[cfg(test)]
 mod tests {
     use super::{JwtService, PasswordService};
-    use paopao_domain::{AppError, UserIdentity};
+    use evt_domain::{AppError, UserIdentity};
 
     #[test]
     fn jwt_round_trip_preserves_identity() {

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use paopao_domain::AppError;
+use evt_domain::AppError;
 use sqlx::{MySql, MySqlPool, QueryBuilder, Row};
 
 use super::map_db_error;

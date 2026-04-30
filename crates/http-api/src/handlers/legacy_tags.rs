@@ -5,7 +5,7 @@ use axum::{
 };
 use std::collections::HashMap;
 
-use paopao_domain::{TagSummary, UserPreview};
+use evt_domain::{TagSummary, UserPreview};
 use serde::{Deserialize, Serialize};
 
 use crate::{

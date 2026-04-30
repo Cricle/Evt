@@ -1,5 +1,5 @@
 use axum::{Json, extract::State};
-use paopao_domain::{SiteProfile, VersionInfo};
+use evt_domain::{SiteProfile, VersionInfo};
 use serde::Serialize;
 
 use crate::{

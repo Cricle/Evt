@@ -1,4 +1,4 @@
-use paopao_domain::{
+use evt_domain::{
     AppError, LegacyMessageSummary, MessageSummary, PagedResponse, UnreadCount, UserIdentity,
 };
 

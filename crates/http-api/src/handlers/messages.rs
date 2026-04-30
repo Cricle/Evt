@@ -3,7 +3,7 @@ use axum::{
     extract::{Path, Query, State},
     http::HeaderMap,
 };
-use paopao_domain::{MessageSummary, PagedResponse, UnreadCount};
+use evt_domain::{MessageSummary, PagedResponse, UnreadCount};
 use serde::Deserialize;
 
 use crate::{

@@ -3,28 +3,28 @@
 <plist version="1.0">
 	<dict>
 		<key>Label</key>
-		<string>info.paopao.web</string>
-		<!-- assumes running under 'paopao' account -->
+		<string>info.evt.web</string>
+		<!-- assumes running under 'evt' account -->
 		<!-- modify below to reflect your settings -->
 		<key>UserName</key>
-		<string>paopao</string>
+		<string>evt</string>
 		<key>GroupName</key>
-		<string>paopao</string>
+		<string>evt</string>
 		<key>ProgramArguments</key>
 		<array>
-			<!-- assumes installed in /Users/paopao/app -->
+			<!-- assumes installed in /Users/evt/app -->
 			<!-- modify below to reflect your settings -->
-			<string>/Users/paopao/app/paopao-ce</string>
+			<string>/Users/evt/app/evt</string>
 		</array>
 		<key>RunAtLoad</key>
 		<true/>
 		<key>KeepAlive</key>
 		<true/>
 		<key>WorkingDirectory</key>
-		<string>/Users/paopao/app/</string>
+		<string>/Users/evt/app/</string>
 		<key>StandardOutPath</key>
-		<string>/Users/paopao/app/log/stdout.log</string>
+		<string>/Users/evt/app/log/stdout.log</string>
 		<key>StandardErrorPath</key>
-		<string>/Users/paopao/app/log/stderr.log</string>
+		<string>/Users/evt/app/log/stderr.log</string>
 	</dict>
 </plist>

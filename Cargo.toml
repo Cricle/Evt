@@ -7,6 +7,7 @@ members = [
   "crates/http-api",
   "crates/infra",
 ]
+exclude = ["web/src-tauri"]
 resolver = "2"
 
 [workspace.package]

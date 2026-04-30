@@ -25,11 +25,11 @@ services:
     depends_on:
       - db
     environment:
-      PAOPAO_RS__DATABASE__URL: ${PAOPAO_DATABASE_URL}
-      PAOPAO_RS__JWT__SECRET: ${PAOPAO_JWT_SECRET}
-      PAOPAO_RS__STORAGE__LOCAL_DIR: ${PAOPAO_STORAGE_LOCAL_DIR}
+      EVT_RS__DATABASE__URL: ${EVT_DATABASE_URL}
+      EVT_RS__JWT__SECRET: ${EVT_JWT_SECRET}
+      EVT_RS__STORAGE__LOCAL_DIR: ${EVT_STORAGE_LOCAL_DIR}
     volumes:
       - ./custom:/app/custom
     ports:
-      - "${PAOPAO_HTTP_PORT}:8008"
-      - "${PAOPAO_GRPC_PORT}:18020"
+      - "${EVT_HTTP_PORT}:8008"
+      - "${EVT_GRPC_PORT}:18020"

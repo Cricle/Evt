@@ -2,7 +2,7 @@ import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 
 /** 本地存储的用户令牌键名 */
-export const TOKEN_KEY = 'PAOPAO_TOKEN';
+export const TOKEN_KEY = 'EVT_TOKEN';
 
 export const useStoreUser = defineStore('user', () => {
     const userInfo = ref<Record<string, any>>({

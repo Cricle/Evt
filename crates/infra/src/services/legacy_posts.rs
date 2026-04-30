@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use paopao_domain::{
+use evt_domain::{
     AppError, CommentReplySummary, CreateContentInput, LegacyCommentState, LegacyPostState,
     UserIdentity,
 };
@@ -18,7 +18,7 @@ impl AppContext {
         tags: &[String],
         attachment_price: i64,
         visibility: i32,
-    ) -> Result<paopao_domain::PostSummary, AppError> {
+    ) -> Result<evt_domain::PostSummary, AppError> {
         let post = self
             .create_post_with_contents_and_tags(actor, contents, tags)
             .await?;
@@ -68,7 +68,7 @@ impl AppContext {
         actor: &UserIdentity,
         post_id: i64,
         contents: &[CreateContentInput],
-    ) -> Result<paopao_domain::CommentSummary, AppError> {
+    ) -> Result<evt_domain::CommentSummary, AppError> {
         let comment = self
             .create_comment_with_contents(actor, post_id, contents)
             .await?;

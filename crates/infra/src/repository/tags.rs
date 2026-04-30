@@ -1,4 +1,4 @@
-use paopao_domain::{AppError, TagSummary};
+use evt_domain::{AppError, TagSummary};
 use sqlx::{FromRow, MySqlPool};
 
 use super::map_db_error;

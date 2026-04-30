@@ -7,7 +7,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use paopao_config::{
+use evt_config::{
     AppSettings, DatabaseSettings, GrpcSettings, HttpSettings, JwtSettings, ServerSettings,
     Settings, SiteSettings, StorageSettings, WebSettings,
 };
@@ -25,23 +25,23 @@ fn test_settings() -> Settings {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let storage_dir = std::env::temp_dir().join(format!("paopao-http-api-tests-{unique}"));
-    let web_dist_dir = std::env::temp_dir().join(format!("paopao-web-dist-tests-{unique}"));
+    let storage_dir = std::env::temp_dir().join(format!("evt-http-api-tests-{unique}"));
+    let web_dist_dir = std::env::temp_dir().join(format!("evt-web-dist-tests-{unique}"));
     fs::create_dir_all(web_dist_dir.join("assets")).expect("create test web dist");
     fs::write(
         web_dist_dir.join("index.html"),
-        "<!doctype html><html><body>paopao-web-shell</body></html>",
+        "<!doctype html><html><body>evt-web-shell</body></html>",
     )
     .expect("write index.html");
     fs::write(
         web_dist_dir.join("assets/app.js"),
-        "console.log('paopao-web-asset');",
+        "console.log('evt-web-asset');",
     )
     .expect("write asset");
 
     Settings {
         app: AppSettings {
-            name: "paopao-rust".into(),
+            name: "evt-rust".into(),
             env: "test".into(),
         },
         server: ServerSettings {
@@ -93,7 +93,7 @@ fn test_settings() -> Settings {
 }
 
 async fn test_app() -> axum::Router {
-    let app = paopao_infra::AppContext::bootstrap_lazy(test_settings())
+    let app = evt_infra::AppContext::bootstrap_lazy(test_settings())
         .await
         .expect("build lazy app context");
     router(HttpState::new(app))
@@ -120,7 +120,7 @@ async fn root_path_serves_web_shell() {
         .await
         .expect("read response body");
     let body = String::from_utf8(bytes.to_vec()).expect("decode response body");
-    assert!(body.contains("paopao-web-shell"));
+    assert!(body.contains("evt-web-shell"));
 }
 
 #[tokio::test]
@@ -142,7 +142,7 @@ async fn static_asset_path_serves_web_asset() {
         .await
         .expect("read response body");
     let body = String::from_utf8(bytes.to_vec()).expect("decode response body");
-    assert!(body.contains("paopao-web-asset"));
+    assert!(body.contains("evt-web-asset"));
 }
 
 #[tokio::test]
@@ -158,7 +158,7 @@ async fn version_endpoint_keeps_success_envelope_shape() {
     let body = response_json(response).await;
     assert_eq!(body["code"], 0);
     assert_eq!(body["msg"], "success");
-    assert_eq!(body["data"]["name"], "paopao-rust");
+    assert_eq!(body["data"]["name"], "evt-rust");
     assert_eq!(body["data"]["environment"], "test");
     assert!(body["data"]["version"].as_str().is_some());
 }

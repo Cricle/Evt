@@ -84,9 +84,9 @@ impl Settings {
     pub fn load() -> Result<Self, config::ConfigError> {
         let mut builder = config::Config::builder()
             .add_source(config::File::with_name("config/default").required(true))
-            .add_source(config::Environment::with_prefix("PAOPAO_RS").separator("__"));
+            .add_source(config::Environment::with_prefix("EVT_RS").separator("__"));
 
-        if let Ok(path) = std::env::var("PAOPAO_RS_CONFIG") {
+        if let Ok(path) = std::env::var("EVT_RS_CONFIG") {
             builder = builder.add_source(config::File::with_name(&path).required(true));
         } else {
             builder = builder.add_source(config::File::with_name("config/local").required(false));

@@ -5,7 +5,7 @@ use axum::{
     extract::{Multipart, Query, State},
     http::HeaderMap,
 };
-use paopao_domain::{
+use evt_domain::{
     AppError, AttachmentSummary, CommentContentItem, CommentSummary, CreateContentInput,
     CurrentUser, PostContentItem, PostSummary, UserProfile,
 };
@@ -572,7 +572,7 @@ fn to_legacy_post(
     contents: Option<&[PostContentItem]>,
     is_following: bool,
     is_friend: bool,
-    user: Option<&paopao_domain::UserPreview>,
+    user: Option<&evt_domain::UserPreview>,
 ) -> LegacyPost {
     let user = fallback_user(
         user,
@@ -607,13 +607,13 @@ fn to_legacy_post(
 fn to_legacy_comment(
     comment: &CommentSummary,
     contents: Option<&[CommentContentItem]>,
-    state: Option<&paopao_domain::LegacyCommentState>,
-    replies: Option<&[paopao_domain::CommentReplySummary]>,
+    state: Option<&evt_domain::LegacyCommentState>,
+    replies: Option<&[evt_domain::CommentReplySummary]>,
     thumbs_up_count: i64,
     self_status: (bool, bool),
     reply_thumb_counts: &HashMap<i64, i64>,
     reaction_statuses: &HashMap<(i32, i64), (bool, bool)>,
-    users: &HashMap<i64, paopao_domain::UserPreview>,
+    users: &HashMap<i64, evt_domain::UserPreview>,
 ) -> LegacyComment {
     let created_on = comment.created_at.timestamp();
     LegacyComment {
@@ -713,7 +713,7 @@ fn to_legacy_user_info(current: &CurrentUser, profile: Option<&UserProfile>) -> 
 }
 
 fn fallback_user(
-    preview: Option<&paopao_domain::UserPreview>,
+    preview: Option<&evt_domain::UserPreview>,
     id: i64,
     username: &str,
     created_on: i64,
@@ -746,8 +746,8 @@ fn fallback_user(
 }
 
 fn group_comment_replies(
-    replies: Vec<paopao_domain::CommentReplySummary>,
-) -> HashMap<i64, Vec<paopao_domain::CommentReplySummary>> {
+    replies: Vec<evt_domain::CommentReplySummary>,
+) -> HashMap<i64, Vec<evt_domain::CommentReplySummary>> {
     let mut grouped = HashMap::new();
     for reply in replies {
         grouped
@@ -758,7 +758,7 @@ fn group_comment_replies(
     grouped
 }
 
-fn apply_post_state(post: &mut LegacyPost, state: Option<&paopao_domain::LegacyPostState>) {
+fn apply_post_state(post: &mut LegacyPost, state: Option<&evt_domain::LegacyPostState>) {
     let Some(state) = state else {
         return;
     };

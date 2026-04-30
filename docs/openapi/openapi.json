@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "PaoPao Rust Web API",
+    "title": "Evt Rust Web API",
     "version": "0.1.0",
     "description": "Current Web-first HTTP surface for the Rust backend rewrite."
   },

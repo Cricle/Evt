@@ -94,10 +94,10 @@ const props = withDefaults(
 );
 const switchTheme = (theme: boolean) => {
   if (theme) {
-    localStorage.setItem('PAOPAO_THEME', 'dark');
+    localStorage.setItem('EVT_THEME', 'dark');
     storeMain.triggerTheme('dark');
   } else {
-    localStorage.setItem('PAOPAO_THEME', 'light');
+    localStorage.setItem('EVT_THEME', 'light');
     storeMain.triggerTheme('light');
   }
 };
@@ -115,7 +115,7 @@ const activeDrawer = () => {
 };
 
 onMounted(() => {
-  if (!localStorage.getItem('PAOPAO_THEME')) {
+  if (!localStorage.getItem('EVT_THEME')) {
     switchTheme((useOsTheme() as unknown as string) === 'dark');
   }
   // 移动端特殊处理

@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use paopao_domain::{AppError, LegacyMessageSummary, MessageSummary, PagedResponse};
+use evt_domain::{AppError, LegacyMessageSummary, MessageSummary, PagedResponse};
 use sqlx::{FromRow, MySqlPool};
 
 use super::map_db_error;

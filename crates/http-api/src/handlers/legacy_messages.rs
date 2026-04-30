@@ -5,7 +5,7 @@ use axum::{
     extract::{Query, State},
     http::HeaderMap,
 };
-use paopao_domain::{LegacyMessageSummary, UserPreview};
+use evt_domain::{LegacyMessageSummary, UserPreview};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -218,7 +218,7 @@ fn to_legacy_message_item(
 }
 
 async fn load_user_map(
-    app: &paopao_infra::AppContext,
+    app: &evt_infra::AppContext,
     user_ids: &[i64],
 ) -> Result<HashMap<i64, CompatUserInfo>, HttpApiError> {
     Ok(app
