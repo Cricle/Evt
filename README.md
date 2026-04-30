@@ -19,7 +19,7 @@ Evt is a Rust + Vue 3 community platform. The repository now uses Rust as the on
 
 ## Local development
 
-1. Start MySQL and create a database named `paopao`.
+1. Start MySQL and create a database named `evt`.
 2. Copy `config/local.example.toml` to `config/local.toml` and update credentials.
 3. Build the web bundle for same-origin serving:
 

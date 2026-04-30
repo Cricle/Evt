@@ -177,6 +177,7 @@ import { parsePostTag } from '@/utils/content';
 import type { MentionOption, UploadFileInfo, UploadInst } from 'naive-ui';
 import { storeToRefs } from 'pinia';
 import { Api } from '@/utils/request';
+import { buildApiUrl } from '@/utils/api';
 
 const emit = defineEmits<{
   (e: 'post-success'): void;
@@ -211,7 +212,7 @@ const allowUserRegister = ref(
 const defaultCommentMaxLength = Number(
   import.meta.env.VITE_DEFAULT_COMMENT_MAX_LENGTH,
 );
-const uploadGateway = import.meta.env.VITE_HOST + '/v1/attachment';
+const uploadGateway = buildApiUrl('/v1/attachment');
 
 const uploadToken = computed(() => {
   return 'Bearer ' + localStorage.getItem(TOKEN_KEY);

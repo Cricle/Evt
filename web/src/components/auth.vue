@@ -154,7 +154,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive } from 'vue';
 import { useStoreMain } from '@/store/main';
 import { TOKEN_KEY, useStoreUser } from '@/store/user';
 import { userInfo } from '@/api/auth';
@@ -286,21 +286,6 @@ const handleRegister = (e: Event) => {
   });
 };
 
-onMounted(() => {
-  const token = localStorage.getItem(TOKEN_KEY) || '';
-  if (token) {
-    userInfo(token)
-      .then((res) => {
-        storeUser.updateUserinfo(res);
-        storeMain.triggerAuth(false);
-      })
-      .catch((err) => {
-        storeUser.userLogout();
-      });
-  } else {
-    storeUser.userLogout();
-  }
-});
 </script>
 
 <style lang="less" scoped>

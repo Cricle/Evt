@@ -55,12 +55,12 @@ fn test_settings() -> Settings {
             },
         },
         database: DatabaseSettings {
-            url: "mysql://paopao:paopao@127.0.0.1:3306/paopao".into(),
+            url: "mysql://evt:evt@127.0.0.1:3306/evt".into(),
             max_connections: 1,
         },
         jwt: JwtSettings {
             secret: "test-secret".into(),
-            issuer: "paopao-test".into(),
+            issuer: "evt-test".into(),
             expire_seconds: 3600,
         },
         storage: StorageSettings {

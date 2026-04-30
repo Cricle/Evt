@@ -1,14 +1,26 @@
 import { defineStore } from 'pinia';
 import { reactive, ref } from 'vue';
 
+const MOBILE_BREAKPOINT = 821;
+const RIGHTBAR_BREAKPOINT = 1100;
+
+function viewportWidth() {
+  return (
+    window.innerWidth ||
+    document.documentElement.clientWidth ||
+    document.body.clientWidth
+  );
+}
+
 export const useStoreMain = defineStore('main', () => {
+  const initialWidth = viewportWidth();
   const refresh = ref(Date.now());
   const refreshTopicFollow = ref(Date.now());
   const theme = ref(localStorage.getItem('EVT_THEME'));
-  const collapsedLeft = ref(document.body.clientWidth <= 821);
-  const collapsedRight = ref(document.body.clientWidth <= 821);
-  const drawerModelShow = ref(document.body.clientWidth <= 821);
-  const desktopModelShow = ref(document.body.clientWidth > 821);
+  const collapsedLeft = ref(initialWidth <= MOBILE_BREAKPOINT);
+  const collapsedRight = ref(initialWidth <= RIGHTBAR_BREAKPOINT);
+  const drawerModelShow = ref(initialWidth <= MOBILE_BREAKPOINT);
+  const desktopModelShow = ref(initialWidth > MOBILE_BREAKPOINT);
   const authModalShow = ref(false);
   const authModelTab = ref('signin');
   const unreadMsgCount = ref(0);
@@ -47,6 +59,14 @@ export const useStoreMain = defineStore('main', () => {
     collapsedRight.value = status;
   }
 
+  function syncViewportLayout(width = viewportWidth()) {
+    const isMobile = width <= MOBILE_BREAKPOINT;
+    collapsedLeft.value = isMobile;
+    drawerModelShow.value = isMobile;
+    desktopModelShow.value = !isMobile;
+    collapsedRight.value = width <= RIGHTBAR_BREAKPOINT;
+  }
+
   return {
     refresh,
     refreshTopicFollow,
@@ -66,5 +86,6 @@ export const useStoreMain = defineStore('main', () => {
     triggerAuthKey,
     triggerCollapsedLeft,
     triggerCollapsedRight,
+    syncViewportLayout,
   };
 });

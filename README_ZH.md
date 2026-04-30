@@ -19,7 +19,7 @@ Evt 现已切换为 Rust + Vue 3 技术栈。仓库内唯一后端实现是 Rust
 
 ## 本地开发
 
-1. 启动 MySQL，并创建 `paopao` 数据库。
+1. 启动 MySQL，并创建 `evt` 数据库。
 2. 将 `config/local.example.toml` 复制为 `config/local.toml`，按实际环境修改连接信息。
 3. 先构建前端静态资源：
 

@@ -7,6 +7,14 @@ services:
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mysqladmin ping -h 127.0.0.1 -u${MYSQL_USER} -p${MYSQL_PASSWORD} --silent
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 15s
     volumes:
       - ./custom/data/mysql:/var/lib/mysql
     ports:
@@ -23,7 +31,8 @@ services:
         VITE_HOST: ${VITE_HOST}
     restart: always
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
       EVT_RS__DATABASE__URL: ${EVT_DATABASE_URL}
       EVT_RS__JWT__SECRET: ${EVT_JWT_SECRET}

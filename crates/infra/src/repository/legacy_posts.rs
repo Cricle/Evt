@@ -353,10 +353,11 @@ impl LegacyPostRepository {
         }
 
         let sql = format!(
-            "SELECT {id_column} AS target_id, COALESCE(SUM(CASE WHEN is_thumbs_up THEN 1 ELSE 0 END), 0) AS thumbs_up_count FROM comment_reactions WHERE target_type = ? AND {id_column} IN ("
+            "SELECT {id_column} AS target_id, COALESCE(SUM(CASE WHEN is_thumbs_up THEN 1 ELSE 0 END), 0) AS thumbs_up_count FROM comment_reactions WHERE target_type = "
         );
         let mut builder: QueryBuilder<MySql> = QueryBuilder::new(&sql);
         builder.push_bind(target_type);
+        builder.push(format!(" AND {id_column} IN ("));
         let mut separated = builder.separated(", ");
         for id in ids {
             separated.push_bind(id);
@@ -510,5 +511,31 @@ impl From<CommentReplyRow> for CommentReplySummary {
             content: row.content,
             created_at: row.created_at,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use sqlx::{Execute, MySql, QueryBuilder};
+
+    #[test]
+    fn reaction_counts_query_keeps_bind_placeholders_valid() {
+        let id_column = "comment_id";
+        let sql = format!(
+            "SELECT {id_column} AS target_id, COALESCE(SUM(CASE WHEN is_thumbs_up THEN 1 ELSE 0 END), 0) AS thumbs_up_count FROM comment_reactions WHERE target_type = "
+        );
+        let mut builder: QueryBuilder<MySql> = QueryBuilder::new(&sql);
+        builder.push_bind(0_i32);
+        builder.push(format!(" AND {id_column} IN ("));
+        let mut separated = builder.separated(", ");
+        separated.push_bind(1_i64);
+        separated.push_bind(2_i64);
+        separated.push_unseparated(") GROUP BY target_id");
+
+        let built = builder.build();
+        let query_text = built.sql();
+
+        assert!(query_text.contains("WHERE target_type = ? AND comment_id IN (?, ?)"));
+        assert!(query_text.ends_with("GROUP BY target_id"));
     }
 }

@@ -295,6 +295,7 @@ import type { MentionOption, UploadFileInfo, UploadInst } from 'naive-ui';
 import { VisibilityEnum, PostItemTypeEnum } from '@/utils/IEnum';
 import { storeToRefs } from 'pinia';
 import { Api } from '@/utils/request';
+import { buildApiUrl } from '@/utils/api';
 
 const emit = defineEmits<{
   (e: 'post-success', post: Item.PostProps): void;
@@ -327,7 +328,7 @@ const defaultVisitType = ref<VisibilityEnum>(VisibilityEnum.PUBLIC);
 const allowTweetVisibility = ref(
   import.meta.env.VITE_ALLOW_TWEET_VISIBILITY.toLowerCase() === 'true',
 );
-const uploadGateway = import.meta.env.VITE_HOST + '/v1/attachment';
+const uploadGateway = buildApiUrl('/v1/attachment');
 
 const uploadToken = computed(() => {
   return 'Bearer ' + localStorage.getItem(TOKEN_KEY);

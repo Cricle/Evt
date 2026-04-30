@@ -1,0 +1,77 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  MYSQL_HOST: 127.0.0.1
+  MYSQL_PORT: 3306
+  MYSQL_USER: evt
+  MYSQL_PASSWORD: evt
+  MYSQL_DATABASE: evt
+  MYSQL_CLEAN_DATABASE: evt
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: evt
+          MYSQL_USER: evt
+          MYSQL_PASSWORD: evt
+          MYSQL_RANDOM_ROOT_PASSWORD: yes
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uevt -pevt --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+          --health-start-period=20s
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: yarn
+          cache-dependency-path: web/yarn.lock
+
+      - name: Install Playwright browsers
+        working-directory: web
+        run: |
+          corepack enable
+          yarn install --frozen-lockfile
+          yarn playwright install --with-deps chromium
+
+      - name: Wait for MySQL
+        run: |
+          for i in $(seq 1 60); do
+            mysqladmin ping -h 127.0.0.1 -uevt -pevt --silent && exit 0
+            sleep 2
+          done
+          exit 1
+
+      - name: Rust workspace tests
+        run: cargo test --workspace
+
+      - name: Rust local HTTP E2E
+        run: cargo test -p evt-http-api --test e2e_local -- --nocapture
+
+      - name: Frontend build
+        run: yarn --cwd web build
+
+      - name: Frontend browser E2E
+        run: yarn --cwd web e2e

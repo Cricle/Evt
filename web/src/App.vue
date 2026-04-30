@@ -43,18 +43,20 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, computed } from 'vue';
+import { onBeforeUnmount, onMounted, computed } from 'vue';
 import { useStoreMain } from '@/store/main';
 import { darkTheme } from 'naive-ui';
 import { getSiteProfile } from '@/api/site';
 import { useStoreProfile } from '@/store/profile';
 import { storeToRefs } from 'pinia';
+import { restoreUserSession } from '@/utils/session';
 
 const storeMain = useStoreMain();
 const storeProfile = useStoreProfile();
 const { theme, desktopModelShow } = storeToRefs(storeMain);
 
 const iTheme = computed(() => (theme.value === 'dark' ? darkTheme : null));
+const syncViewportLayout = () => storeMain.syncViewportLayout();
 
 function loadSiteProfile() {
     storeProfile.loadDefaultSiteProfile();
@@ -69,6 +71,13 @@ function loadSiteProfile() {
 }
 
 onMounted(() => {
+  syncViewportLayout();
+  window.addEventListener('resize', syncViewportLayout);
   loadSiteProfile();
+  restoreUserSession();
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', syncViewportLayout);
 });
 </script>

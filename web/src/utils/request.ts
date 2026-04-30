@@ -1,9 +1,10 @@
 import axios, { AxiosRequestConfig, AxiosRequestHeaders, Method } from 'axios';
 import { useStoreMain } from '@/store/main';
 import { TOKEN_KEY } from '@/store/user';
+import { apiBaseUrl } from '@/utils/api';
 
 const service = axios.create({
-	baseURL: import.meta.env.VITE_HOST,
+	baseURL: apiBaseUrl,
 	timeout: 30000,
 });
 
@@ -28,7 +29,7 @@ service.interceptors.response.use(
 		if (+code === 0) {
 			return data || {};
 		} else {
-			Promise.reject(response?.data || {});
+			return Promise.reject(response?.data || {});
 		}
 	},
 	(error = {}) => {

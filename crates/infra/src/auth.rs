@@ -92,7 +92,7 @@ mod tests {
 
     #[test]
     fn jwt_round_trip_preserves_identity() {
-        let jwt = JwtService::new("secret".into(), "paopao".into(), 3600);
+        let jwt = JwtService::new("secret".into(), "evt".into(), 3600);
         let token = jwt
             .issue(UserIdentity {
                 id: 42,
@@ -108,7 +108,7 @@ mod tests {
 
     #[test]
     fn jwt_rejects_token_signed_by_another_secret() {
-        let issuer = "paopao".to_string();
+        let issuer = "evt".to_string();
         let token = JwtService::new("secret-a".into(), issuer.clone(), 3600)
             .issue(UserIdentity {
                 id: 7,

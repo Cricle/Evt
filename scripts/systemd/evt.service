@@ -6,8 +6,8 @@ After=mariadb.service mysqld.service redis.service
 
 [Service]
 Type=simple
-User=paopao
-Group=paopao
+User=evt
+Group=evt
 WorkingDirectory=/home/evt/app
 ExecStart=/home/evt/app/evt
 Restart=always

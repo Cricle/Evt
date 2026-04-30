@@ -9,6 +9,9 @@
 target/
 web/node_modules/
 web/dist/
+custom/data/mysql/
+web/test-results/
+web/playwright-report/
 
 # User-specific files
 *.rsuser

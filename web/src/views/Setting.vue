@@ -354,8 +354,9 @@ import { TOKEN_KEY, useStoreUser } from '@/store/user';
 import { useStoreProfile } from '@/store/profile';
 import { storeToRefs } from 'pinia';
 import { Api } from '@/utils/request';
+import { buildApiUrl } from '@/utils/api';
 
-const uploadGateway = import.meta.env.VITE_HOST + '/v1/attachment';
+const uploadGateway = buildApiUrl('/v1/attachment');
 const uploadToken = 'Bearer ' + localStorage.getItem(TOKEN_KEY);
 const uploadType = ref('public/avatar');
 const allowActivation =

@@ -8,7 +8,9 @@
     "preview": "vite preview",
     "check": "biome check --write",
     "format": "biome format --write",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "e2e": "npm_config_registry=https://registry.npmjs.org yarn playwright test",
+    "e2e:install": "npm_config_registry=https://registry.npmjs.org yarn add -D @playwright/test@^1.55.0 && npm_config_registry=https://registry.npmjs.org yarn playwright install chromium"
   },
   "dependencies": {
     "@opentiny/vue-slide-bar": "^3.14.0",
@@ -32,6 +34,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
+    "@playwright/test": "^1.55.0",
     "@tauri-apps/cli": "^1.5.10",
     "@types/node": "^22.14.1",
     "@types/qrcode": "^1.5.5",

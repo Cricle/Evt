@@ -54,7 +54,7 @@
 </template>
 
 <script setup lang="ts">
-import { h, ref, watch, computed, onMounted } from 'vue';
+import { h, ref, watch, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStoreMain } from '@/store/main';
 import { NIcon, NBadge, useMessage } from 'naive-ui';
@@ -125,12 +125,6 @@ watch(() => [unreadMsgCount, userInfo, profile], () => {
       clearInterval(msgLoop.value);
     }
   }
-});
-onMounted(() => {
-  window.onresize = () => {
-    storeMain.triggerCollapsedLeft(document.body.clientWidth <= 821);
-    storeMain.triggerCollapsedRight(document.body.clientWidth <= 821);
-  };
 });
 const menuOptions = computed(() => {
   const options = [
