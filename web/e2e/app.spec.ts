@@ -32,18 +32,22 @@ async function createPostFromHome(
   page: import('@playwright/test').Page,
   content: string,
 ) {
-  const composer = page.locator('textarea').first();
+  await page.getByRole('button', { name: /发布动态/ }).first().click();
+  await expect(page).toHaveURL(/#\/compose/);
+  const composer = page.locator('.ck-editor__editable').first();
+  await composer.click();
   await composer.fill(content);
-  await page.getByRole('button', { name: '发布' }).first().click();
+  await page.locator('.compose-editor').getByRole('button', { name: '发布', exact: true }).click();
   await expect(page.getByText('发布成功')).toBeVisible();
+  await expect(page).toHaveURL(/#\/post\?id=/);
   await expect(page.getByText(content).first()).toBeVisible();
 }
 
 async function expectAuthenticatedHome(
   page: import('@playwright/test').Page,
 ) {
-  await expect(page.locator('textarea').first()).toBeVisible();
-  await expect(page.getByRole('button', { name: '发布' }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: /发布动态/ }).first()).toBeVisible();
+  await expect(page.locator('.floating-compose')).toBeVisible();
 }
 
 test('guest can load spa shell and public site profile', async ({ page }) => {
@@ -55,7 +59,7 @@ test('guest can load spa shell and public site profile', async ({ page }) => {
   await page.goto('/#/');
   await expect(page.locator('#app')).toBeVisible();
   await expect(page.getByText('Evt 广场', { exact: true }).first()).toBeVisible();
-  await expect(page.getByRole('button', { name: '登录' }).first()).toBeVisible();
+  await expect(page.locator('.post-item').first()).toBeVisible();
 });
 
 test('authenticated user can load profile and create a post from the web app', async ({ page }) => {
@@ -78,13 +82,14 @@ test('authenticated user can open post detail and comment through the web app', 
   await expectAuthenticatedHome(page);
   await createPostFromHome(page, 'evt playwright detail post');
 
+  await expect(page.locator('.detail-item')).toBeVisible();
   await expect(page.locator('.comment-title-item')).toHaveText('评论');
   const commentTabs = page.locator('.comment-opts-wrap');
   await commentTabs.getByText('热门', { exact: true }).click();
   await commentTabs.getByText('最新', { exact: true }).click();
   await commentTabs.getByText('推荐', { exact: true }).click();
 
-  const commentBox = page.locator('textarea').first();
+  const commentBox = page.locator('textarea').last();
   const commentComposer = page.locator('.compose-wrap').first();
   await commentBox.fill('evt playwright comment');
   await expect(commentComposer.getByRole('button', { name: '发布' })).toBeVisible();
@@ -105,7 +110,10 @@ test('authenticated user can open settings page', async ({ page }) => {
   await page.goto('/#/');
   await expectAuthenticatedHome(page);
 
-  await page.goto('/#/setting');
+  await page.goto('/#/profile');
+  await page.locator('.user-opts button').first().click();
+  await page.getByText('设置', { exact: true }).click();
+  await expect(page).toHaveURL(/#\/setting/);
   await expect(page.getByText('设置', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('基本信息')).toBeVisible();
   await expect(page.getByText(`@${username}`).first()).toBeVisible();

@@ -7,7 +7,7 @@
             <n-spin :show="userLoading">
                 <div class="profile-baseinfo" v-if="user.id > 0">
                     <div class="avatar">
-                        <n-avatar :size="72" :src="user.avatar" />
+                        <n-avatar :size="72" :src="user.avatar || DEFAULT_USER_AVATAR" />
                     </div>
                     <div class="base-info">
                         <div class="username">
@@ -153,6 +153,7 @@ import { useStoreUser } from '@/store/user';
 import { useStoreProfile } from '@/store/profile';
 import { storeToRefs } from 'pinia';
 import { Api } from '@/utils/request';
+import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
 import UserAction from '@/composables/useUserAction';
 
 type PageType = 'post' | 'comment' | 'highlight' | 'media' | 'star';

@@ -355,6 +355,7 @@ import { useStoreProfile } from '@/store/profile';
 import { storeToRefs } from 'pinia';
 import { Api } from '@/utils/request';
 import { buildApiUrl } from '@/utils/api';
+import { goToAuth } from '@/utils/authRoute';
 
 const uploadGateway = buildApiUrl('/v1/attachment');
 const uploadToken = 'Bearer ' + localStorage.getItem(TOKEN_KEY);
@@ -482,8 +483,7 @@ const handleValidateButtonClick = (e: MouseEvent) => {
 
           // 用户退出登录
           storeUser.userLogout();
-          storeMain.triggerAuth(true);
-          storeMain.triggerAuthKey('signin');
+          goToAuth(router, 'signin', router.currentRoute.value.fullPath);
         })
         .catch((err) => {
           passwordSetting.value = false;
@@ -705,8 +705,7 @@ const handleNicknameShow = () => {
 };
 onMounted(() => {
   if (userInfo.value.id === 0) {
-    storeMain.triggerAuth(true);
-    storeMain.triggerAuthKey('signin');
+    goToAuth(router, 'signin', router.currentRoute.value.fullPath);
   }
   loadCaptcha();
   loadCaptcha4Activate();

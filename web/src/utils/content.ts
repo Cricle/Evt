@@ -1,11 +1,46 @@
+import DOMPurify from 'dompurify';
+
+const tagExp = /(#|＃)([^#@\s])+?\s+?/g;
+const atExp = /@([a-zA-Z0-9])+?\s+?/g;
+
+const SAFE_HTML_TAGS = [
+  'p',
+  'br',
+  'strong',
+  'em',
+  'ul',
+  'ol',
+  'li',
+  'blockquote',
+  'a',
+  'code',
+  'pre',
+];
+
+const SAFE_HTML_ATTRS = ['href', 'target', 'rel'];
+
+export const sanitizeRichText = (content: string) => {
+  return DOMPurify.sanitize(content || '', {
+    ALLOWED_TAGS: SAFE_HTML_TAGS,
+    ALLOWED_ATTR: SAFE_HTML_ATTRS,
+  });
+};
+
+export const toPlainText = (content: string) => {
+  return DOMPurify.sanitize(content || '', {
+    ALLOWED_TAGS: [],
+    ALLOWED_ATTR: [],
+  })
+    .replace(/\u00a0/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
 export const parsePostTag = (content: string) => {
   const tags: string[] = [];
   const users: string[] = [];
-  var tagExp = /(#|＃)([^#@\s])+?\s+?/g; // 这⾥中⽂#和英⽂#都会识别
-  var atExp = /@([a-zA-Z0-9])+?\s+?/g; // 这⾥中⽂#和英⽂#都会识别
-  content = content
-    .replace(/<[^>]*?>/gi, '')
-    .replace(/(.*?)<\/[^>]*?>/gi, '')
+  const plainText = toPlainText(content);
+  content = sanitizeRichText(content)
     .replace(tagExp, (item) => {
       tags.push(item.substr(1).trim());
       return (
@@ -26,7 +61,12 @@ export const parsePostTag = (content: string) => {
         '</a> '
       );
     });
-  return { content, tags, users };
+  return {
+    content,
+    tags,
+    users,
+    plainText,
+  };
 };
 
 export const preparePost = (
@@ -36,19 +76,17 @@ export const preparePost = (
   maxSize: number,
   isFold: boolean = true,
 ) => {
-  const isEllipsis = content.length > maxSize;
+  const plainText = toPlainText(content);
+  const isEllipsis = plainText.length > maxSize;
+  let displayText = plainText;
   if (isFold && isEllipsis) {
-    content = content.substring(0, maxSize);
-    let latestChar = content.charAt(maxSize - 1);
+    displayText = plainText.substring(0, maxSize);
+    let latestChar = displayText.charAt(maxSize - 1);
     if (latestChar == '#' || latestChar == '#' || latestChar == '@') {
-      content = content.substring(0, maxSize - 1);
+      displayText = displayText.substring(0, maxSize - 1);
     }
   }
-  const tagExp = /(#|＃)([^#@\s])+?\s+?/g; // 这⾥中⽂#和英⽂#都会识别
-  const atExp = /@([a-zA-Z0-9])+?\s+?/g; // 这⾥中⽂#和英⽂#都会识别
-  content = content
-    .replace(/<[^>]*?>/gi, '')
-    .replace(/(.*?)<\/[^>]*?>/gi, '')
+  content = displayText
     .replace(tagExp, (item) => {
       return (
         '<a class="hash-link" data-detail="tag:' +

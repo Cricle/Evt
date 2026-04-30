@@ -11,7 +11,7 @@
             <!-- <n-spin :show="false" > -->
             <div class="profile-baseinfo">
                 <div class="avatar">
-                    <n-avatar :size="72" :src="userInfo.avatar" />
+                    <n-avatar :size="72" :src="userInfo.avatar || DEFAULT_USER_AVATAR" />
                 </div>
                 <div class="base-info">
                     <div class="username">
@@ -132,6 +132,7 @@ import { MoreHorizFilled } from '@vicons/material';
 import { useStoreUser } from '@/store/user';
 import { storeToRefs } from 'pinia';
 import { Api } from '@/utils/request';
+import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
 
 type PageType = 'post' | 'comment' | 'highlight' | 'media' | 'star';
 

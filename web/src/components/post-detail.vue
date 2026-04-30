@@ -2,7 +2,7 @@
     <div class="detail-item" @click="goPostDetail(post.id)">
         <n-thing>
             <template #avatar>
-                <n-avatar round :size="30" :src="post.user.avatar" />
+                <n-avatar round :size="30" :src="post.user.avatar || DEFAULT_USER_AVATAR" />
             </template>
             <template #header>
                 <router-link
@@ -172,16 +172,20 @@
             <template #action>
                 <div class="opts-wrap">
                     <n-space justify="space-between">
-                        <div
-                            class="opt-item hover"
-                            @click.stop="handlePostStar"
-                        >
-                            <n-icon size="20" class="opt-item-icon">
-                                <heart-outline v-if="!hasStarred" />
-                                <heart v-if="hasStarred" color="red" />
-                            </n-icon>
-                            {{ post.upvote_count }}
-                        </div>
+                        <n-popover trigger="click" placement="top">
+                            <template #trigger>
+                                <div
+                                    class="opt-item hover"
+                                    @click.stop
+                                >
+                                    <n-icon size="20" class="opt-item-icon">
+                                        <happy-outline />
+                                    </n-icon>
+                                    {{ post.upvote_count }}
+                                </div>
+                            </template>
+                            <emoji-reaction-picker @select="handlePostReaction" />
+                        </n-popover>
                         <div class="opt-item">
                             <n-icon size="20" class="opt-item-icon">
                                 <chatbox-outline />
@@ -215,7 +219,7 @@
 </template>
 
 <script setup lang="ts">
-import { h, ref, onMounted, computed } from 'vue';
+import { h, ref, computed } from 'vue';
 import type { Component } from 'vue';
 import { NIcon, useDialog } from 'naive-ui';
 import { useStoreMain } from '@/store/main';
@@ -224,12 +228,11 @@ import { formatPrettyTime } from '@/utils/formatTime';
 import { parsePostTag } from '@/utils/content';
 import {
   PaperPlaneOutline,
-  Heart,
-  HeartOutline,
   Bookmark,
   BookmarkOutline,
   ShareSocialOutline,
   ChatboxOutline,
+  HappyOutline,
   PushOutline,
   TrashOutline,
   LockClosedOutline,
@@ -243,8 +246,6 @@ import {
 } from '@vicons/ionicons5';
 import { MoreHorizFilled } from '@vicons/material';
 import {
-  getPostStar,
-  postStar,
   getPostCollection,
   postCollection,
   deletePost,
@@ -253,6 +254,7 @@ import {
   highlightPost,
   visibilityPost,
 } from '@/api/post';
+import { createComment } from '@/api/post';
 import type { DropdownOption } from 'naive-ui';
 import { VisibilityEnum } from '@/utils/IEnum';
 import copy from 'copy-to-clipboard';
@@ -261,6 +263,9 @@ import { useStoreUser } from '@/store/user';
 import { Api } from '@/utils/request';
 import UserAction from '@/composables/useUserAction';
 import { usePostContent } from '@/composables/usePostContent';
+import EmojiReactionPicker from '@/components/emoji-reaction-picker.vue';
+import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
+import { goToAuth } from '@/utils/authRoute';
 
 const useFriendship =
   import.meta.env.VITE_USE_FRIENDSHIP.toLowerCase() === 'true';
@@ -272,7 +277,6 @@ const { userInfo } = storeToRefs(storeUser);
 
 const router = useRouter();
 const dialog = useDialog();
-const hasStarred = ref(false);
 const hasCollected = ref(false);
 const props = withDefaults(
   defineProps<{
@@ -633,23 +637,30 @@ const execVisibilityAction = () => {
       loading.value = false;
     });
 };
-const handlePostStar = () => {
-  postStar({
-    id: post.value.id,
+const handlePostReaction = (emoji: string) => {
+  if (userInfo.value.id < 1) {
+    goToAuth(router, 'signin', router.currentRoute.value.fullPath);
+    return;
+  }
+
+  createComment({
+    post_id: post.value.id,
+    users: [],
+    contents: [
+      {
+        content: emoji,
+        type: 2,
+        sort: 100,
+      },
+    ],
   })
-    .then((res) => {
-      hasStarred.value = res.status;
-      if (res.status) {
-        post.value = {
-          ...post.value,
-          upvote_count: post.value.upvote_count + 1,
-        };
-      } else {
-        post.value = {
-          ...post.value,
-          upvote_count: post.value.upvote_count - 1,
-        };
-      }
+    .then(() => {
+      post.value = {
+        ...post.value,
+        upvote_count: post.value.upvote_count + 1,
+      };
+      window.$message.success(`已添加表情 ${emoji}`);
+      emit('reload', post.value.id);
     })
     .catch((err) => {
       console.log(err);
@@ -684,19 +695,8 @@ const handlePostShare = () => {
   window.$message.success('链接已复制到剪贴板');
 };
 
-onMounted(() => {
-  if (userInfo.value.id > 0) {
-    getPostStar({
-      id: post.value.id,
-    })
-      .then((res) => {
-        hasStarred.value = res.status;
-      })
-      .catch((err) => {
-        console.log(err);
-      });
-
-    getPostCollection({
+if (userInfo.value.id > 0) {
+  getPostCollection({
       id: post.value.id,
     })
       .then((res) => {
@@ -705,8 +705,7 @@ onMounted(() => {
       .catch((err) => {
         console.log(err);
       });
-  }
-});
+}
 </script>
 
 <style lang="less">
@@ -735,6 +734,7 @@ onMounted(() => {
         overflow: hidden;
         white-space: pre-wrap;
         word-break: break-all;
+        line-height: 1.8;
     }
     .opts-wrap {
         margin-top: 20px;
@@ -742,11 +742,16 @@ onMounted(() => {
             display: flex;
             align-items: center;
             opacity: 0.7;
+            transition: transform 0.18s ease, opacity 0.18s ease;
             .opt-item-icon {
                 margin-right: 10px;
             }
             &.hover {
                 cursor: pointer;
+                &:hover {
+                    opacity: 1;
+                    transform: translateY(-1px);
+                }
             }
         }
     }

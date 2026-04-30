@@ -11,6 +11,22 @@ const routes = [
     component: () => import('@/views/Home.vue'),
   },
   {
+    path: '/auth',
+    name: 'auth',
+    meta: {
+      title: '登录',
+    },
+    component: () => import('@/views/Auth.vue'),
+  },
+  {
+    path: '/compose',
+    name: 'compose',
+    meta: {
+      title: '发布动态',
+    },
+    component: () => import('@/views/Compose.vue'),
+  },
+  {
     path: '/post',
     name: 'post',
     meta: {

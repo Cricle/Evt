@@ -2,7 +2,7 @@
     <div class="comment-item">
         <n-thing content-indented>
             <template #avatar>
-                <n-avatar round :size="30" :src="comment.user.avatar" />
+                <n-avatar round :size="30" :src="comment.user.avatar || DEFAULT_USER_AVATAR" />
             </template>
             <template #header>
                 <span class="nickname-wrap">
@@ -101,6 +101,18 @@
                 <post-image
                     v-if="comment.imgs.length > 0"
                     :imgs="comment.imgs" />
+                <div v-if="replyReactions.length > 0" class="reaction-strip">
+                    <button
+                        v-for="reaction in replyReactions"
+                        :key="reaction.emoji"
+                        type="button"
+                        class="reaction-chip"
+                        :title="reaction.users.map((user) => user.nickname || user.username).join('、')"
+                    >
+                        <span>{{ reaction.emoji }}</span>
+                        <span>{{ reaction.count }}</span>
+                    </button>
+                </div>
                   <!-- 回复编辑器 -->
                   <compose-reply
                     ref="replyComposeRef"
@@ -113,7 +125,7 @@
                 <!-- 回复列表 -->
                 <div class="reply-wrap">
                     <reply-item
-                        v-for="reply in comment.replies"
+                        v-for="reply in visibleReplies"
                         :key="reply.id"
                         :reply="reply"
                         :tweet-id="comment.post_id"
@@ -136,6 +148,8 @@ import { Trash, ArrowBarToUp, ArrowBarDown } from '@vicons/tabler';
 import { deleteComment, highlightComment } from '@/api/post';
 import { YesNoEnum } from '@/utils/IEnum';
 import { storeToRefs } from 'pinia';
+import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
+import { splitReplyReactions } from '@/utils/reactions';
 
 const router = useRouter();
 const replyAtUserID = ref(0);
@@ -146,9 +160,7 @@ const storeMain = useStoreMain();
 const storeUser = useStoreUser();
 const { userInfo } = storeToRefs(storeUser);
 
-const emit = defineEmits<{
-  (e: 'reload'): void;
-}>();
+const emit = defineEmits<(e: 'reload') => void>();
 const props = withDefaults(
   defineProps<{
     comment: Item.CommentProps;
@@ -158,14 +170,14 @@ const props = withDefaults(
 );
 
 const comment = computed(() => {
-  let comment: Item.CommentComponentProps = Object.assign(
+  const comment: Item.CommentComponentProps = Object.assign(
     {
       texts: [],
       imgs: [],
     },
     props.comment,
   );
-  comment.contents.map((content: any) => {
+  comment.contents.map((content) => {
     if (+content.type === 1 || +content.type === 2) {
       comment.texts.push(content);
     }
@@ -176,22 +188,27 @@ const comment = computed(() => {
   return comment;
 });
 
+const replyReactionView = computed(() => splitReplyReactions(props.comment.replies || []));
+const visibleReplies = computed(() => replyReactionView.value.visibleReplies);
+const replyReactions = computed(() => replyReactionView.value.reactions);
+
 const doClickText = (e: MouseEvent, id: number | string) => {
-  let _target = e.target as any;
-  if (_target.dataset.detail) {
-    const d = _target.dataset.detail.split(':');
-    if (d.length === 2) {
-      storeMain.doRefresh();
-      if (d[0] === 'tag') {
-        window.$message.warning('评论内的无效话题');
-      } else {
-        router.push({
-          name: 'user',
-          query: {
-            s: d[1],
-          },
-        });
-      }
+  const target = e.target as HTMLElement | null;
+  if (!target?.dataset.detail) {
+    return;
+  }
+  const d = target.dataset.detail.split(':');
+  if (d.length === 2) {
+    storeMain.doRefresh();
+    if (d[0] === 'tag') {
+      window.$message.warning('评论内的无效话题');
+    } else {
+      router.push({
+        name: 'user',
+        query: {
+          s: d[1],
+        },
+      });
     }
   }
 };
@@ -270,6 +287,7 @@ const execHightlightAction = () => {
         overflow: hidden;
         white-space: pre-wrap;
         word-break: break-all;
+        line-height: 1.7;
     }
     .opt-item {
         display: flex;
@@ -281,6 +299,27 @@ const execHightlightAction = () => {
     }
 }
 
+.reaction-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.reaction-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(16, 136, 91, 0.08);
+    color: inherit;
+    cursor: default;
+    animation: reaction-pop 0.2s ease;
+}
+
 .reply-wrap {
     margin-top: 10px;
     border-radius: 5px;
@@ -290,6 +329,17 @@ const execHightlightAction = () => {
         &:last-child {
             border-bottom: none;
         }
+    }
+}
+
+@keyframes reaction-pop {
+    from {
+        opacity: 0;
+        transform: scale(0.92);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
     }
 }
 .dark {

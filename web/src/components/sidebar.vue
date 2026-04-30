@@ -37,15 +37,15 @@
         </div>
         <div class="user-wrap" v-else>
             <div v-if="!profile.allowUserRegister" class="login-only-wrap">
-                <n-button strong secondary round type="primary" @click="triggerAuth('signin')">
+                <n-button strong secondary round type="primary" @click="goAuth('signin')">
                     登录
                 </n-button>
             </div>
             <div v-if="profile.allowUserRegister" class="login-wrap">
-                <n-button strong secondary round type="primary" @click="triggerAuth('signin')">
+                <n-button strong secondary round type="primary" @click="goAuth('signin')">
                     登录
                 </n-button>
-                <n-button strong secondary round type="info" @click="triggerAuth('signup')">
+                <n-button strong secondary round type="info" @click="goAuth('signup')">
                     注册
                 </n-button>
             </div>
@@ -76,6 +76,7 @@ import { useStoreUser } from '@/store/user';
 import { useStoreProfile } from '@/store/profile';
 import { storeToRefs } from 'pinia';
 import { Api } from '@/utils/request';
+import { goToAuth, type AuthMode } from '@/utils/authRoute';
 
 const storeMain = useStoreMain();
 const storeUser = useStoreUser();
@@ -264,9 +265,8 @@ const goHome = () => {
   }
   goRouter('home');
 };
-const triggerAuth = (key: string) => {
-  storeMain.triggerAuth(true);
-  storeMain.triggerAuthKey(key);
+const goAuth = (mode: AuthMode) => {
+  goToAuth(router, mode, router.currentRoute.value.fullPath);
 };
 const handleLogout = () => {
   storeUser.userLogout();

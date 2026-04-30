@@ -21,8 +21,6 @@ export const useStoreMain = defineStore('main', () => {
   const collapsedRight = ref(initialWidth <= RIGHTBAR_BREAKPOINT);
   const drawerModelShow = ref(initialWidth <= MOBILE_BREAKPOINT);
   const desktopModelShow = ref(initialWidth > MOBILE_BREAKPOINT);
-  const authModalShow = ref(false);
-  const authModelTab = ref('signin');
   const unreadMsgCount = ref(0);
 
   function doRefresh(val?: number) {
@@ -39,14 +37,6 @@ export const useStoreMain = defineStore('main', () => {
 
   function triggerTheme(t: string) {
     theme.value = t;
-  }
-
-  function triggerAuth(status: boolean) {
-    authModalShow.value = status;
-  }
-
-  function triggerAuthKey(key: string) {
-    authModelTab.value = key;
   }
 
   function triggerCollapsedLeft(status: boolean) {
@@ -75,15 +65,11 @@ export const useStoreMain = defineStore('main', () => {
     collapsedRight,
     drawerModelShow,
     desktopModelShow,
-    authModalShow,
-    authModelTab,
     unreadMsgCount,
     doRefresh,
     doRefreshTopicFollow,
     updateUnreadMsgCount,
     triggerTheme,
-    triggerAuth,
-    triggerAuthKey,
     triggerCollapsedLeft,
     triggerCollapsedRight,
     syncViewportLayout,

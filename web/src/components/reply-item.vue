@@ -51,30 +51,12 @@
                 </span>
 
                 <div class="actions">
-                    <div v-if="!userLogined" class="action-item" @click.stop="">
-                        <n-icon size="medium">
-                            <thumb-up-outlined />
-                        </n-icon>
-                        <span class="upvote-count">{{ thumbsUpCount }}</span>
-                    </div>
-                    <div v-if="userLogined" class="action-item hover" @click.stop="handleThumbsUp">
-                        <n-icon size="medium">
-                            <thumb-up-outlined v-if="!hasThumbsUp" />
-                            <thumb-up-twotone v-if="hasThumbsUp" class="show" />
-                        </n-icon>
-                        <span class="upvote-count">{{ thumbsUpCount>0 ? thumbsUpCount : "赞" }}</span>
-                    </div>
-                    <div v-if="!userLogined" class="action-item">
-                        <n-icon size="medium">
-                            <thumb-down-outlined />
-                        </n-icon>
-                    </div>
-                    <div v-if="userLogined" class="action-item hover" @click.stop="handleThumbsDown">
-                        <n-icon size="medium">
-                            <thumb-down-outlined v-if="!hasThumbsDown" />
-                            <thumb-down-twotone v-if="hasThumbsDown" class="show" />
-                        </n-icon>
-                    </div>
+                    <n-popover trigger="click" placement="top" v-if="userLogined">
+                        <template #trigger>
+                            <span class="show opacity-item reply-btn"> 表情回应 </span>
+                        </template>
+                        <emoji-reaction-picker @select="handleReaction" />
+                    </n-popover>
                     <span v-if="userLogined" class="show opacity-item reply-btn" @click="focusReply"> 回复 </span>
                 </div>
             </div>
@@ -83,24 +65,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import { useStoreMain } from '@/store/main';
 import { Trash } from '@vicons/tabler';
 import { formatPrettyTime } from '@/utils/formatTime';
-import {
-  deleteCommentReply,
-  thumbsUpTweetReply,
-  thumbsDownTweetReply,
-} from '@/api/post';
-import {
-  ThumbUpTwotone,
-  ThumbUpOutlined,
-  ThumbDownTwotone,
-  ThumbDownOutlined,
-} from '@vicons/material';
-import { YesNoEnum } from '@/utils/IEnum';
+import { createCommentReply, deleteCommentReply } from '@/api/post';
 import { useStoreUser } from '@/store/user';
 import { storeToRefs } from 'pinia';
+import EmojiReactionPicker from '@/components/emoji-reaction-picker.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -110,7 +80,6 @@ const props = withDefaults(
   {},
 );
 
-const storeMain = useStoreMain();
 const storeUser = useStoreUser();
 const { userInfo, userLogined } = storeToRefs(storeUser);
 
@@ -119,50 +88,22 @@ const emit = defineEmits<{
   (e: 'reload'): void;
 }>();
 
-const hasThumbsUp = ref(props.reply.is_thumbs_up == YesNoEnum.YES);
-const hasThumbsDown = ref(props.reply.is_thumbs_down == YesNoEnum.YES);
-const thumbsUpCount = ref(props.reply.thumbs_up_count);
-
-const handleThumbsUp = () => {
-  thumbsUpTweetReply({
-    tweet_id: props.tweetId,
-    comment_id: props.reply.comment_id,
-    reply_id: props.reply.id,
-  })
-    .then((_res) => {
-      hasThumbsUp.value = !hasThumbsUp.value;
-      if (hasThumbsUp.value) {
-        thumbsUpCount.value++;
-        hasThumbsDown.value = false;
-      } else {
-        thumbsUpCount.value--;
-      }
-    })
-    .catch((err) => {
-      console.log(err);
-    });
-};
-const handleThumbsDown = () => {
-  thumbsDownTweetReply({
-    tweet_id: props.tweetId,
-    comment_id: props.reply.comment_id,
-    reply_id: props.reply.id,
-  })
-    .then((_res) => {
-      hasThumbsDown.value = !hasThumbsDown.value;
-      if (hasThumbsDown.value) {
-        if (hasThumbsUp.value) {
-          thumbsUpCount.value--;
-          hasThumbsUp.value = false;
-        }
-      }
-    })
-    .catch((err) => {
-      console.log(err);
-    });
-};
 const focusReply = () => {
   emit('focusReply', props.reply);
+};
+const handleReaction = (emoji: string) => {
+  createCommentReply({
+    comment_id: props.reply.comment_id,
+    at_user_id: props.reply.user_id,
+    content: emoji,
+  })
+    .then(() => {
+      window.$message.success(`已添加表情 ${emoji}`);
+      emit('reload');
+    })
+    .catch((err) => {
+      console.log(err);
+    });
 };
 const execDelAction = () => {
   deleteCommentReply({
@@ -275,6 +216,10 @@ const execDelAction = () => {
             .show {
                 color: #18a058;
                 cursor: pointer;
+                transition: transform 0.18s ease, opacity 0.18s ease;
+                &:hover {
+                    transform: translateY(-1px);
+                }
             }
 
             .hide {

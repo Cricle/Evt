@@ -1,7 +1,8 @@
 import axios, { AxiosRequestConfig, AxiosRequestHeaders, Method } from 'axios';
-import { useStoreMain } from '@/store/main';
 import { TOKEN_KEY } from '@/store/user';
 import { apiBaseUrl } from '@/utils/api';
+import router from '@/router';
+import { goToAuth } from '@/utils/authRoute';
 
 const service = axios.create({
 	baseURL: apiBaseUrl,
@@ -41,8 +42,7 @@ service.interceptors.response.use(
 			if (response?.data.code !== 10005) {
 				window.$message.warning(response?.data.msg || '鉴权失败');
 			} else {
-				// 打开登录弹窗
-				useStoreMain().triggerAuth(true);
+				goToAuth(router, 'signin', router.currentRoute.value.fullPath);
 			}
 		} else {
 			window.$message.error(response?.data?.msg || '请求失败');

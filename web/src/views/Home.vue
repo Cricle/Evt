@@ -3,9 +3,8 @@
         <main-nav :title="title" />
 
         <n-list class="main-content-wrap" bordered>
-            <n-list-item>
-                <!-- 发布器 -->
-                <compose @post-success="onPostSuccess" />
+            <n-list-item v-if="userInfo.id > 0">
+                <compose-entry-card />
             </n-list-item>
 
             <n-list-item v-if="showTrendsBar" >

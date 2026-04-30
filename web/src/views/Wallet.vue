@@ -154,6 +154,7 @@ import { formatRelativeTime } from '@/utils/formatTime';
 import { TOKEN_KEY, useStoreUser } from '@/store/user';
 import { storeToRefs } from 'pinia';
 import { Api } from '@/utils/request';
+import { goToAuth } from '@/utils/authRoute';
 
 const storeMain = useStoreMain();
 const storeUser = useStoreUser();
@@ -203,16 +204,15 @@ const loadWallet = () => {
         fetchUserInfo(token)
         .then((res) => {
             storeUser.updateUserinfo(res);
-            storeMain.triggerAuth(false);
             loadPosts();
         })
         .catch((err) => {
-            storeMain.triggerAuth(true);
             storeUser.userLogout();
+            goToAuth(router, 'signin', route.fullPath);
         });
     } else {
-        storeMain.triggerAuth(true);
         storeUser.userLogout();
+        goToAuth(router, 'signin', route.fullPath);
     }
 };
 const doRecharge = () => {

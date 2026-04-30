@@ -38,28 +38,6 @@ export const getPost = (
   });
 };
 
-/** 获取动态点赞状态 */
-export const getPostStar = (
-  params: NetParams.PostPostStar,
-): Promise<NetReq.PostGetPostStar> => {
-  return request({
-    method: 'get',
-    url: '/v1/post/star',
-    params,
-  });
-};
-
-/** 动态点赞 */
-export const postStar = (
-  data: NetParams.PostPostStar,
-): Promise<NetReq.PostPostStar> => {
-  return request({
-    method: 'post',
-    url: '/v1/post/star',
-    data,
-  });
-};
-
 /** 获取动态收藏状态 */
 export const getPostCollection = (
   params: NetParams.PostGetPostCollection,
@@ -166,50 +144,6 @@ export const visibilityPost = (
   return request({
     method: 'post',
     url: '/v1/post/visibility',
-    data,
-  });
-};
-
-/** 点赞评论 */
-export const thumbsUpTweetComment = (
-  data: NetParams.PostTweetCommentThumbs,
-): Promise<NetReq.PostTweetCommentThumbs> => {
-  return request({
-    method: 'post',
-    url: '/v1/tweet/comment/thumbsup',
-    data,
-  });
-};
-
-/** 点踩评论 */
-export const thumbsDownTweetComment = (
-  data: NetParams.PostTweetCommentThumbs,
-): Promise<NetReq.PostTweetCommentThumbs> => {
-  return request({
-    method: 'post',
-    url: '/v1/tweet/comment/thumbsdown',
-    data,
-  });
-};
-
-/** 点赞评论回复 */
-export const thumbsUpTweetReply = (
-  data: NetParams.PostTweetReplyThumbs,
-): Promise<NetReq.PostTweetReplyThumbs> => {
-  return request({
-    method: 'post',
-    url: '/v1/tweet/reply/thumbsup',
-    data,
-  });
-};
-
-/** 点踩评论回复 */
-export const thumbsDownTweetReply = (
-  data: NetParams.PostTweetReplyThumbs,
-): Promise<NetReq.PostTweetReplyThumbs> => {
-  return request({
-    method: 'post',
-    url: '/v1/tweet/reply/thumbsdown',
     data,
   });
 };

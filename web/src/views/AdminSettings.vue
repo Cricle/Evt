@@ -318,6 +318,7 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { storeToRefs } from "pinia";
 import { useRouter } from "vue-router";
 import { userInfo as fetchUserInfo } from "@/api/auth";
+import { goToAuth } from '@/utils/authRoute';
 import { getSiteProfile } from "@/api/site";
 import { useStoreMain } from "@/store/main";
 import { useStoreProfile } from "@/store/profile";
@@ -700,11 +701,7 @@ const loadSettings = async () => {
 
 const ensureAdminAccess = async () => {
     if (!localStorage.getItem(TOKEN_KEY) && userInfo.value.id === 0) {
-        storeMain.triggerAuth(true);
-        storeMain.triggerAuthKey("signin");
-        router.replace({
-            name: "home",
-        });
+        goToAuth(router, 'signin', router.currentRoute.value.fullPath);
         return false;
     }
 

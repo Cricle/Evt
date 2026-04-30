@@ -17,24 +17,27 @@
                                 class="app-wrap"
                                 v-slot="{ Component }"
                             >
-                                <keep-alive>
+                                <transition name="page-fade" mode="out-in">
+                                    <keep-alive>
+                                        <component
+                                            v-if="$route.meta.keepAlive"
+                                            :is="Component"
+                                        />
+                                    </keep-alive>
+                                </transition>
+                                <transition name="page-fade" mode="out-in">
                                     <component
-                                        v-if="$route.meta.keepAlive"
+                                        v-if="!$route.meta.keepAlive"
                                         :is="Component"
                                     />
-                                </keep-alive>
-                                <component
-                                    v-if="!$route.meta.keepAlive"
-                                    :is="Component"
-                                />
+                                </transition>
                             </router-view>
                         </div>
 
                         <!-- 右侧 -->
                         <rightbar />
                     </div>
-                    <!-- 登录/注册公共组件 -->
-                    <auth />
+                    <floating-compose />
                 </div>
             </n-dialog-provider>
         </n-message-provider>
@@ -81,3 +84,16 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', syncViewportLayout);
 });
 </script>
+
+<style scoped lang="less">
+.page-fade-enter-active,
+.page-fade-leave-active {
+  transition: opacity 0.24s ease, transform 0.24s ease;
+}
+
+.page-fade-enter-from,
+.page-fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+</style>

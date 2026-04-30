@@ -27,6 +27,22 @@
                 <compose-comment :lock="post.is_lock" :post-id="post.id" @post-success="reloadComments" />
             </n-list-item>
 
+            <div v-if="post.id > 0 && reactions.length > 0" class="reaction-overview">
+                <div class="reaction-title">表情回应</div>
+                <div class="reaction-list">
+                    <button
+                        v-for="reaction in reactions"
+                        :key="reaction.emoji"
+                        type="button"
+                        class="reaction-chip"
+                        :title="reaction.users.map((user) => user.nickname || user.username).join('、')"
+                    >
+                        <span>{{ reaction.emoji }}</span>
+                        <span>{{ reaction.count }}</span>
+                    </button>
+                </div>
+            </div>
+
             <div v-if="post.id > 0">
                 <div v-if="commentLoading" class="skeleton-wrap">
                     <post-skeleton :num="5" />
@@ -63,6 +79,7 @@ import { useRoute } from 'vue-router';
 import { getPost, getPostComments } from '@/api/post';
 import InfiniteLoading from 'v3-infinite-loading';
 import 'v3-infinite-loading/lib/style.css';
+import { splitCommentReactions } from '@/utils/reactions';
 
 const route = useRoute();
 const post = ref<Item.PostProps>({} as Item.PostProps);
@@ -73,6 +90,7 @@ const postId = computed(() => +(route.query.id as string));
 const sortStrategy = ref<'default' | 'hots' | 'newest'>('default');
 const defaultCommentsSort = ref<boolean>(true);
 const pageSize = 20;
+const reactions = ref<ReturnType<typeof splitCommentReactions>['reactions']>([]);
 
 let stateHandler = {
   loading() {
@@ -155,8 +173,10 @@ const loadDefaultComments = ($state: any) => {
         } else {
           defaultComments.value.push(...res.list);
         }
-        comments.value = defaultComments.value;
       }
+      const reactionView = splitCommentReactions(defaultComments.value);
+      comments.value = reactionView.visibleComments;
+      reactions.value = reactionView.reactions;
       stateHandler.loaded();
       commentLoading.value = false;
     })
@@ -194,8 +214,10 @@ const loadHotsComments = ($state: any) => {
         } else {
           hotsComments.value.push(...res.list);
         }
-        comments.value = hotsComments.value;
       }
+      const reactionView = splitCommentReactions(hotsComments.value);
+      comments.value = reactionView.visibleComments;
+      reactions.value = reactionView.reactions;
       stateHandler.loaded();
       commentLoading.value = false;
     })
@@ -233,8 +255,10 @@ const loadNewestComments = ($state: any) => {
         } else {
           newestComments.value.push(...res.list);
         }
-        comments.value = newestComments.value;
       }
+      const reactionView = splitCommentReactions(newestComments.value);
+      comments.value = reactionView.visibleComments;
+      reactions.value = reactionView.reactions;
       stateHandler.loaded();
       commentLoading.value = false;
     })
@@ -311,6 +335,36 @@ watch(postId, () => {
     }
 }
 
+.reaction-overview {
+    padding: 0 16px 12px;
+}
+
+.reaction-title {
+    margin-bottom: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    opacity: 0.72;
+}
+
+.reaction-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.reaction-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(16, 136, 91, 0.08);
+    cursor: default;
+    animation: reaction-pop 0.2s ease;
+}
+
 .main-content-wrap {
     .load-more {
         margin-bottom: 8px;
@@ -326,6 +380,17 @@ watch(postId, () => {
     .main-content-wrap,
     .skeleton-wrap {
         background-color: rgba(16, 16, 20, 0.75);
+    }
+}
+
+@keyframes reaction-pop {
+    from {
+        opacity: 0;
+        transform: scale(0.94);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
     }
 }
 </style>

@@ -2,7 +2,7 @@
     <div class="post-item" @click="goPostDetail(post.id)">
         <n-thing content-indented>
             <template #avatar>
-                <n-avatar round :size="30" :src="post.user.avatar" />
+                <n-avatar round :size="30" :src="post.user.avatar || DEFAULT_USER_AVATAR" />
             </template>
             <template #header>
                     <span class="nickname-wrap">
@@ -114,12 +114,17 @@
             </template>
             <template #action>
                 <n-space justify="space-between">
-                    <div class="opt-item hover" @click.stop="handlePostStar">
-                        <n-icon size="18" class="opt-item-icon">
-                            <heart-outline />
-                        </n-icon>
-                        {{ post.upvote_count }}
-                    </div>
+                    <n-popover trigger="click" placement="top">
+                        <template #trigger>
+                            <div class="opt-item hover" @click.stop>
+                                <n-icon size="18" class="opt-item-icon">
+                                    <happy-outline />
+                                </n-icon>
+                                {{ post.upvote_count }}
+                            </div>
+                        </template>
+                        <emoji-reaction-picker @select="handlePostReaction" />
+                    </n-popover>
                     <div class="opt-item hover" @click.stop="goPostDetail(post.id)">
                         <n-icon size="18" class="opt-item-icon">
                             <chatbox-outline />
@@ -147,10 +152,10 @@ import type { Component } from 'vue';
 import type { DropdownOption } from 'naive-ui';
 import { formatPrettyDate } from '@/utils/formatTime';
 import { preparePost } from '@/utils/content';
-import { postStar, postCollection } from '@/api/post';
+import { createComment, postCollection } from '@/api/post';
 import {
   PaperPlaneOutline,
-  HeartOutline,
+  HappyOutline,
   BookmarkOutline,
   ChatboxOutline,
   ShareSocialOutline,
@@ -166,12 +171,18 @@ import { storeToRefs } from 'pinia';
 import { Api } from '@/utils/request';
 import UserAction from '@/composables/useUserAction';
 import { usePostContent } from '@/composables/usePostContent';
+import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
+import EmojiReactionPicker from '@/components/emoji-reaction-picker.vue';
+import { useStoreUser } from '@/store/user';
+import { goToAuth } from '@/utils/authRoute';
 
 const router = useRouter();
 
 const storeMain = useStoreMain();
+const storeUser = useStoreUser();
 const storeProfile = useStoreProfile();
 const { profile } = storeToRefs(storeProfile);
+const { userInfo } = storeToRefs(storeUser);
 
 const dialog = useDialog();
 
@@ -288,23 +299,29 @@ const handleTweetAction = async (
 
 // 使用 usePostContent composable
 const post = usePostContent(props.post);
-const handlePostStar = () => {
-  postStar({
-    id: post.value.id,
+const handlePostReaction = (emoji: string) => {
+  if (userInfo.value.id < 1) {
+    goToAuth(router, 'signin', router.currentRoute.value.fullPath);
+    return;
+  }
+
+  createComment({
+    post_id: post.value.id,
+    users: [],
+    contents: [
+      {
+        content: emoji,
+        type: 2,
+        sort: 100,
+      },
+    ],
   })
-    .then((res) => {
-      if (res.status) {
-        post.value = {
-          ...post.value,
-          upvote_count: post.value.upvote_count + 1,
-        };
-      } else {
-        post.value = {
-          ...post.value,
-          upvote_count:
-            post.value.upvote_count > 0 ? post.value.upvote_count - 1 : 0,
-        };
-      }
+    .then(() => {
+      post.value = {
+        ...post.value,
+        upvote_count: post.value.upvote_count + 1,
+      };
+      window.$message.success(`已添加表情 ${emoji}`);
     })
     .catch((err) => {
       console.log(err);
@@ -408,14 +425,21 @@ const doClickText = (e: MouseEvent, id: number) => {
         overflow: hidden;
         white-space: pre-wrap;
         word-break: break-all;
+        line-height: 1.7;
     }
 
     .opt-item {
         display: flex;
         align-items: center;
         opacity: 0.7;
+        transition: transform 0.18s ease, opacity 0.18s ease;
         .opt-item-icon {
             margin-right: 10px;
+        }
+
+        &:hover {
+            opacity: 1;
+            transform: translateY(-1px);
         }
     }
     

@@ -5,30 +5,12 @@
                 {{ formatPrettyTime(comment.created_on) }}
             </span>
             <div class="actions">
-                <div v-if="!userLogined" class="action-item">
-                    <n-icon size="medium">
-                        <thumb-up-outlined />
-                    </n-icon>
-                    <span class="upvote-count">{{ thumbsUpCount }}</span>
-                </div>
-                <div v-if="userLogined" class="action-item hover" @click.stop="handleThumbsUp">
-                    <n-icon size="medium">
-                        <thumb-up-outlined v-if="!hasThumbsUp" />
-                        <thumb-up-twotone v-if="hasThumbsUp" class="show" />
-                    </n-icon>
-                    <span class="upvote-count">{{ thumbsUpCount>0 ? thumbsUpCount : "赞" }}</span>
-                </div>
-                <div v-if="!userLogined" class="action-item">
-                    <n-icon size="medium">
-                        <thumb-down-outlined />
-                    </n-icon>
-                </div>
-                <div v-if="userLogined" class="action-item hover" @click.stop="handleThumbsDown">
-                    <n-icon size="medium">
-                        <thumb-down-outlined v-if="!hasThumbsDown" />
-                        <thumb-down-twotone v-if="hasThumbsDown" class="show" />
-                    </n-icon>
-                </div>
+                <n-popover trigger="click" placement="top" v-if="userLogined">
+                    <template #trigger>
+                        <span class="reply-btn show">表情回应</span>
+                    </template>
+                    <emoji-reaction-picker @select="handleReaction" />
+                </n-popover>
                 <span class="show reply-btn" v-if="userLogined && !showReply" @click="switchReply(true)">
                     回复
                 </span>
@@ -55,23 +37,12 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { useStoreMain } from '@/store/main';
 import { useStoreUser } from '@/store/user';
 import { formatPrettyTime } from '@/utils/formatTime';
-import {
-  createCommentReply,
-  thumbsUpTweetComment,
-  thumbsDownTweetComment,
-} from '@/api/post';
+import { createCommentReply } from '@/api/post';
 import { InputInst } from 'naive-ui';
-import {
-  ThumbUpTwotone,
-  ThumbUpOutlined,
-  ThumbDownTwotone,
-  ThumbDownOutlined,
-} from '@vicons/material';
-import { YesNoEnum } from '@/utils/IEnum';
 import { storeToRefs } from 'pinia';
+import EmojiReactionPicker from '@/components/emoji-reaction-picker.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -85,7 +56,6 @@ const props = withDefaults(
   },
 );
 
-const storeMain = useStoreMain();
 const storeUser = useStoreUser();
 const { userLogined } = storeToRefs(storeUser);
 
@@ -101,46 +71,6 @@ const submitting = ref(false);
 const defaultReplyMaxLength = Number(
   import.meta.env.VITE_DEFAULT_REPLY_MAX_LENGTH,
 );
-const hasThumbsUp = ref(props.comment.is_thumbs_up == YesNoEnum.YES);
-const hasThumbsDown = ref(props.comment.is_thumbs_down == YesNoEnum.YES);
-const thumbsUpCount = ref(props.comment.thumbs_up_count);
-
-const handleThumbsUp = () => {
-  thumbsUpTweetComment({
-    tweet_id: props.comment.post_id,
-    comment_id: props.comment.id,
-  })
-    .then((_res) => {
-      hasThumbsUp.value = !hasThumbsUp.value;
-      if (hasThumbsUp.value) {
-        thumbsUpCount.value++;
-        hasThumbsDown.value = false;
-      } else {
-        thumbsUpCount.value--;
-      }
-    })
-    .catch((err) => {
-      console.log(err);
-    });
-};
-const handleThumbsDown = () => {
-  thumbsDownTweetComment({
-    tweet_id: props.comment.post_id,
-    comment_id: props.comment.id,
-  })
-    .then((_res) => {
-      hasThumbsDown.value = !hasThumbsDown.value;
-      if (hasThumbsDown.value) {
-        if (hasThumbsUp.value) {
-          thumbsUpCount.value--;
-          hasThumbsUp.value = false;
-        }
-      }
-    })
-    .catch((err) => {
-      console.log(err);
-    });
-};
 const switchReply = (status: boolean) => {
   showReply.value = status;
 
@@ -154,7 +84,25 @@ const switchReply = (status: boolean) => {
     emit('reset');
   }
 };
+const handleReaction = (emoji: string) => {
+  createCommentReply({
+    comment_id: props.comment.id,
+    at_user_id: props.comment.user_id,
+    content: emoji,
+  })
+    .then(() => {
+      window.$message.success(`已添加表情 ${emoji}`);
+      emit('reload');
+    })
+    .catch((err) => {
+      console.log(err);
+    });
+};
 const submitReply = () => {
+  if (!replyContent.value.trim()) {
+    window.$message.warning('请输入回复内容');
+    return;
+  }
   submitting.value = true;
   createCommentReply({
     comment_id: props.comment.id,
@@ -219,6 +167,11 @@ defineExpose({ switchReply });
             color: #18a058;
             cursor: pointer;
             opacity: 0.75;
+            transition: transform 0.18s ease, opacity 0.18s ease;
+            &:hover {
+                opacity: 1;
+                transform: translateY(-1px);
+            }
            
         }
 
