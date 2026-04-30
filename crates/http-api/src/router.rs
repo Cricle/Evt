@@ -1,0 +1,315 @@
+use axum::{
+    Router,
+    routing::{delete, get, post},
+};
+use tower_http::{
+    cors::CorsLayer,
+    services::{ServeDir, ServeFile},
+    trace::TraceLayer,
+};
+
+use crate::{handlers, state::HttpState};
+
+pub fn router(state: HttpState) -> Router {
+    let web_dist_dir = state.app().settings().web.dist_dir.clone();
+    let spa_fallback = ServeDir::new(&web_dist_dir)
+        .not_found_service(ServeFile::new(format!("{web_dist_dir}/index.html")));
+
+    Router::new()
+        .route("/healthz", get(handlers::system::healthz))
+        .route("/docs/openapi.json", get(handlers::system::openapi_spec))
+        .route("/v1", get(handlers::system::version_root))
+        .route("/v1/site/version", get(handlers::system::site_version))
+        .route("/v1/site/profile", get(handlers::system::site_profile))
+        .route("/v1/auth/register", post(handlers::session::register))
+        .route("/v1/auth/login", post(handlers::session::login))
+        .route("/v1/user/info", get(handlers::legacy::user_info))
+        .route(
+            "/v1/user/profile",
+            get(handlers::legacy_users::user_profile),
+        )
+        .route("/v1/user/posts", get(handlers::legacy_users::user_posts))
+        .route(
+            "/v1/user/follows",
+            get(handlers::legacy_users::user_follows),
+        )
+        .route(
+            "/v1/user/followings",
+            get(handlers::legacy_users::user_followings),
+        )
+        .route("/v1/user/follow", post(handlers::legacy_users::follow_user))
+        .route(
+            "/v1/user/unfollow",
+            post(handlers::legacy_users::unfollow_user),
+        )
+        .route(
+            "/v1/user/contacts",
+            get(handlers::legacy_friendships::user_contacts),
+        )
+        .route(
+            "/v1/user/collections",
+            get(handlers::legacy_posts::user_collections),
+        )
+        .route(
+            "/v1/suggest/users",
+            get(handlers::legacy_users::suggest_users),
+        )
+        .route("/v1/suggest/tags", get(handlers::legacy_tags::suggest_tags))
+        .route("/v1/tags", get(handlers::legacy_tags::list_tags))
+        .route(
+            "/v1/trends/index",
+            get(handlers::legacy_users::trends_index),
+        )
+        .route("/v1/feed", get(handlers::posts::feed))
+        .route(
+            "/v1/attachment",
+            get(handlers::legacy_settings::attachment_get)
+                .post(handlers::legacy::upload_attachment),
+        )
+        .route(
+            "/v1/attachment/download/:ticket",
+            get(handlers::legacy_settings::attachment_ticket_download),
+        )
+        .route(
+            "/v1/attachment/precheck",
+            get(handlers::legacy_settings::attachment_precheck),
+        )
+        .route("/v1/captcha", get(handlers::legacy_settings::captcha_get))
+        .route("/v1/captcha", post(handlers::legacy_settings::captcha_post))
+        .route(
+            "/v1/user/messages",
+            get(handlers::legacy_messages::user_messages),
+        )
+        .route(
+            "/v1/user/message/read",
+            post(handlers::legacy_messages::message_read),
+        )
+        .route(
+            "/v1/user/message/readall",
+            post(handlers::legacy_messages::message_read_all),
+        )
+        .route(
+            "/v1/user/msgcount/unread",
+            get(handlers::legacy_messages::unread_message_count),
+        )
+        .route(
+            "/v1/user/whisper",
+            post(handlers::legacy_messages::user_whisper),
+        )
+        .route(
+            "/v1/friend/requesting",
+            post(handlers::legacy_friendships::friend_requesting),
+        )
+        .route(
+            "/v1/friend/add",
+            post(handlers::legacy_friendships::friend_add),
+        )
+        .route(
+            "/v1/friend/reject",
+            post(handlers::legacy_friendships::friend_reject),
+        )
+        .route(
+            "/v1/friend/delete",
+            post(handlers::legacy_friendships::friend_delete),
+        )
+        .route(
+            "/v1/user/avatar",
+            post(handlers::legacy_settings::user_avatar),
+        )
+        .route(
+            "/v1/user/nickname",
+            post(handlers::legacy_settings::user_nickname),
+        )
+        .route(
+            "/v1/user/password",
+            post(handlers::legacy_settings::user_password),
+        )
+        .route(
+            "/v1/api/user/password",
+            post(handlers::legacy_settings::user_password),
+        )
+        .route(
+            "/v1/user/phone",
+            post(handlers::legacy_settings::user_phone),
+        )
+        .route(
+            "/v1/user/activate",
+            post(handlers::legacy_settings::user_activate),
+        )
+        .route(
+            "/v1/post/lock",
+            post(handlers::legacy_moderation::post_lock),
+        )
+        .route(
+            "/v1/post/stick",
+            post(handlers::legacy_moderation::post_stick),
+        )
+        .route(
+            "/v1/post/highlight",
+            post(handlers::legacy_moderation::post_highlight),
+        )
+        .route(
+            "/v1/post/visibility",
+            post(handlers::legacy_moderation::post_visibility),
+        )
+        .route(
+            "/v1/post/comment/highlight",
+            post(handlers::legacy_moderation::comment_highlight),
+        )
+        .route(
+            "/v1/post/comment/reply",
+            post(handlers::legacy_moderation::comment_reply)
+                .delete(handlers::legacy_moderation::comment_reply_delete),
+        )
+        .route(
+            "/v1/tweet/comment/thumbsup",
+            post(handlers::legacy_moderation::comment_thumbsup),
+        )
+        .route(
+            "/v1/tweet/comment/thumbsdown",
+            post(handlers::legacy_moderation::comment_thumbsdown),
+        )
+        .route(
+            "/v1/tweet/reply/thumbsup",
+            post(handlers::legacy_moderation::reply_thumbsup),
+        )
+        .route(
+            "/v1/tweet/reply/thumbsdown",
+            post(handlers::legacy_moderation::reply_thumbsdown),
+        )
+        .route(
+            "/v1/admin/site/status",
+            get(handlers::legacy_admin::admin_site_status),
+        )
+        .route(
+            "/v1/admin/settings/schema",
+            get(handlers::legacy_admin::admin_settings_schema),
+        )
+        .route(
+            "/v1/admin/settings/values",
+            get(handlers::legacy_admin::admin_settings_values),
+        )
+        .route(
+            "/v1/admin/settings/save",
+            post(handlers::legacy_admin::admin_settings_save),
+        )
+        .route(
+            "/v1/admin/user/status",
+            post(handlers::legacy_admin::admin_user_status),
+        )
+        .route(
+            "/v1/user/recharge",
+            get(handlers::legacy_admin::user_get_recharge)
+                .post(handlers::legacy_admin::user_post_recharge),
+        )
+        .route(
+            "/v1/user/wallet/bills",
+            get(handlers::legacy_admin::user_wallet_bills),
+        )
+        .route(
+            "/v1/post",
+            get(handlers::legacy::get_post)
+                .post(handlers::legacy::create_post)
+                .delete(handlers::legacy::delete_post),
+        )
+        .route("/v1/post/comments", get(handlers::legacy::list_comments))
+        .route(
+            "/v1/post/star",
+            get(handlers::legacy_posts::get_post_star).post(handlers::legacy_posts::post_star),
+        )
+        .route(
+            "/v1/post/collection",
+            get(handlers::legacy_posts::get_post_collection)
+                .post(handlers::legacy_posts::post_collection),
+        )
+        .route("/v1/topic/follow", post(handlers::legacy_tags::follow_tag))
+        .route(
+            "/v1/topic/unfollow",
+            post(handlers::legacy_tags::unfollow_tag),
+        )
+        .route("/v1/topic/stick", post(handlers::legacy_tags::stick_tag))
+        .route("/v1/topic/pin", post(handlers::legacy_tags::pin_tag))
+        .route(
+            "/v1/post/comment",
+            post(handlers::legacy::create_comment).delete(handlers::legacy::delete_comment),
+        )
+        .route(
+            "/v1/attachments",
+            post(handlers::attachments::upload_attachment),
+        )
+        .route(
+            "/v1/attachments/:attachment_id",
+            get(handlers::attachments::download_attachment),
+        )
+        .route(
+            "/v1/messages",
+            get(handlers::messages::list_messages).post(handlers::messages::send_message),
+        )
+        .route(
+            "/v1/messages/unread-count",
+            get(handlers::messages::unread_message_count),
+        )
+        .route(
+            "/v1/messages/read-all",
+            post(handlers::messages::mark_all_messages_read),
+        )
+        .route(
+            "/v1/messages/:message_id/read",
+            post(handlers::messages::mark_message_read),
+        )
+        .route("/v1/users/me", get(handlers::users::current_user))
+        .route(
+            "/v1/users/me/nickname",
+            post(handlers::users::change_nickname),
+        )
+        .route(
+            "/v1/users/me/password",
+            post(handlers::users::change_password),
+        )
+        .route(
+            "/v1/users/:username/followers",
+            get(handlers::users::user_followers),
+        )
+        .route(
+            "/v1/users/:username/followings",
+            get(handlers::users::user_followings),
+        )
+        .route(
+            "/v1/users/:username/follow",
+            post(handlers::users::follow_user),
+        )
+        .route(
+            "/v1/users/:username/unfollow",
+            post(handlers::users::unfollow_user),
+        )
+        .route(
+            "/v1/users/:username/profile",
+            get(handlers::users::user_profile),
+        )
+        .route(
+            "/v1/users/:username/posts",
+            get(handlers::users::user_posts),
+        )
+        .route(
+            "/v1/posts",
+            get(handlers::legacy::list_posts).post(handlers::posts::create_post),
+        )
+        .route(
+            "/v1/posts/:post_id",
+            get(handlers::posts::get_post)
+                .patch(handlers::posts::update_post)
+                .delete(handlers::posts::delete_post),
+        )
+        .route(
+            "/v1/posts/:post_id/comments",
+            get(handlers::posts::list_comments).post(handlers::posts::create_comment),
+        )
+        .route(
+            "/v1/comments/:comment_id",
+            delete(handlers::posts::delete_comment),
+        )
+        .with_state(state)
+        .fallback_service(spa_fallback)
+        .layer(CorsLayer::permissive())
+        .layer(TraceLayer::new_for_http())
+}

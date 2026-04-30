@@ -1,0 +1,16 @@
+[package]
+name = "paopao-grpc-api"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+paopao-domain = { path = "../domain" }
+paopao-infra = { path = "../infra" }
+tokio.workspace = true
+tonic.workspace = true
+prost.workspace = true
+
+[build-dependencies]
+protoc-bin-vendored.workspace = true
+tonic-build.workspace = true

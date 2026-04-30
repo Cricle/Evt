@@ -1,0 +1,4 @@
+components.d.ts
+*Dockerfile*
+node_modules
+src-tauri/target

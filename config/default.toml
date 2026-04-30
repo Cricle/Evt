@@ -1,0 +1,46 @@
+[app]
+name = "paopao-ce"
+env = "development"
+
+[server.http]
+host = "0.0.0.0"
+port = 8008
+
+[server.grpc]
+host = "0.0.0.0"
+port = 18020
+
+[database]
+url = "mysql://paopao:paopao@127.0.0.1:3306/paopao"
+max_connections = 10
+
+[jwt]
+secret = "replace-with-a-long-random-secret"
+issuer = "paopao-ce"
+expire_seconds = 86400
+
+[storage]
+local_dir = "./custom/data/attachments"
+
+[web]
+dist_dir = "./web/dist"
+
+[site]
+allow_user_register = true
+allow_phone_bind = true
+use_friendship = true
+enable_trends_bar = true
+enable_wallet = false
+allow_tweet_attachment = true
+allow_tweet_attachment_price = false
+allow_tweet_video = true
+default_tweet_max_length = 500
+tweet_web_ellipsis_size = 220
+tweet_mobile_ellipsis_size = 140
+default_tweet_visibility = "public"
+default_msg_loop_interval = 5000
+copyright_top = "PaoPao"
+copyright_left = "Self-hosted"
+copyright_left_link = ""
+copyright_right = "MIT"
+copyright_right_link = "https://opensource.org/license/mit"
