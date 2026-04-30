@@ -83,15 +83,7 @@ curl -sf "${BASE_URL}/healthz" >"$TMP_DIR/healthz.json"
 curl -sf "${BASE_URL}/" >"$TMP_DIR/index.html"
 
 ASSET_PATH="$(
-  TMP_DIR_ENV="$TMP_DIR" python - <<'PY'
-import re
-import os
-from pathlib import Path
-html = Path(os.environ["TMP_DIR_ENV"]) / "index.html"
-html = html.read_text()
-match = re.search(r'src="(/assets/[^"]+\.js)"', html)
-print(match.group(1) if match else "")
-PY
+  sed -n 's/.*src="\([^"]*\/assets\/[^"]*\.js\)".*/\1/p' "$TMP_DIR/index.html" | head -n 1
 )"
 test -n "$ASSET_PATH"
 curl -sf "${BASE_URL}${ASSET_PATH}" >"$TMP_DIR/asset.js"
