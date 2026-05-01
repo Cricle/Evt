@@ -122,8 +122,8 @@ impl LegacyPostRepository {
     pub async fn ensure_comment_state(&self, comment_id: i64) -> Result<(), AppError> {
         sqlx::query(
             r#"
-            INSERT INTO legacy_comment_states (comment_id, is_essence)
-            VALUES (?, FALSE)
+            INSERT INTO legacy_comment_states (comment_id, is_essence, is_reaction)
+            VALUES (?, FALSE, FALSE)
             ON DUPLICATE KEY UPDATE comment_id = comment_id
             "#,
         )
@@ -143,7 +143,7 @@ impl LegacyPostRepository {
         }
 
         let mut builder: QueryBuilder<MySql> = QueryBuilder::new(
-            "SELECT comment_id, is_essence FROM legacy_comment_states WHERE comment_id IN (",
+            "SELECT comment_id, is_essence, is_reaction FROM legacy_comment_states WHERE comment_id IN (",
         );
         let mut separated = builder.separated(", ");
         for comment_id in comment_ids {
@@ -183,6 +183,26 @@ impl LegacyPostRepository {
         .bind(comment_id)
         .fetch_one(&self.pool)
         .await
+        .map_err(map_db_error)
+    }
+
+    pub async fn set_comment_reaction(
+        &self,
+        comment_id: i64,
+        is_reaction: bool,
+    ) -> Result<(), AppError> {
+        sqlx::query(
+            r#"
+            UPDATE legacy_comment_states
+            SET is_reaction = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE comment_id = ?
+            "#,
+        )
+        .bind(is_reaction)
+        .bind(comment_id)
+        .execute(&self.pool)
+        .await
+        .map(|_| ())
         .map_err(map_db_error)
     }
 
@@ -467,6 +487,7 @@ struct LegacyPostStateRow {
 struct LegacyCommentStateRow {
     comment_id: i64,
     is_essence: bool,
+    is_reaction: bool,
 }
 
 #[derive(Debug, FromRow)]
@@ -497,6 +518,7 @@ impl From<LegacyCommentStateRow> for LegacyCommentState {
         Self {
             comment_id: row.comment_id,
             is_essence: row.is_essence,
+            is_reaction: row.is_reaction,
         }
     }
 }

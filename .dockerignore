@@ -2,8 +2,10 @@ data
 .vscode
 release
 custom
-target
-*Dockerfile*
+target/*
+!target/release/
+!target/release/evt
 web/node_modules
-web/dist
+web/dist/*
+!web/dist/**
 web/src-tauri/target

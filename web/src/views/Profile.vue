@@ -401,6 +401,12 @@ watch(
     padding: 0 16px;
 }
 
+.profile-wrap,
+.pagination-wrap {
+    --profile-surface-bg: transparent;
+    background-color: var(--profile-surface-bg);
+}
+
 .load-more {
     margin: 20px;
 
@@ -418,9 +424,8 @@ watch(
     }
 }
 
-.dark {
-    .profile-wrap, .pagination-wrap {
-        background-color: rgba(16, 16, 20, 0.75);
-    }
+:global(.dark) .profile-wrap,
+:global(.dark) .pagination-wrap {
+    --profile-surface-bg: rgba(16, 16, 20, 0.75);
 }
 </style>

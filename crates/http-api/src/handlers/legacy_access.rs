@@ -84,6 +84,8 @@ pub(crate) async fn ensure_can_view_post(
     viewer: Option<&UserIdentity>,
     post: &PostSummary,
 ) -> Result<(), HttpApiError> {
+    app.ensure_can_access_space_id(viewer, post.space_id)
+        .await?;
     let states = app.legacy_post_states_by_ids(&[post.id]).await?;
     let visibility = legacy_visibility(states.get(&post.id));
     let (is_following, is_friend) = relation_status(app, viewer, post.user_id).await?;

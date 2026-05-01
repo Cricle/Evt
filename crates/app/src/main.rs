@@ -3,16 +3,20 @@ use evt_config::Settings;
 use evt_grpc_api::authenticate_service;
 use evt_http_api::{HttpState, router};
 use evt_infra::AppContext;
+use opentelemetry::trace::TracerProvider as _;
+use opentelemetry_otlp::WithExportConfig;
 use tokio::net::TcpListener;
 use tonic::transport::Server;
 use tracing::info;
+use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::EnvFilter;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    init_tracing();
-
     let settings = Settings::load().context("load rust backend settings")?;
+    let telemetry = init_tracing(&settings)?;
     let app = AppContext::bootstrap(settings.clone()).await?;
 
     let http_addr = settings.http_addr();
@@ -44,12 +48,45 @@ async fn main() -> anyhow::Result<()> {
         result = grpc_server => result,
         _ = tokio::signal::ctrl_c() => {
             info!("shutdown signal received");
+            if let Some(provider) = telemetry {
+                provider.shutdown()?;
+            }
             Ok(())
         }
     }
 }
 
-fn init_tracing() {
+fn init_tracing(
+    settings: &Settings,
+) -> anyhow::Result<Option<opentelemetry_sdk::trace::SdkTracerProvider>> {
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
-    tracing_subscriber::fmt().with_env_filter(filter).init();
+    let fmt_layer = tracing_subscriber::fmt::layer();
+
+    if !settings.telemetry.enabled {
+        tracing_subscriber::registry()
+            .with(filter)
+            .with(fmt_layer)
+            .init();
+        return Ok(None);
+    }
+
+    let exporter = opentelemetry_otlp::SpanExporter::builder()
+        .with_tonic()
+        .with_endpoint(settings.telemetry.otlp_endpoint.clone())
+        .build()?;
+
+    let provider = opentelemetry_sdk::trace::SdkTracerProvider::builder()
+        .with_batch_exporter(exporter)
+        .build();
+
+    let tracer = provider.tracer(settings.telemetry.service_name.clone());
+    let telemetry_layer = OpenTelemetryLayer::new(tracer);
+
+    tracing_subscriber::registry()
+        .with(filter)
+        .with(fmt_layer)
+        .with(telemetry_layer)
+        .init();
+
+    Ok(Some(provider))
 }

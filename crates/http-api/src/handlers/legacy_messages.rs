@@ -268,3 +268,89 @@ fn empty_user(user_id: i64) -> CompatUserInfo {
         status: 1,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use chrono::Utc;
+    use evt_domain::{LegacyMessageSummary, UserPreview};
+
+    use super::{compat_user_from_preview, empty_user, to_legacy_message_item};
+
+    #[test]
+    fn compat_user_from_preview_keeps_legacy_defaults() {
+        let created_at = Utc::now();
+        let compat = compat_user_from_preview(UserPreview {
+            id: 7,
+            username: "evt".into(),
+            nickname: "Evt".into(),
+            avatar: "avatar.png".into(),
+            created_at,
+        });
+
+        assert_eq!(compat.id, 7);
+        assert_eq!(compat.username, "evt");
+        assert_eq!(compat.nickname, "Evt");
+        assert_eq!(compat.avatar, "avatar.png");
+        assert_eq!(compat.created_on, created_at.timestamp());
+        assert!(!compat.is_admin);
+        assert!(!compat.is_friend);
+        assert!(!compat.is_following);
+    }
+
+    #[test]
+    fn empty_user_uses_zeroed_legacy_shape() {
+        let user = empty_user(9);
+        assert_eq!(user.id, 9);
+        assert_eq!(user.created_on, 0);
+        assert!(user.username.is_empty());
+        assert!(user.nickname.is_empty());
+        assert!(user.avatar.is_empty());
+    }
+
+    #[test]
+    fn to_legacy_message_item_includes_post_comment_ids_and_following_status() {
+        let created_at = Utc::now();
+        let sender = compat_user_from_preview(UserPreview {
+            id: 1,
+            username: "sender".into(),
+            nickname: "Sender".into(),
+            avatar: "sender.png".into(),
+            created_at,
+        });
+        let receiver = compat_user_from_preview(UserPreview {
+            id: 2,
+            username: "receiver".into(),
+            nickname: "Receiver".into(),
+            avatar: "receiver.png".into(),
+            created_at,
+        });
+        let item = to_legacy_message_item(
+            LegacyMessageSummary {
+                id: 11,
+                sender_user_id: 1,
+                receiver_user_id: 2,
+                message_type: 5,
+                brief: "brief".into(),
+                content: "content".into(),
+                post_id: 12,
+                comment_id: 13,
+                reply_id: 14,
+                is_read: false,
+                created_at,
+            },
+            &std::collections::HashMap::from([(1, sender), (2, receiver)]),
+            &std::collections::HashMap::from([(1, true), (2, false)]),
+        );
+
+        assert_eq!(item.id, 11);
+        assert_eq!(item.message_type, 5);
+        assert_eq!(item.is_read, 0);
+        assert_eq!(item.sender_user.id, 1);
+        assert!(item.sender_user.is_following);
+        assert_eq!(item.receiver_user.id, 2);
+        assert!(!item.receiver_user.is_following);
+        assert_eq!(item.post["id"], 12);
+        assert_eq!(item.comment["id"], 13);
+        assert_eq!(item.reply_id, 14);
+    }
+}

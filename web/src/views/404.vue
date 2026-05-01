@@ -34,9 +34,7 @@ const goHome = () => {
     align-items: center;
     justify-content: center;
 }
-.dark {
-    .main-content-wra {
-        background-color: rgba(16, 16, 20, 0.75);
-    }
+:global(.dark) .main-content-wrap {
+    background-color: rgba(16, 16, 20, 0.75);
 }
 </style>

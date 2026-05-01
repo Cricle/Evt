@@ -23,6 +23,17 @@ pub fn router(state: HttpState) -> Router {
         .route("/v1/site/profile", get(handlers::system::site_profile))
         .route("/v1/auth/register", post(handlers::session::register))
         .route("/v1/auth/login", post(handlers::session::login))
+        .route(
+            "/v1/spaces",
+            get(handlers::spaces::list_spaces).post(handlers::spaces::create_space),
+        )
+        .route(
+            "/v1/spaces/members",
+            get(handlers::spaces::list_space_members)
+                .post(handlers::spaces::add_space_member)
+                .patch(handlers::spaces::update_space_member)
+                .delete(handlers::spaces::remove_space_member),
+        )
         .route("/v1/user/info", get(handlers::legacy::user_info))
         .route(
             "/v1/user/profile",
@@ -303,6 +314,10 @@ pub fn router(state: HttpState) -> Router {
         .route(
             "/v1/posts/:post_id/comments",
             get(handlers::posts::list_comments).post(handlers::posts::create_comment),
+        )
+        .route(
+            "/v1/posts/:post_id/reactions",
+            get(handlers::posts::list_post_reactions).post(handlers::posts::toggle_post_reaction),
         )
         .route(
             "/v1/comments/:comment_id",

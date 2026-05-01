@@ -39,6 +39,7 @@ impl AppContext {
             return Err(AppError::Conflict("username already exists".into()));
         }
 
+        let user_count_before = self.users.count_all().await?;
         let password_hash = self.password.hash(password)?;
         let user = self
             .users
@@ -47,8 +48,12 @@ impl AppContext {
         self.profiles
             .ensure_defaults(user.id, &user.username)
             .await?;
-        if user.id == 1 {
+        if user_count_before == 0 {
             self.profiles.update_admin(user.id, true).await?;
+            let default_space_slug = self.site_profile_snapshot().default_space_slug;
+            self.spaces
+                .ensure_default_space(&default_space_slug, user.id)
+                .await?;
         }
 
         Ok(RegisterResult {
@@ -96,8 +101,12 @@ impl AppContext {
         self.profiles
             .ensure_defaults(user.id, &user.username)
             .await?;
-        if user.id == 1 {
+        if self.users.count_all().await? == 1 {
             self.profiles.update_admin(user.id, true).await?;
+            let default_space_slug = self.site_profile_snapshot().default_space_slug;
+            self.spaces
+                .ensure_default_space(&default_space_slug, user.id)
+                .await?;
         }
 
         Ok(LoginResult {

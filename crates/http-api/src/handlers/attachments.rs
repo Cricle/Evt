@@ -19,12 +19,18 @@ pub async fn upload_attachment(
     mut multipart: Multipart,
 ) -> Result<Json<ApiEnvelope<AttachmentSummary>>, HttpApiError> {
     let actor = authenticate_request(state.app(), &headers).await?;
+    let mut upload_type = "attachment".to_string();
 
     while let Some(field) = multipart.next_field().await.map_err(|err| {
         HttpApiError::from(AppError::Validation(format!(
             "invalid multipart body: {err}"
         )))
     })? {
+        if field.name() == Some("type") {
+            upload_type = field.text().await.unwrap_or_else(|_| "attachment".into());
+            continue;
+        }
+
         if field.name() != Some("file") {
             continue;
         }
@@ -39,7 +45,13 @@ pub async fn upload_attachment(
 
         let attachment = state
             .app()
-            .upload_attachment(&actor, &file_name, content_type.as_deref(), &bytes)
+            .upload_attachment_by_kind(
+                &actor,
+                upload_type.as_str(),
+                &file_name,
+                content_type.as_deref(),
+                &bytes,
+            )
             .await?;
         return Ok(Json(success(attachment)));
     }
@@ -49,9 +61,14 @@ pub async fn upload_attachment(
 
 pub async fn download_attachment(
     State(state): State<HttpState>,
+    headers: HeaderMap,
     Path(attachment_id): Path<i64>,
 ) -> Result<Response, HttpApiError> {
-    let attachment = state.app().download_attachment(attachment_id).await?;
+    let actor = authenticate_request(state.app(), &headers).await?;
+    let attachment = state
+        .app()
+        .download_attachment_with_access(&actor, attachment_id)
+        .await?;
     let mut response = Response::new(Body::from(attachment.bytes));
     response.headers_mut().insert(
         header::CONTENT_TYPE,

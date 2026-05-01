@@ -71,6 +71,11 @@ onMounted(() => {
 </script>
 
 <style lang="less" scoped>
+.main-content-wrap {
+    --announcement-income: #18a058;
+    --announcement-surface-bg: transparent;
+}
+
 .balance-wrap {
     padding: 16px;
 
@@ -96,7 +101,7 @@ onMounted(() => {
     }
 
     .income {
-        color: #18a058;
+        color: var(--announcement-income);
     }
 }
 
@@ -126,9 +131,9 @@ onMounted(() => {
     }
 }
 
-.dark {
-    .income {
-        color: #63e2b7;
-    }
+:global(.dark) .main-content-wrap {
+    --announcement-income: #63e2b7;
+    --announcement-surface-bg: rgba(16, 16, 20, 0.75);
+    background-color: var(--announcement-surface-bg);
 }
 </style>

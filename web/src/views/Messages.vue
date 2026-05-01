@@ -357,6 +357,16 @@ onMounted(() => {
 </script>
 
 <style lang="less" scoped>
+.messages-wrap,
+.empty-wrap {
+    --messages-surface: transparent;
+    background-color: var(--messages-surface);
+}
+
+.pagination-wrap {
+    background-color: var(--messages-surface);
+}
+
 .title {
     padding-top: 4px;
     opacity: 0.9;
@@ -369,12 +379,10 @@ onMounted(() => {
 .title-filter {
     margin-right: 20px;
 }
-.dark {
-    .empty-wrap {
-        background-color: rgba(16, 16, 20, 0.75);
-    }
-    .messages-wrap, .pagination-wrap {
-        background-color: rgba(16, 16, 20, 0.75);
-    }
+
+:global(.dark) .messages-wrap,
+:global(.dark) .empty-wrap,
+:global(.dark) .pagination-wrap {
+    --messages-surface: rgba(16, 16, 20, 0.75);
 }
 </style>

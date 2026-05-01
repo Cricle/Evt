@@ -1,12 +1,17 @@
 <template>
     <div>
-        <main-nav :title="title" />
+        <main-nav
+            title="广场"
+            :space-value="selectedSpaceSlug"
+            :space-options="spaceOptions"
+            :action-label="userInfo.id > 0 ? '新建广场' : ''"
+            action-icon="add"
+            action-icon-only
+            @update:space-value="selectedSpaceSlug = $event"
+            @action="openCreateSpaceDialog"
+        />
 
         <n-list class="main-content-wrap" bordered>
-            <n-list-item v-if="userInfo.id > 0">
-                <compose-entry-card />
-            </n-list-item>
-
             <n-list-item v-if="showTrendsBar" >
             <SlideBar :key="slideBarKey" v-model="slideBarList" :wheel-blocks="wheelBlocks" :init-blocks="initBlocks" @click="handleBarClick" tag="div" sub-tag="div">
                 <template #default="data">
@@ -86,7 +91,8 @@
 import { ref, onMounted, reactive, computed, watch } from 'vue';
 import { useStoreMain } from '@/store/main';
 import { useRoute, useRouter } from 'vue-router';
-import { useDialog } from 'naive-ui';
+import { h } from 'vue';
+import { NInput, NSelect, useDialog } from 'naive-ui';
 import InfiniteLoading from 'v3-infinite-loading';
 import { getPosts, getIndexTrends } from '@/api/post';
 import SlideBar from '@opentiny/vue-slide-bar';
@@ -99,13 +105,14 @@ import { storeToRefs } from 'pinia';
 import { Api } from '@/utils/request';
 import { usePagination } from '@/composables/usePagination';
 import UserAction from '@/composables/useUserAction';
+import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
 
 const storeMain = useStoreMain();
 const storeUser = useStoreUser();
 const storeProfile = useStoreProfile();
 const { desktopModelShow, refresh } = storeToRefs(storeMain);
 const { userInfo } = storeToRefs(storeUser);
-const { profile } = storeToRefs(storeProfile);
+const { profile, currentSpaceSlug, spaces, activeSpaceMembers } = storeToRefs(storeProfile);
 
 const route = useRoute();
 const router = useRouter();
@@ -174,17 +181,49 @@ const user = reactive<Item.UserInfo>({
 });
 const inActionPost = ref<Item.PostProps | null>(null);
 
-const title = ref<string>('Evt 广场');
 const targetStyle = ref<number>(1);
 const targetUsername = ref<string>('');
 const list = ref<any[]>([]);
 const showAddFriendWhisper = ref(false);
+const selectedSpaceSlug = ref('');
 
 // 使用 usePagination composable
 const { loading, noMore, page, pageSize, totalPage, reset, nextPage } = usePagination(20);
 
 // 使用 UserAction.useWhisper()
 const { showWhisper, whisperReceiver, onSendWhisper, whisperSuccess } = UserAction.useWhisper();
+
+const spaceOptions = computed(() =>
+  spaces.value.map((item) => ({
+    label: `${item.name}${item.visibility === 'private' ? ' · 私密' : ''}`,
+    value: item.slug,
+  })),
+);
+
+const activeSpace = computed(() => {
+  return (
+    spaces.value.find((item) => item.slug === selectedSpaceSlug.value) ||
+    spaces.value.find((item) => item.slug === currentSpaceSlug.value) ||
+    spaces.value[0] ||
+    null
+  );
+});
+
+const canManageActiveSpace = computed(() => {
+  const space = activeSpace.value;
+  if (!space || userInfo.value.id <= 0) {
+    return false;
+  }
+  return (
+    space.owner_user_id === userInfo.value.id ||
+    space.current_user_role === 'owner' ||
+    space.current_user_role === 'admin'
+  );
+});
+const memberRoleOptions = [
+  { label: '普通成员', value: 'member' },
+  { label: '广场管理员', value: 'admin' },
+];
 
 const openAddFriendWhisper = () => {
   showAddFriendWhisper.value = true;
@@ -242,17 +281,6 @@ function postFollowAction(userId: number, isFollowing: boolean) {
     loadPosts('following');
   }
 }
-
-const updateTitle = () => {
-  title.value = 'Evt 广场';
-  if (route.query && route.query.q) {
-    if (route.query.t && route.query.t === 'tag') {
-      title.value = '#' + decodeURIComponent(route.query.q as string);
-    } else {
-      title.value = '搜索: ' + decodeURIComponent(route.query.q as string);
-    }
-  }
-};
 
 const showTrendsTag = computed(() => {
   return (
@@ -346,6 +374,7 @@ const loadPosts = (style: 'newest' | 'hots' | 'following' | 'search') => {
   getPosts({
     query: route.query.q ? decodeURIComponent(route.query.q as string) : null,
     type: route.query.t as string,
+    space_slug: selectedSpaceSlug.value || currentSpaceSlug.value,
     style: style,
     page: page.value,
     page_size: pageSize.value,
@@ -371,6 +400,204 @@ const loadPosts = (style: 'newest' | 'hots' | 'following' | 'search') => {
         page.value--;
       }
     });
+};
+
+const syncSpaceFromRoute = () => {
+  const routeSpace = typeof route.query.space === 'string' ? route.query.space : '';
+  selectedSpaceSlug.value = routeSpace || currentSpaceSlug.value;
+  currentSpaceSlug.value = selectedSpaceSlug.value;
+};
+
+const loadSpaces = () => {
+  if (!profile.value.enableSpaces) {
+    return Promise.resolve();
+  }
+  return Api.v1.spaces.get
+    ._self({
+      limit: 100,
+    })
+    .then((res) => {
+      spaces.value = res || [];
+      if (!spaces.value.length) {
+        selectedSpaceSlug.value = profile.value.defaultSpaceSlug;
+        currentSpaceSlug.value = selectedSpaceSlug.value;
+        return;
+      }
+      const candidate =
+        selectedSpaceSlug.value || currentSpaceSlug.value || profile.value.defaultSpaceSlug;
+      selectedSpaceSlug.value =
+        spaces.value.find((item) => item.slug === candidate)?.slug || spaces.value[0].slug;
+      currentSpaceSlug.value = selectedSpaceSlug.value;
+    })
+    .catch(() => {
+      spaces.value = [];
+    });
+};
+
+const loadActiveSpaceMembers = async () => {
+  const space = activeSpace.value;
+  if (!space || !canManageActiveSpace.value) {
+    activeSpaceMembers.value = [];
+    return;
+  }
+  activeSpaceMembers.value = await Api.v1.spaces.get.members({
+    space_id: space.id,
+  });
+};
+
+const openCreateSpaceDialog = () => {
+  router.push({
+    name: 'create-space',
+    query: selectedSpaceSlug.value
+      ? {
+          from: selectedSpaceSlug.value,
+        }
+      : undefined,
+  });
+};
+
+const openAddMemberDialog = () => {
+  const space = activeSpace.value;
+  if (!space) {
+    return;
+  }
+
+  let username = '';
+  let role: 'member' | 'admin' = 'member';
+
+  dialog.create({
+    title: `添加成员到 ${space.name}`,
+    content: () =>
+      h('div', { class: 'space-dialog-form' }, [
+        h(NInput, {
+          placeholder: '用户名',
+          onUpdateValue: (value: string) => {
+            username = value;
+          },
+        }),
+        h(NSelect, {
+          style: 'margin-top: 12px;',
+          value: role,
+          options: [
+            { label: '普通成员', value: 'member' },
+            { label: '广场管理员', value: 'admin' },
+          ],
+          'onUpdate:value': (value: 'member' | 'admin') => {
+            role = value;
+          },
+        }),
+      ]),
+    positiveText: '添加',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      await Api.v1.spaces.post.members({
+        space_id: space.id,
+        username,
+        role,
+      });
+      window.$message.success('成员添加成功');
+      await loadSpaces();
+      await loadActiveSpaceMembers();
+    },
+  });
+};
+
+const openManageMembersDialog = async () => {
+  const space = activeSpace.value;
+  if (!space) {
+    return;
+  }
+
+  await loadActiveSpaceMembers();
+
+  dialog.create({
+    title: `${space.name} 成员管理`,
+    content: () =>
+      activeSpaceMembers.value.length === 0
+        ? h('div', { class: 'space-member-empty' }, '当前广场还没有可管理的成员')
+        : h('div', { class: 'space-member-list' }, [
+            ...activeSpaceMembers.value.map((member) =>
+              h('div', { class: 'space-member-row', key: `${member.space_id}-${member.user_id}` }, [
+                h('div', { class: 'space-member-copy' }, [
+                  h('img', {
+                    class: 'space-member-avatar',
+                    src: member.avatar || DEFAULT_USER_AVATAR,
+                    alt: member.nickname || member.username,
+                  }),
+                  h('div', { class: 'space-member-meta' }, [
+                    h(
+                      'strong',
+                      {},
+                      member.user_id === space.owner_user_id
+                        ? `${member.nickname || member.username} · 创建者`
+                        : member.nickname || member.username,
+                    ),
+                    h(
+                      'span',
+                      {},
+                      `@${member.username} · ${
+                        member.role === 'owner'
+                          ? '拥有者'
+                          : member.role === 'admin'
+                            ? '管理员'
+                            : '成员'
+                      }`,
+                    ),
+                  ]),
+                ]),
+                member.user_id === space.owner_user_id
+                  ? h('div', { class: 'space-member-owner' }, '不可修改')
+                  : h('div', { class: 'space-member-actions' }, [
+                      h(NSelect, {
+                        value: member.role === 'owner' ? 'admin' : member.role,
+                        options: memberRoleOptions,
+                        style: 'width: 140px;',
+                        'onUpdate:value': async (value: 'member' | 'admin') => {
+                          await Api.v1.spaces.patch.members({
+                            space_id: space.id,
+                            user_id: member.user_id,
+                            role: value,
+                          });
+                          window.$message.success('角色更新成功');
+                          await loadActiveSpaceMembers();
+                        },
+                      }),
+                      h(
+                        'button',
+                        {
+                          class: 'space-member-remove',
+                          type: 'button',
+                          onClick: async () => {
+                            dialog.warning({
+                              title: '移除成员',
+                              content: `确认将 @${member.username} 从 ${space.name} 中移除吗？`,
+                              positiveText: '移除',
+                              negativeText: '取消',
+                              onPositiveClick: async () => {
+                                await Api.v1.spaces.delete.members({
+                                  space_id: space.id,
+                                  user_id: member.user_id,
+                                });
+                                window.$message.success('成员已移除');
+                                await loadSpaces();
+                                await loadActiveSpaceMembers();
+                              },
+                            });
+                          },
+                        },
+                        '移除',
+                      ),
+                    ]),
+              ]),
+            ),
+          ]),
+    positiveText: '关闭',
+    showIcon: false,
+    negativeText: undefined,
+    onPositiveClick: () => {
+      activeSpaceMembers.value = [];
+    },
+  });
 };
 
 const loadUserPosts = () => {
@@ -471,9 +698,12 @@ const handleNextPage = () => {
 };
 
 onMounted(() => {
+  syncSpaceFromRoute();
   resetAll();
-  loadContacts();
-  loadPosts('newest');
+  loadSpaces().finally(() => {
+    loadContacts();
+    loadPosts('newest');
+  });
 });
 
 watch(
@@ -483,10 +713,11 @@ watch(
     refresh: refresh.value,
   }),
   (to, from) => {
-    updateTitle();
+    syncSpaceFromRoute();
     if (to.refresh !== from.refresh) {
       resetAll();
       setTimeout(() => {
+        loadSpaces();
         loadContacts();
         loadMorePosts();
       }, 0);
@@ -495,19 +726,126 @@ watch(
     if (from.path !== '/post' && to.path === '/') {
       resetAll();
       setTimeout(() => {
+        loadSpaces();
         loadContacts();
         loadMorePosts();
       }, 0);
     }
   },
 );
+
+watch(selectedSpaceSlug, (value, oldValue) => {
+  if (!value || value === oldValue) {
+    return;
+  }
+  currentSpaceSlug.value = value;
+  router.replace({
+    name: 'home',
+    query: {
+      ...route.query,
+      space: value,
+    },
+  });
+  resetAll();
+  loadContacts();
+  loadPosts('newest');
+});
+
+watch(
+  () => [activeSpace.value?.id, canManageActiveSpace.value],
+  ([spaceId, canManage]) => {
+    if (!spaceId || !canManage) {
+      activeSpaceMembers.value = [];
+      return;
+    }
+    loadActiveSpaceMembers();
+  },
+  { immediate: true },
+);
 </script>
 
 <style lang="less" scoped>
+.style-wrap,
+:deep(.space-member-list) {
+  --space-accent: #18a058;
+  --space-danger-bg: rgba(210, 64, 53, 0.12);
+  --space-danger-text: #b42318;
+  --space-member-border: rgba(18, 75, 51, 0.08);
+}
+
+:deep(.space-member-list) {
+  display: grid;
+  gap: 12px;
+  min-width: 420px;
+}
+
+:deep(.space-member-row) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--space-member-border);
+}
+
+:deep(.space-member-copy) {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+:deep(.space-member-meta) {
+  display: grid;
+  gap: 4px;
+}
+
+:deep(.space-member-avatar) {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  object-fit: cover;
+  flex: 0 0 auto;
+}
+
+:deep(.space-member-copy span),
+:deep(.space-member-owner) {
+  font-size: 13px;
+  opacity: 0.72;
+}
+
+:deep(.space-member-actions) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+:deep(.space-member-empty) {
+  min-width: 320px;
+  padding: 20px 0;
+  text-align: center;
+  font-size: 14px;
+  opacity: 0.72;
+}
+
+:deep(.space-member-remove) {
+  border: 0;
+  border-radius: 999px;
+  background: var(--space-danger-bg);
+  color: var(--space-danger-text);
+  cursor: pointer;
+  padding: 8px 12px;
+}
+
+@media (max-width: 768px) {
+  .style-wrap {
+    margin-left: 12px;
+    margin-right: 12px;
+  }
+}
 
 .tiny-slide-bar .tiny-slide-bar__list > 
 div.tiny-slide-bar__select .slide-bar-item .slide-bar-item-title {
-    color: #18a058;
+    color: var(--space-accent);
     opacity: 0.8;
 }
 
@@ -515,11 +853,11 @@ div.tiny-slide-bar__select .slide-bar-item .slide-bar-item-title {
 div:hover .slide-bar-item {
     cursor: pointer;
     .slide-bar-item-avatar {
-        color: #18a058;
+        color: var(--space-accent);
         opacity: 0.8;
     }
     .slide-bar-item-title {
-        color: #18a058;
+        color: var(--space-accent);
         opacity: 0.8;
     }
 }
@@ -571,28 +909,25 @@ div:hover .slide-bar-item {
     }
 }
 
-.dark {
-    .main-content-wrap,
-    .pagination-wrap,
-    .empty-wrap,
-    .skeleton-wrap {
-        background-color: rgba(16, 16, 20, 0.75);
-    }
-    .tiny-slide-bar .tiny-slide-bar__list > 
-    div.tiny-slide-bar__select .slide-bar-item .slide-bar-item-title {
-        color: #63e2b7;
-        opacity: 0.8;
-    }
+:global(.dark) {
+  .style-wrap,
+  :deep(.space-member-list) {
+    --space-accent: #63e2b7;
+    --space-danger-bg: rgba(244, 114, 114, 0.18);
+    --space-danger-text: #fca5a5;
+    --space-member-border: rgba(148, 163, 184, 0.14);
+  }
 
-    .tiny-slide-bar .tiny-slide-bar__list > 
-    div:hover .slide-bar-item .slide-bar-item-title {
-        color: #63e2b7;
-        opacity: 0.8;
-    }
+  .main-content-wrap,
+  .pagination-wrap,
+  .empty-wrap,
+  .skeleton-wrap {
+    background-color: rgba(16, 16, 20, 0.75);
+  }
 
-    .tiny-slide-bar {
-        --ti-slider-progress-box-arrow-hover-text-color: #f2f2f2;
-        --ti-slider-progress-box-arrow-normal-text-color: #808080;
-    }
+  .tiny-slide-bar {
+    --ti-slider-progress-box-arrow-hover-text-color: #f2f2f2;
+    --ti-slider-progress-box-arrow-normal-text-color: #808080;
+  }
 }
 </style>

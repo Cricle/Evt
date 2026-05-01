@@ -864,6 +864,7 @@ onMounted(async () => {
 
 <style lang="less" scoped>
 .setting-card {
+    --admin-settings-section-bg-dark: #18181c;
     margin-top: -1px;
     border-radius: 0;
 
@@ -1025,13 +1026,11 @@ onMounted(async () => {
     }
 }
 
-.dark {
-    .setting-card {
-        background-color: rgba(16, 16, 20, 0.75);
-    }
+:global(.dark) .setting-card {
+    background-color: rgba(16, 16, 20, 0.75);
+}
 
-    .section-card {
-        background-color: #18181c;
-    }
+:global(.dark) .section-card {
+    background-color: var(--admin-settings-section-bg-dark);
 }
 </style>

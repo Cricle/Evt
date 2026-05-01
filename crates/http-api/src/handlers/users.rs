@@ -9,7 +9,7 @@ use evt_domain::{
 use serde::Deserialize;
 
 use crate::{
-    auth::authenticate_request,
+    auth::{authenticate_optional_request, authenticate_request},
     pagination::PageQuery,
     response::{ApiEnvelope, HttpApiError, success},
     state::HttpState,
@@ -72,12 +72,14 @@ pub async fn user_profile(
 pub async fn user_posts(
     State(state): State<HttpState>,
     Path(username): Path<String>,
+    headers: HeaderMap,
     Query(query): Query<PageQuery>,
 ) -> Result<Json<ApiEnvelope<PagedResponse<PostSummary>>>, HttpApiError> {
+    let actor = authenticate_optional_request(state.app(), &headers).await?;
     let (page, page_size) = query.normalized();
     let posts = state
         .app()
-        .list_user_posts(&username, page, page_size)
+        .list_user_posts_for_viewer(actor.as_ref(), &username, page, page_size)
         .await?;
     Ok(Json(success(posts)))
 }

@@ -22,10 +22,17 @@ expire_seconds = 86400
 [storage]
 local_dir = "./custom/data/attachments"
 
+[telemetry]
+enabled = false
+service_name = "evt"
+otlp_endpoint = "http://127.0.0.1:4317"
+
 [web]
 dist_dir = "./web/dist"
 
 [site]
+enable_spaces = true
+default_space_slug = "public"
 allow_user_register = true
 allow_phone_bind = true
 use_friendship = true

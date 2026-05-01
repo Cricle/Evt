@@ -4,6 +4,15 @@ use crate::AppContext;
 
 const LEGACY_ATTACHMENT_INCOME_RATE: f64 = 0.8;
 
+fn validate_upload_kind(site: &evt_domain::SiteProfile, upload_kind: &str) -> Result<(), AppError> {
+    match upload_kind {
+        "public/video" if !site.allow_tweet_video => {
+            Err(AppError::Validation("tweet video is disabled".into()))
+        }
+        _ => Ok(()),
+    }
+}
+
 impl AppContext {
     pub async fn upload_attachment(
         &self,
@@ -36,6 +45,20 @@ impl AppContext {
                 bytes.len() as i64,
                 &storage_key,
             )
+            .await
+    }
+
+    pub async fn upload_attachment_by_kind(
+        &self,
+        actor: &UserIdentity,
+        upload_kind: &str,
+        file_name: &str,
+        content_type: Option<&str>,
+        bytes: &[u8],
+    ) -> Result<AttachmentSummary, AppError> {
+        let site = self.site_profile_snapshot();
+        validate_upload_kind(&site, upload_kind)?;
+        self.upload_attachment(actor, file_name, content_type, bytes)
             .await
     }
 
@@ -136,6 +159,26 @@ impl AppContext {
 
         Ok(attachment_id)
     }
+
+    pub async fn download_attachment_with_access(
+        &self,
+        actor: &UserIdentity,
+        attachment_id: i64,
+    ) -> Result<AttachmentDownload, AppError> {
+        let content = self
+            .posts
+            .find_content_by_attachment_id(attachment_id)
+            .await?;
+
+        let Some(content) = content else {
+            return self.download_attachment(attachment_id).await;
+        };
+
+        let resolved_id = self
+            .resolve_attachment_id_from_content(actor, content.id)
+            .await?;
+        self.download_attachment(resolved_id).await
+    }
 }
 
 async fn post_attachment_price(post_id: i64, app: &AppContext) -> Result<i64, AppError> {
@@ -156,7 +199,9 @@ fn parse_attachment_id(content: &str) -> Option<i64> {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_attachment_id;
+    use evt_domain::SiteProfile;
+
+    use super::{parse_attachment_id, validate_upload_kind};
 
     #[test]
     fn parse_attachment_id_supports_legacy_content_url() {
@@ -166,5 +211,39 @@ mod tests {
             Some(7)
         );
         assert_eq!(parse_attachment_id("invalid"), None);
+    }
+
+    #[test]
+    fn video_upload_kind_requires_video_feature_flag() {
+        let site = SiteProfile {
+            default_space_slug: "public".into(),
+            enable_spaces: true,
+            use_friendship: true,
+            enable_trends_bar: true,
+            enable_wallet: false,
+            allow_tweet_attachment: true,
+            allow_tweet_attachment_price: false,
+            allow_tweet_video: false,
+            allow_user_register: true,
+            allow_phone_bind: true,
+            default_tweet_max_length: 2000,
+            tweet_web_ellipsis_size: 400,
+            tweet_mobile_ellipsis_size: 300,
+            default_tweet_visibility: "public".into(),
+            default_msg_loop_interval: 5000,
+            copyright_top: String::new(),
+            copyright_left: String::new(),
+            copyright_left_link: String::new(),
+            copyright_right: String::new(),
+            copyright_right_link: String::new(),
+        };
+
+        let result = validate_upload_kind(&site, "public/video");
+
+        assert!(matches!(
+            result,
+            Err(evt_domain::AppError::Validation(message))
+                if message.contains("tweet video is disabled")
+        ));
     }
 }

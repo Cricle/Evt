@@ -73,5 +73,8 @@ jobs:
       - name: Frontend build
         run: yarn --cwd web build
 
+      - name: Frontend unit tests with coverage
+        run: yarn --cwd web test:unit:coverage
+
       - name: Frontend browser E2E
         run: yarn --cwd web e2e

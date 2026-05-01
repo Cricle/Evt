@@ -1,9 +1,15 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
+import {
+    LEGACY_DEFAULT_SPACE_SLUG,
+    normalizeDefaultSpaceSlug,
+} from '@/utils/spaces';
 
 export const useStoreProfile = defineStore("profile", () => {
 
     const profile = ref({
+        enableSpaces: true,
+        defaultSpaceSlug: '',
         useFriendship: true,
         enableTrendsBar: true,
         enableWallet: false,
@@ -23,10 +29,19 @@ export const useStoreProfile = defineStore("profile", () => {
         copyrightRight: 'Github',
         copyrightRightLink: 'https://github.com/Cricle/Evt',
     });
+    const currentSpaceSlug = ref('');
+    const spaces = ref<Item.SpaceProps[]>([]);
+    const activeSpaceMembers = ref<Item.SpaceMemberProps[]>([]);
 
     function loadDefaultSiteProfile() {
         profile.value.useFriendship =
             import.meta.env.VITE_USE_FRIENDSHIP.toLowerCase() === 'true';
+
+        profile.value.enableSpaces = true;
+        profile.value.defaultSpaceSlug = normalizeDefaultSpaceSlug(
+            import.meta.env.VITE_DEFAULT_SPACE_SLUG,
+        );
+        currentSpaceSlug.value = '';
 
         profile.value.enableTrendsBar =
             import.meta.env.VITE_ENABLE_TRENDS_BAR.toLowerCase() === 'true';
@@ -79,6 +94,17 @@ export const useStoreProfile = defineStore("profile", () => {
     }
 
     function updateSiteProfile(data: Record<string, any>) {
+        profile.value.enableSpaces = data.enable_spaces ?? profile.value.enableSpaces;
+        profile.value.defaultSpaceSlug = normalizeDefaultSpaceSlug(
+            data.default_space_slug ?? profile.value.defaultSpaceSlug,
+        );
+        if (
+            !currentSpaceSlug.value ||
+            currentSpaceSlug.value === LEGACY_DEFAULT_SPACE_SLUG
+        ) {
+            currentSpaceSlug.value = profile.value.defaultSpaceSlug;
+        }
+
         profile.value.useFriendship = data.use_friendship ?? profile.value.useFriendship;
 
         profile.value.enableTrendsBar = data.enable_trends_bar ?? profile.value.enableTrendsBar;
@@ -125,6 +151,9 @@ export const useStoreProfile = defineStore("profile", () => {
 
     return {
         profile,
+        currentSpaceSlug,
+        spaces,
+        activeSpaceMembers,
         loadDefaultSiteProfile, updateSiteProfile,
     }
 

@@ -29,6 +29,8 @@ services:
         RUST_VERSION: ${RUST_VERSION}
         ALPINE_VERSION: ${ALPINE_VERSION}
         NPM_REGISTRY: ${NPM_REGISTRY}
+        ALPINE_MIRROR: ${ALPINE_MIRROR}
+        CARGO_REGISTRY_INDEX: ${CARGO_REGISTRY_INDEX}
         VITE_HOST: ${VITE_HOST}
     restart: always
     depends_on:

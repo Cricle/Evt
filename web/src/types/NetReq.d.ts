@@ -105,6 +105,8 @@ declare namespace NetReq {
   interface PostUnfollowTopic {}
 
   interface SiteProfile {
+    enable_spaces?: boolean;
+    default_space_slug?: string;
     use_friendship?: boolean;
     enable_trends_bar?: boolean;
     enable_wallet?: boolean;
@@ -122,5 +124,9 @@ declare namespace NetReq {
     copyright_left_link?: string;
     copyright_right?: string;
     copyright_right_link?: string;
+  }
+
+  interface SpaceListResp {
+    list: Item.SpaceProps[];
   }
 }

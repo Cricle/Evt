@@ -144,6 +144,21 @@ impl UserRepository {
         .map_err(map_db_error)
     }
 
+    pub async fn find_first_summary(&self) -> Result<Option<UserSummary>, AppError> {
+        sqlx::query_as::<_, UserSummaryRow>(
+            r#"
+            SELECT id, username, status
+            FROM users
+            ORDER BY id ASC
+            LIMIT 1
+            "#,
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map(|row| row.map(Into::into))
+        .map_err(map_db_error)
+    }
+
     pub async fn find_preview_by_id(&self, id: i64) -> Result<Option<UserPreview>, AppError> {
         sqlx::query_as::<_, UserPreviewRow>(
             r#"
@@ -223,6 +238,13 @@ impl UserRepository {
     pub async fn find_or_create_mobile_user(&self, phone_number: &str) -> Result<User, AppError> {
         let username = format!("mobile_{}", Uuid::new_v4().simple());
         self.create_mobile_user(&username, phone_number).await
+    }
+
+    pub async fn count_all(&self) -> Result<i64, AppError> {
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM users")
+            .fetch_one(&self.pool)
+            .await
+            .map_err(map_db_error)
     }
 
     pub async fn create_local_user(

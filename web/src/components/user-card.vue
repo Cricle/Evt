@@ -164,12 +164,15 @@ const handleAction = (item: 'follow' | 'unfollow' | 'whisper') => {
 
 <style lang="less" scoped>
 .user-card {
+    --user-card-hover-bg: var(--surface-subtle);
+    --user-card-bg: var(--surface-base);
     width: 100%;
     box-sizing: border-box;
     padding: 12px 16px;
+    background-color: var(--user-card-bg);
 
     &:hover {
-        background: #f7f9f9;
+        background: var(--user-card-hover-bg);
     }
 
     .nickname-wrap {
@@ -196,15 +199,6 @@ const handleAction = (item: 'follow' | 'unfollow' | 'whisper') => {
         display: flex;
         align-items: center;
         opacity: 0.75;
-    }
-}
-
-.dark {
-    .user-card {
-        &:hover {
-            background: #18181c;
-        }
-        background-color: rgba(16, 16, 20, 0.75);
     }
 }
 </style>

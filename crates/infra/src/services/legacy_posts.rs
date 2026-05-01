@@ -11,6 +11,13 @@ use crate::{
 };
 
 impl AppContext {
+    pub fn validate_legacy_visibility(&self, visibility: i32) -> Result<(), AppError> {
+        match visibility {
+            0..=3 => Ok(()),
+            _ => Err(AppError::Validation("invalid legacy visibility".into())),
+        }
+    }
+
     pub async fn create_legacy_post(
         &self,
         actor: &UserIdentity,
@@ -19,8 +26,24 @@ impl AppContext {
         attachment_price: i64,
         visibility: i32,
     ) -> Result<evt_domain::PostSummary, AppError> {
+        self.validate_legacy_visibility(visibility)?;
+        self.create_legacy_post_in_space(actor, None, contents, tags, attachment_price, visibility)
+            .await
+    }
+
+    pub async fn create_legacy_post_in_space(
+        &self,
+        actor: &UserIdentity,
+        space_slug: Option<&str>,
+        contents: &[CreateContentInput],
+        tags: &[String],
+        attachment_price: i64,
+        visibility: i32,
+    ) -> Result<evt_domain::PostSummary, AppError> {
+        self.validate_legacy_visibility(visibility)?;
+        let space_id = self.resolve_space(Some(actor), space_slug).await?.id;
         let post = self
-            .create_post_with_contents_and_tags(actor, contents, tags)
+            .create_post_with_contents_and_tags(actor, space_id, contents, tags)
             .await?;
         self.legacy_posts
             .ensure_post_state(post.id, attachment_price.max(0), visibility)
@@ -57,6 +80,7 @@ impl AppContext {
         post_id: i64,
         visibility: i32,
     ) -> Result<i32, AppError> {
+        self.validate_legacy_visibility(visibility)?;
         self.ensure_legacy_post_state(post_id).await?;
         self.legacy_posts
             .set_post_visibility(post_id, visibility)
@@ -187,6 +211,14 @@ impl AppContext {
             .reply_by_id(reply_id)
             .await?
             .ok_or_else(|| AppError::NotFound("reply not found".into()))?;
+        let comment = self
+            .comments
+            .find_by_id(reply.comment_id)
+            .await?
+            .ok_or_else(|| AppError::NotFound("comment not found".into()))?;
+        let post = self.get_post(comment.post_id).await?;
+        self.ensure_can_access_space_id(Some(actor), post.space_id)
+            .await?;
         let current = self.get_current_user(actor).await?;
         if reply.user_id != actor.id && !current.is_admin {
             return Err(AppError::Unauthorized(
@@ -210,6 +242,16 @@ impl AppContext {
         comment_id: i64,
         thumbs_up: bool,
     ) -> Result<(), AppError> {
+        let comment = self
+            .comments
+            .find_by_id(comment_id)
+            .await?
+            .ok_or_else(|| AppError::NotFound("comment not found".into()))?;
+        if comment.post_id != post_id {
+            return Err(AppError::Validation(
+                "comment does not belong to the post".into(),
+            ));
+        }
         self.legacy_posts
             .toggle_reaction(
                 actor.id,
@@ -230,6 +272,26 @@ impl AppContext {
         reply_id: i64,
         thumbs_up: bool,
     ) -> Result<(), AppError> {
+        let comment = self
+            .comments
+            .find_by_id(comment_id)
+            .await?
+            .ok_or_else(|| AppError::NotFound("comment not found".into()))?;
+        if comment.post_id != post_id {
+            return Err(AppError::Validation(
+                "comment does not belong to the post".into(),
+            ));
+        }
+        let reply = self
+            .legacy_posts
+            .reply_by_id(reply_id)
+            .await?
+            .ok_or_else(|| AppError::NotFound("reply not found".into()))?;
+        if reply.comment_id != comment_id {
+            return Err(AppError::Validation(
+                "reply does not belong to the comment".into(),
+            ));
+        }
         self.legacy_posts
             .toggle_reaction(
                 actor.id,

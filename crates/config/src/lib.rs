@@ -7,6 +7,7 @@ pub struct Settings {
     pub database: DatabaseSettings,
     pub jwt: JwtSettings,
     pub storage: StorageSettings,
+    pub telemetry: TelemetrySettings,
     pub web: WebSettings,
     pub site: SiteSettings,
 }
@@ -54,12 +55,21 @@ pub struct StorageSettings {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+pub struct TelemetrySettings {
+    pub enabled: bool,
+    pub service_name: String,
+    pub otlp_endpoint: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
 pub struct WebSettings {
     pub dist_dir: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct SiteSettings {
+    pub enable_spaces: bool,
+    pub default_space_slug: String,
     pub allow_user_register: bool,
     pub allow_phone_bind: bool,
     pub use_friendship: bool,

@@ -27,6 +27,14 @@ const routes = [
     component: () => import('@/views/Compose.vue'),
   },
   {
+    path: '/spaces/create',
+    name: 'create-space',
+    meta: {
+      title: '新建广场',
+    },
+    component: () => import('@/views/CreateSpace.vue'),
+  },
+  {
     path: '/post',
     name: 'post',
     meta: {

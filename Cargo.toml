@@ -37,7 +37,11 @@ tonic = { version = "0.12", features = ["transport"] }
 tonic-build = "0.12"
 tower-http = { version = "0.6", features = ["cors", "trace", "fs"] }
 tracing = "0.1"
+tracing-opentelemetry = "0.29"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+opentelemetry = "0.28"
+opentelemetry_sdk = "0.28"
+opentelemetry-otlp = { version = "0.28", features = ["grpc-tonic"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 
 [profile.release]

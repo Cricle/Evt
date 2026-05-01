@@ -13,7 +13,7 @@
           <button
             type="button"
             class="auth-switch-btn"
-            :class="{ active: mode === 'signin' }"
+            :class="{ active: mode === 'signin', subtle: mode !== 'signin' }"
             @click="switchMode('signin')"
           >
             登录
@@ -22,7 +22,7 @@
             v-if="profile.allowUserRegister"
             type="button"
             class="auth-switch-btn"
-            :class="{ active: mode === 'signup' }"
+            :class="{ active: mode === 'signup', subtle: mode !== 'signup' }"
             @click="switchMode('signup')"
           >
             注册
@@ -85,7 +85,14 @@
               @keyup.enter.prevent="handleRegister"
             />
           </n-form-item>
-          <n-button type="primary" block strong secondary :loading="loading" @click="handleRegister">
+          <n-button
+            type="primary"
+            block
+            strong
+            :loading="loading"
+            class="auth-submit-btn"
+            @click="handleRegister"
+          >
             注册
           </n-button>
         </n-form>
@@ -236,10 +243,30 @@ const handleRegister = () => {
 
 <style scoped lang="less">
 .auth-page {
+  --auth-bg-base: #f8fbf8;
+  --auth-bg-top: rgba(24, 160, 88, 0.14);
+  --auth-bg-bottom: #edf4ef;
+  --auth-panel-border: rgba(15, 23, 42, 0.08);
+  --auth-panel-bg: rgba(255, 255, 255, 0.9);
+  --auth-panel-shadow: rgba(15, 23, 42, 0.1);
+  --auth-input-bg: rgba(255, 255, 255, 0.9);
+  --auth-input-border: rgba(15, 23, 42, 0.08);
+  --auth-text-main: #18201b;
+  --auth-text-subtle: rgba(24, 32, 27, 0.72);
+  --auth-badge-bg: rgba(24, 160, 88, 0.12);
+  --auth-badge-text: #12895a;
+  --auth-switch-bg: rgba(15, 23, 42, 0.06);
+  --auth-switch-text: rgba(24, 32, 27, 0.8);
+  --auth-switch-hover-bg: rgba(24, 160, 88, 0.12);
+  --auth-switch-hover-text: #12895a;
+  --auth-primary-start: #0f9f6e;
+  --auth-primary-end: #34bf82;
+  --auth-active-shadow: rgba(22, 148, 98, 0.22);
+  --auth-submit-shadow: rgba(22, 148, 98, 0.18);
   min-height: 100vh;
   background:
-    radial-gradient(circle at top left, rgba(53, 194, 129, 0.18), transparent 28%),
-    linear-gradient(180deg, #f4fbf7 0%, #edf3ef 100%);
+    radial-gradient(circle at top left, var(--auth-bg-top), transparent 28%),
+    linear-gradient(180deg, var(--auth-bg-base) 0%, var(--auth-bg-bottom) 100%);
 }
 
 .auth-shell {
@@ -250,10 +277,10 @@ const handleRegister = () => {
   max-width: 460px;
   margin: 0 auto;
   padding: 28px;
-  border: 1px solid rgba(20, 89, 60, 0.08);
+  border: 1px solid var(--auth-panel-border);
   border-radius: 28px;
-  background: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 28px 60px rgba(43, 94, 69, 0.12);
+  background: var(--auth-panel-bg);
+  box-shadow: 0 28px 60px var(--auth-panel-shadow);
   backdrop-filter: blur(10px);
   animation: auth-rise 0.28s ease;
 }
@@ -269,7 +296,7 @@ const handleRegister = () => {
 
   p {
     margin: 0;
-    color: rgba(24, 30, 27, 0.72);
+    color: var(--auth-text-subtle);
   }
 }
 
@@ -280,8 +307,8 @@ const handleRegister = () => {
   height: 30px;
   padding: 0 14px;
   border-radius: 999px;
-  background: rgba(29, 168, 108, 0.12);
-  color: #12895a;
+  background: var(--auth-badge-bg);
+  color: var(--auth-badge-text);
   font-weight: 700;
 }
 
@@ -292,25 +319,107 @@ const handleRegister = () => {
 }
 
 .auth-switch-btn {
+  --auth-switch-btn-text: #fff;
   flex: 1;
   height: 44px;
   border: 0;
   border-radius: 14px;
-  background: rgba(20, 89, 60, 0.06);
-  color: rgba(18, 28, 23, 0.8);
+  background: var(--auth-switch-bg);
+  color: var(--auth-switch-text);
   cursor: pointer;
   transition: all 0.2s ease;
 
   &.active {
-    background: linear-gradient(135deg, #0f9f6e, #34bf82);
-    color: #fff;
-    box-shadow: 0 12px 26px rgba(22, 148, 98, 0.22);
+    background: linear-gradient(135deg, var(--auth-primary-start), var(--auth-primary-end));
+    color: var(--auth-switch-btn-text);
+    box-shadow: 0 12px 26px var(--auth-active-shadow);
+  }
+
+  &.subtle:hover {
+    background: var(--auth-switch-hover-bg);
+    color: var(--auth-switch-hover-text);
   }
 }
 
 .auth-form {
   display: grid;
   gap: 8px;
+}
+
+.auth-submit-btn {
+  background: linear-gradient(135deg, var(--auth-primary-start), var(--auth-primary-end));
+  border-color: transparent;
+  box-shadow: 0 14px 30px var(--auth-submit-shadow);
+}
+
+.auth-page :deep(.n-form-item-label__text),
+.auth-page :deep(.n-input__placeholder),
+.auth-page :deep(.n-input__input-el),
+.auth-page :deep(.n-button__content) {
+  color: var(--auth-text-main);
+}
+
+.auth-page :deep(.n-input) {
+  --n-border: var(--auth-input-border);
+  --n-border-hover: var(--auth-primary-start);
+  --n-border-focus: var(--auth-primary-start);
+  --n-border-disabled: var(--auth-input-border);
+  --n-box-shadow-focus: 0 0 0 2px color-mix(in srgb, var(--auth-primary-start) 18%, transparent);
+  --n-color: var(--auth-input-bg);
+  --n-color-focus: var(--auth-input-bg);
+  --n-text-color: var(--auth-text-main);
+  --n-caret-color: var(--auth-primary-start);
+  --n-placeholder-color: var(--auth-text-subtle);
+}
+
+.auth-page :deep(.n-input .n-input__input-el),
+.auth-page :deep(.n-input .n-input__textarea-el) {
+  color-scheme: light;
+}
+
+.auth-page :deep(.n-button--primary-type) {
+  --n-color: transparent;
+  --n-color-hover: transparent;
+  --n-color-pressed: transparent;
+  --n-color-focus: transparent;
+  --n-border: transparent;
+  --n-border-hover: transparent;
+  --n-border-pressed: transparent;
+  --n-border-focus: transparent;
+  --n-ripple-color: rgba(255, 255, 255, 0.18);
+  color: var(--auth-switch-btn-text);
+}
+
+:global(.dark) .auth-page {
+  --auth-bg-base: #0d1212;
+  --auth-bg-top: rgba(99, 226, 183, 0.12);
+  --auth-bg-bottom: #111717;
+  --auth-panel-border: rgba(148, 163, 184, 0.12);
+  --auth-panel-bg: rgba(18, 24, 24, 0.9);
+  --auth-panel-shadow: rgba(0, 0, 0, 0.42);
+  --auth-input-bg: rgba(25, 33, 33, 0.92);
+  --auth-input-border: rgba(148, 163, 184, 0.16);
+  --auth-text-main: rgba(241, 245, 249, 0.94);
+  --auth-text-subtle: rgba(226, 232, 240, 0.72);
+  --auth-badge-bg: rgba(99, 226, 183, 0.14);
+  --auth-badge-text: #63e2b7;
+  --auth-switch-bg: rgba(148, 163, 184, 0.12);
+  --auth-switch-text: rgba(241, 245, 249, 0.86);
+  --auth-switch-hover-bg: rgba(99, 226, 183, 0.16);
+  --auth-switch-hover-text: #63e2b7;
+  --auth-primary-start: #21c58a;
+  --auth-primary-end: #63e2b7;
+  --auth-active-shadow: rgba(54, 199, 132, 0.28);
+  --auth-submit-shadow: rgba(54, 199, 132, 0.22);
+}
+
+:global(.dark) .auth-hero h1 {
+  color: var(--auth-text-main);
+}
+
+:global(.dark) .auth-page :deep(.n-input .n-input__input-el),
+:global(.dark) .auth-page :deep(.n-input .n-input__textarea-el) {
+  color-scheme: dark;
 }
 
 @keyframes auth-rise {

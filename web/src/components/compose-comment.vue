@@ -97,7 +97,7 @@
       </div>
       <div v-else class="login-wrap">
         <n-button strong secondary round type="primary" @click="goAuth('signin')">登录</n-button>
-        <n-button strong secondary round type="info" @click="goAuth('signup')">注册</n-button>
+        <n-button strong secondary round type="primary" ghost @click="goAuth('signup')">注册</n-button>
       </div>
     </div>
   </div>
@@ -310,9 +310,17 @@ const submitPost = () => {
 
 <style lang="less" scoped>
 .compose-wrap {
+  --comment-soft-bg: rgba(16, 136, 91, 0.08);
+  --comment-soft-bg-hover: rgba(16, 136, 91, 0.14);
+  --comment-soft-bg-muted: rgba(16, 136, 91, 0.06);
+  --comment-accent: #12724d;
+  --comment-panel-bg: transparent;
+  --comment-remove-bg: rgba(0, 0, 0, 0.58);
+  --comment-remove-text: #fff;
   width: 100%;
   padding: 16px;
   box-sizing: border-box;
+  background-color: var(--comment-panel-bg);
 
   .compose-line {
     display: flex;
@@ -382,14 +390,14 @@ const submitPost = () => {
   padding: 0 14px;
   border: 0;
   border-radius: 999px;
-  background: rgba(16, 136, 91, 0.08);
-  color: #12724d;
+  background: var(--comment-soft-bg);
+  color: var(--comment-accent);
   cursor: pointer;
   transition: transform 0.18s ease, background-color 0.18s ease;
 
   &:hover {
     transform: translateY(-1px);
-    background: rgba(16, 136, 91, 0.14);
+    background: var(--comment-soft-bg-hover);
   }
 
   &:disabled {
@@ -421,7 +429,7 @@ const submitPost = () => {
   gap: 12px;
   padding: 10px 12px;
   border-radius: 14px;
-  background: rgba(16, 136, 91, 0.06);
+  background: var(--comment-soft-bg-muted);
 }
 
 .asset-grid {
@@ -453,8 +461,8 @@ const submitPost = () => {
   height: 24px;
   border: 0;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.58);
-  color: #fff;
+  background: var(--comment-remove-bg);
+  color: var(--comment-remove-text);
   cursor: pointer;
 }
 
@@ -480,9 +488,12 @@ const submitPost = () => {
   }
 }
 
-.dark {
-  .compose-wrap {
-    background-color: rgba(16, 16, 20, 0.75);
-  }
+:global(.dark) .compose-wrap {
+  --comment-soft-bg: rgba(99, 226, 183, 0.12);
+  --comment-soft-bg-hover: rgba(99, 226, 183, 0.18);
+  --comment-soft-bg-muted: rgba(99, 226, 183, 0.08);
+  --comment-accent: #63e2b7;
+  --comment-panel-bg: rgba(16, 16, 20, 0.75);
+  --comment-remove-bg: rgba(15, 23, 42, 0.72);
 }
 </style>

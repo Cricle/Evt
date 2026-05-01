@@ -1,4 +1,4 @@
-.PHONY: all build build-web run test clean fmt tauri-build docker-build help
+.PHONY: all build build-web run test test-web coverage-web coverage-rust coverage clean fmt tauri-build docker-build help
 
 APP_BIN = target/release/evt
 WEB_DIR = web
@@ -20,6 +20,17 @@ run:
 test:
 	@cargo test --workspace
 
+test-web:
+	@cd $(WEB_DIR) && corepack yarn test:unit && corepack yarn e2e
+
+coverage-web:
+	@cd $(WEB_DIR) && corepack yarn test:unit:coverage
+
+coverage-rust:
+	@cargo llvm-cov --workspace --html
+
+coverage: coverage-rust coverage-web
+
 clean:
 	@cargo clean
 
@@ -35,6 +46,8 @@ docker-build:
 		--build-arg RUST_VERSION="$(RUST_VERSION)" \
 		--build-arg ALPINE_VERSION="$(ALPINE_VERSION)" \
 		--build-arg NPM_REGISTRY="$(NPM_REGISTRY)" \
+		--build-arg ALPINE_MIRROR="$(ALPINE_MIRROR)" \
+		--build-arg CARGO_REGISTRY_INDEX="$(CARGO_REGISTRY_INDEX)" \
 		--build-arg VITE_HOST="$(VITE_HOST)" \
 		-f Dockerfile .
 
@@ -43,4 +56,8 @@ help:
 	@echo "make build-web: build the Vue web bundle for same-origin serving"
 	@echo "make run: start the Rust backend"
 	@echo "make test: run the Rust workspace tests"
+	@echo "make test-web: run frontend unit tests and browser E2E"
+	@echo "make coverage-rust: generate Rust HTML coverage report"
+	@echo "make coverage-web: generate frontend unit coverage report"
+	@echo "make coverage: generate Rust and frontend coverage reports"
 	@echo "make tauri-build: build the desktop shell"

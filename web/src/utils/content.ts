@@ -31,6 +31,7 @@ export const toPlainText = (content: string) => {
     ALLOWED_TAGS: [],
     ALLOWED_ATTR: [],
   })
+    .replace(/&nbsp;/gi, ' ')
     .replace(/\u00a0/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();

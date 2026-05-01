@@ -98,7 +98,6 @@ const handleReaction = (emoji: string) => {
     content: emoji,
   })
     .then(() => {
-      window.$message.success(`已添加表情 ${emoji}`);
       emit('reload');
     })
     .catch((err) => {
@@ -125,11 +124,15 @@ const execDelAction = () => {
 
 <style lang="less" scoped>
 .reply-item {
+    --reply-item-border: #f3f3f3;
+    --reply-item-bg: transparent;
+    --reply-item-accent: #18a058;
     display: flex;
     flex-direction: column;
     font-size: 12px;
     padding: 8px;
-    border-bottom: 1px solid #f3f3f3;
+    border-bottom: 1px solid var(--reply-item-border);
+    background-color: var(--reply-item-bg);
 
     .header-wrap {
         display: flex;
@@ -214,7 +217,7 @@ const execDelAction = () => {
              }
 
             .show {
-                color: #18a058;
+                color: var(--reply-item-accent);
                 cursor: pointer;
                 transition: transform 0.18s ease, opacity 0.18s ease;
                 &:hover {
@@ -230,18 +233,9 @@ const execDelAction = () => {
     }
 }
 
-.dark {
-    .reply-item {
-        border-bottom: 1px solid #262628;
-        background-color: rgba(16, 16, 20, 0.75);
-
-        .base-wrap {
-            .reply-switch {
-                .show {
-                    color: #63e2b7;
-                }
-            }
-        }
-    }
+:global(.dark) .reply-item {
+    --reply-item-border: #262628;
+    --reply-item-bg: rgba(16, 16, 20, 0.75);
+    --reply-item-accent: #63e2b7;
 }
 </style>

@@ -309,3 +309,31 @@ fn into_admin_value_item(item: evt_domain::SiteSettingValueItem) -> AdminSetting
         active: item.active,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::into_admin_value_item;
+
+    #[test]
+    fn into_admin_value_item_preserves_runtime_flags() {
+        let item = into_admin_value_item(evt_domain::SiteSettingValueItem {
+            key: "web_profile.enable_trends_bar".into(),
+            value: json!(false),
+            effective_value: json!(true),
+            source: "override".into(),
+            pending_restart: false,
+            configured: true,
+            active: true,
+        });
+
+        assert_eq!(item.key, "web_profile.enable_trends_bar");
+        assert_eq!(item.value, json!(false));
+        assert_eq!(item.effective_value, json!(true));
+        assert_eq!(item.source, "override");
+        assert!(item.configured);
+        assert!(item.active);
+        assert!(!item.pending_restart);
+    }
+}

@@ -7,9 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     auth::authenticate_request,
-    handlers::legacy_access::{
-        batch_relation_maps, can_view_post, ensure_can_view_post, legacy_visibility,
-    },
+    handlers::legacy_access::{batch_relation_maps, ensure_can_view_post},
     handlers::legacy_users::{
         CompatListResponse, CompatPageQuery, CompatPager, CompatPost, apply_post_state,
         compat_user_from_post, group_post_contents, to_compat_post,
@@ -89,7 +87,7 @@ pub async fn user_collections(
     let page_size = query.page_size.unwrap_or(20).clamp(1, 100);
     let posts = state
         .app()
-        .list_user_collections(&actor, page, page_size)
+        .list_user_collections_for_viewer(&actor, &actor, page, page_size)
         .await?;
     let post_ids = posts.items.iter().map(|item| item.id).collect::<Vec<_>>();
     let grouped_contents = group_post_contents(state.app().list_post_contents(&post_ids).await?);
@@ -107,18 +105,6 @@ pub async fn user_collections(
         list: posts
             .items
             .into_iter()
-            .filter(|post| {
-                can_view_post(
-                    Some(&actor),
-                    post.user_id,
-                    legacy_visibility(post_states.get(&post.id)),
-                    following_status
-                        .get(&post.user_id)
-                        .copied()
-                        .unwrap_or(false),
-                    friend_status.get(&post.user_id).copied().unwrap_or(false),
-                )
-            })
             .map(|post| {
                 let mut item = to_compat_post(
                     &post,

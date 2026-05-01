@@ -1,6 +1,11 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+pub const PUBLIC_SPACE_SLUG: &str = "public";
+pub const LEGACY_DEFAULT_SPACE_SLUG: &str = "square";
+pub const PUBLIC_SPACE_NAME: &str = "公共广场";
+pub const PUBLIC_SPACE_DESCRIPTION: &str = "所有成员默认加入的公共广场";
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct User {
     pub id: i64,
@@ -92,6 +97,53 @@ pub struct UserMeta {
     pub balance: i64,
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SpaceRole {
+    Member = 0,
+    Admin = 1,
+    Owner = 2,
+}
+
+impl SpaceRole {
+    pub fn can_manage_members(self) -> bool {
+        matches!(self, Self::Admin | Self::Owner)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SpaceVisibility {
+    Public = 0,
+    Private = 1,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct SpaceSummary {
+    pub id: i64,
+    pub slug: String,
+    pub name: String,
+    pub description: String,
+    pub owner_user_id: i64,
+    pub visibility: SpaceVisibility,
+    pub members_count: i64,
+    pub current_user_role: Option<SpaceRole>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct SpaceMemberSummary {
+    pub space_id: i64,
+    pub user_id: i64,
+    pub username: String,
+    pub nickname: String,
+    pub avatar: String,
+    pub role: SpaceRole,
+    pub invited_by_user_id: i64,
+    pub created_at: DateTime<Utc>,
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub struct FollowActionResult {
     pub following: bool,
@@ -150,6 +202,7 @@ pub struct UnreadCount {
 #[derive(Clone, Debug, Serialize)]
 pub struct PostSummary {
     pub id: i64,
+    pub space_id: i64,
     pub user_id: i64,
     pub username: String,
     pub content: String,
@@ -173,6 +226,7 @@ pub struct LegacyPostState {
 #[derive(Clone, Debug, Serialize)]
 pub struct TagSummary {
     pub id: i64,
+    pub space_id: i64,
     pub user_id: i64,
     pub username: String,
     pub tag: String,
@@ -197,6 +251,7 @@ pub struct CommentSummary {
 pub struct LegacyCommentState {
     pub comment_id: i64,
     pub is_essence: bool,
+    pub is_reaction: bool,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -239,6 +294,22 @@ pub struct CommentContentItem {
 }
 
 #[derive(Clone, Debug, Serialize)]
+pub struct PostReactionSummary {
+    pub emoji: String,
+    pub count: i64,
+    pub active: bool,
+    pub users: Vec<UserPreview>,
+    pub comment_ids: Vec<i64>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct TogglePostReactionResult {
+    pub active: bool,
+    pub reactions: Vec<PostReactionSummary>,
+    pub comment_count: i64,
+}
+
+#[derive(Clone, Debug, Serialize)]
 pub struct PagedResponse<T> {
     pub items: Vec<T>,
     pub total: i64,
@@ -255,6 +326,8 @@ pub struct VersionInfo {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct SiteProfile {
+    pub default_space_slug: String,
+    pub enable_spaces: bool,
     pub use_friendship: bool,
     pub enable_trends_bar: bool,
     pub enable_wallet: bool,

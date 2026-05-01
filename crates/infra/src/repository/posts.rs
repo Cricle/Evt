@@ -1,12 +1,13 @@
 use chrono::{DateTime, Utc};
 use evt_domain::{AppError, PagedResponse, PostContentItem, PostSummary};
-use sqlx::{FromRow, MySql, MySqlPool, QueryBuilder};
+use sqlx::{FromRow, MySql, MySqlPool, QueryBuilder, Transaction};
 
 use super::map_db_error;
 
 const POST_SUMMARY_SELECT: &str = r#"
     SELECT
       p.id,
+      p.space_id,
       p.user_id,
       u.username,
       p.content,
@@ -22,7 +23,9 @@ const POST_SUMMARY_FROM: &str = r#"
     INNER JOIN users u ON u.id = p.user_id
     LEFT JOIN (
         SELECT post_id, COUNT(*) AS comments_count
-        FROM comments
+        FROM comments c
+        LEFT JOIN legacy_comment_states lcs ON lcs.comment_id = c.id
+        WHERE COALESCE(lcs.is_reaction, FALSE) = FALSE
         GROUP BY post_id
     ) comment_stats ON comment_stats.post_id = p.id
     LEFT JOIN (
@@ -53,16 +56,18 @@ impl PostRepository {
 
     pub async fn create(
         &self,
+        space_id: i64,
         user_id: i64,
         content: &str,
         tags: &str,
     ) -> Result<PostSummary, AppError> {
         let result = sqlx::query(
             r#"
-            INSERT INTO posts (user_id, content, tags)
-            VALUES (?, ?, ?)
+            INSERT INTO posts (space_id, user_id, content, tags)
+            VALUES (?, ?, ?, ?)
             "#,
         )
+        .bind(space_id)
         .bind(user_id)
         .bind(content)
         .bind(tags)
@@ -73,6 +78,73 @@ impl PostRepository {
         self.find_by_id(result.last_insert_id() as i64)
             .await?
             .ok_or_else(|| AppError::Internal("created post cannot be loaded".into()))
+    }
+
+    pub async fn sync_search_document(&self, post_id: i64) -> Result<(), AppError> {
+        sqlx::query(
+            r#"
+            INSERT INTO search_posts (
+              post_id,
+              space_id,
+              user_id,
+              username,
+              nickname,
+              content_text,
+              tags_text,
+              created_at
+            )
+            SELECT
+              p.id,
+              p.space_id,
+              p.user_id,
+              u.username,
+              COALESCE(up.nickname, u.username) AS nickname,
+              COALESCE(
+                NULLIF(
+                  GROUP_CONCAT(
+                    CASE
+                      WHEN pc.content_type IN (1, 2, 6) THEN pc.content
+                      ELSE NULL
+                    END
+                    ORDER BY pc.sort_order ASC, pc.id ASC
+                    SEPARATOR ' '
+                  ),
+                  ''
+                ),
+                p.content
+              ) AS content_text,
+              COALESCE(p.tags, '') AS tags_text,
+              p.created_at
+            FROM posts p
+            INNER JOIN users u ON u.id = p.user_id
+            LEFT JOIN user_profiles up ON up.user_id = u.id
+            LEFT JOIN post_contents pc ON pc.post_id = p.id
+            WHERE p.id = ?
+            GROUP BY p.id, p.space_id, p.user_id, u.username, up.nickname, p.content, p.tags, p.created_at
+            ON DUPLICATE KEY UPDATE
+              space_id = VALUES(space_id),
+              user_id = VALUES(user_id),
+              username = VALUES(username),
+              nickname = VALUES(nickname),
+              content_text = VALUES(content_text),
+              tags_text = VALUES(tags_text),
+              created_at = VALUES(created_at)
+            "#,
+        )
+        .bind(post_id)
+        .execute(&self.pool)
+        .await
+        .map(|_| ())
+        .map_err(map_db_error)
+    }
+
+    pub async fn delete_search_document(&self, post_id: i64) -> Result<(), AppError> {
+        sqlx::query("DELETE FROM search_posts WHERE post_id = ?")
+            .bind(post_id)
+            .execute(&self.pool)
+            .await
+            .map(|_| ())
+            .map_err(map_db_error)
     }
 
     pub async fn find_by_id(&self, id: i64) -> Result<Option<PostSummary>, AppError> {
@@ -122,20 +194,23 @@ impl PostRepository {
 
     pub async fn list(
         &self,
+        space_id: i64,
         page: u64,
         page_size: u64,
     ) -> Result<PagedResponse<PostSummary>, AppError> {
         let offset = ((page.saturating_sub(1)) * page_size) as i64;
         let page_size_i64 = page_size as i64;
 
-        let total = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM posts")
+        let total = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM posts WHERE space_id = ?")
+            .bind(space_id)
             .fetch_one(&self.pool)
             .await
             .map_err(map_db_error)?;
 
         let items = sqlx::query_as::<_, PostRow>(&post_summary_query(
-            " ORDER BY p.id DESC LIMIT ? OFFSET ?",
+            " WHERE p.space_id = ? ORDER BY p.id DESC LIMIT ? OFFSET ?",
         ))
+        .bind(space_id)
         .bind(page_size_i64)
         .bind(offset)
         .fetch_all(&self.pool)
@@ -155,19 +230,22 @@ impl PostRepository {
 
     pub async fn list_hot(
         &self,
+        space_id: i64,
         page: u64,
         page_size: u64,
     ) -> Result<PagedResponse<PostSummary>, AppError> {
         let offset = ((page.saturating_sub(1)) * page_size) as i64;
         let page_size_i64 = page_size as i64;
-        let total = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM posts")
+        let total = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM posts WHERE space_id = ?")
+            .bind(space_id)
             .fetch_one(&self.pool)
             .await
             .map_err(map_db_error)?;
 
         let items = sqlx::query_as::<_, PostRow>(&post_summary_query(
-            " ORDER BY upvote_count DESC, comments_count DESC, collection_count DESC, p.id DESC LIMIT ? OFFSET ?",
+            " WHERE p.space_id = ? ORDER BY upvote_count DESC, comments_count DESC, collection_count DESC, p.id DESC LIMIT ? OFFSET ?",
         ))
+        .bind(space_id)
         .bind(page_size_i64)
         .bind(offset)
         .fetch_all(&self.pool)
@@ -187,6 +265,7 @@ impl PostRepository {
 
     pub async fn search(
         &self,
+        space_id: i64,
         query: &str,
         query_type: Option<&str>,
         page: u64,
@@ -201,17 +280,19 @@ impl PostRepository {
                 r#"
                 SELECT COUNT(*)
                 FROM posts
-                WHERE FIND_IN_SET(?, tags) > 0
+                WHERE space_id = ? AND FIND_IN_SET(?, tags) > 0
                 "#,
             )
+            .bind(space_id)
             .bind(query)
             .fetch_one(&self.pool)
             .await
             .map_err(map_db_error)?;
 
             let items = sqlx::query_as::<_, PostRow>(&post_summary_query(
-                " WHERE FIND_IN_SET(?, p.tags) > 0 ORDER BY p.id DESC LIMIT ? OFFSET ?",
+                " WHERE p.space_id = ? AND FIND_IN_SET(?, p.tags) > 0 ORDER BY p.id DESC LIMIT ? OFFSET ?",
             ))
+            .bind(space_id)
             .bind(query)
             .bind(page_size_i64)
             .bind(offset)
@@ -231,14 +312,29 @@ impl PostRepository {
         }
 
         let pattern = format!("%{query}%");
+        let fulltext_query = query
+            .split_whitespace()
+            .filter(|item| !item.is_empty())
+            .map(|item| format!("{item}*"))
+            .collect::<Vec<_>>()
+            .join(" ");
         let total = sqlx::query_scalar::<_, i64>(
             r#"
             SELECT COUNT(*)
-            FROM posts p
-            INNER JOIN users u ON u.id = p.user_id
-            WHERE p.content LIKE ? OR u.username LIKE ? OR p.tags LIKE ?
+            FROM search_posts sp
+            WHERE sp.space_id = ?
+              AND (
+                MATCH(sp.content_text, sp.tags_text, sp.username, sp.nickname) AGAINST (? IN BOOLEAN MODE)
+                OR sp.content_text LIKE ?
+                OR sp.tags_text LIKE ?
+                OR sp.username LIKE ?
+                OR sp.nickname LIKE ?
+              )
             "#,
         )
+        .bind(space_id)
+        .bind(&fulltext_query)
+        .bind(&pattern)
         .bind(&pattern)
         .bind(&pattern)
         .bind(&pattern)
@@ -247,8 +343,11 @@ impl PostRepository {
         .map_err(map_db_error)?;
 
         let items = sqlx::query_as::<_, PostRow>(&post_summary_query(
-            " WHERE p.content LIKE ? OR u.username LIKE ? OR p.tags LIKE ? ORDER BY p.id DESC LIMIT ? OFFSET ?",
+            " INNER JOIN search_posts sp ON sp.post_id = p.id WHERE p.space_id = ? AND (MATCH(sp.content_text, sp.tags_text, sp.username, sp.nickname) AGAINST (? IN BOOLEAN MODE) OR sp.content_text LIKE ? OR sp.tags_text LIKE ? OR sp.username LIKE ? OR sp.nickname LIKE ?) ORDER BY p.id DESC LIMIT ? OFFSET ?",
         ))
+        .bind(space_id)
+        .bind(&fulltext_query)
+        .bind(&pattern)
         .bind(&pattern)
         .bind(&pattern)
         .bind(&pattern)
@@ -270,6 +369,52 @@ impl PostRepository {
     }
 
     pub async fn list_by_username(
+        &self,
+        space_id: i64,
+        username: &str,
+        page: u64,
+        page_size: u64,
+    ) -> Result<PagedResponse<PostSummary>, AppError> {
+        let offset = ((page.saturating_sub(1)) * page_size) as i64;
+        let page_size_i64 = page_size as i64;
+
+        let total = sqlx::query_scalar::<_, i64>(
+            r#"
+            SELECT COUNT(*)
+            FROM posts p
+            INNER JOIN users u ON u.id = p.user_id
+            WHERE p.space_id = ? AND u.username = ?
+            "#,
+        )
+        .bind(space_id)
+        .bind(username)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_db_error)?;
+
+        let items = sqlx::query_as::<_, PostRow>(&post_summary_query(
+            " WHERE p.space_id = ? AND u.username = ? ORDER BY p.id DESC LIMIT ? OFFSET ?",
+        ))
+        .bind(space_id)
+        .bind(username)
+        .bind(page_size_i64)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_db_error)?
+        .into_iter()
+        .map(Into::into)
+        .collect();
+
+        Ok(PagedResponse {
+            items,
+            total,
+            page,
+            page_size,
+        })
+    }
+
+    pub async fn list_all_by_username(
         &self,
         username: &str,
         page: u64,
@@ -391,6 +536,7 @@ impl PostRepository {
 
     pub async fn list_feed(
         &self,
+        space_id: i64,
         actor_id: i64,
         page: u64,
         page_size: u64,
@@ -402,14 +548,18 @@ impl PostRepository {
             r#"
             SELECT COUNT(*)
             FROM posts p
-            WHERE p.user_id = ?
-               OR p.user_id IN (
+            WHERE p.space_id = ?
+              AND (
+                   p.user_id = ?
+                OR p.user_id IN (
                     SELECT followee_id
                     FROM follows
                     WHERE follower_id = ?
                )
+              )
             "#,
         )
+        .bind(space_id)
         .bind(actor_id)
         .bind(actor_id)
         .fetch_one(&self.pool)
@@ -417,8 +567,9 @@ impl PostRepository {
         .map_err(map_db_error)?;
 
         let items = sqlx::query_as::<_, PostRow>(&post_summary_query(
-            " WHERE p.user_id = ? OR p.user_id IN (SELECT followee_id FROM follows WHERE follower_id = ?) ORDER BY p.id DESC LIMIT ? OFFSET ?",
+            " WHERE p.space_id = ? AND (p.user_id = ? OR p.user_id IN (SELECT followee_id FROM follows WHERE follower_id = ?)) ORDER BY p.id DESC LIMIT ? OFFSET ?",
         ))
+        .bind(space_id)
         .bind(actor_id)
         .bind(actor_id)
         .bind(page_size_i64)
@@ -438,8 +589,34 @@ impl PostRepository {
         })
     }
 
-    pub async fn create_content(
+    pub async fn create_tx(
         &self,
+        tx: &mut Transaction<'_, MySql>,
+        space_id: i64,
+        user_id: i64,
+        content: &str,
+        tags: &str,
+    ) -> Result<i64, AppError> {
+        let result = sqlx::query(
+            r#"
+            INSERT INTO posts (space_id, user_id, content, tags)
+            VALUES (?, ?, ?, ?)
+            "#,
+        )
+        .bind(space_id)
+        .bind(user_id)
+        .bind(content)
+        .bind(tags)
+        .execute(&mut **tx)
+        .await
+        .map_err(map_db_error)?;
+
+        Ok(result.last_insert_id() as i64)
+    }
+
+    pub async fn create_content_tx(
+        &self,
+        tx: &mut Transaction<'_, MySql>,
         post_id: i64,
         user_id: i64,
         content: &str,
@@ -457,7 +634,7 @@ impl PostRepository {
         .bind(content_type)
         .bind(content)
         .bind(sort)
-        .execute(&self.pool)
+        .execute(&mut **tx)
         .await
         .map(|_| ())
         .map_err(map_db_error)
@@ -721,11 +898,33 @@ impl PostRepository {
         .map(|row| row.map(Into::into))
         .map_err(map_db_error)
     }
+
+    pub async fn find_content_by_attachment_id(
+        &self,
+        attachment_id: i64,
+    ) -> Result<Option<PostContentItem>, AppError> {
+        let suffix = format!("/{}", attachment_id);
+        sqlx::query_as::<_, PostContentRow>(
+            r#"
+            SELECT id, post_id, user_id, content_type, content, sort_order, created_at
+            FROM post_contents
+            WHERE content_type IN (7, 8) AND TRIM(TRAILING '/' FROM content) LIKE CONCAT('%', ?)
+            ORDER BY id DESC
+            LIMIT 1
+            "#,
+        )
+        .bind(suffix)
+        .fetch_optional(&self.pool)
+        .await
+        .map(|row| row.map(Into::into))
+        .map_err(map_db_error)
+    }
 }
 
 #[derive(Debug, FromRow)]
 struct PostRow {
     id: i64,
+    space_id: i64,
     user_id: i64,
     username: String,
     content: String,
@@ -751,6 +950,7 @@ impl From<PostRow> for PostSummary {
     fn from(row: PostRow) -> Self {
         Self {
             id: row.id,
+            space_id: row.space_id,
             user_id: row.user_id,
             username: row.username,
             content: row.content,

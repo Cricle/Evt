@@ -134,6 +134,7 @@ pub struct LegacyPostsQuery {
     query: Option<String>,
     #[serde(rename = "type")]
     query_type: Option<String>,
+    space_slug: Option<String>,
     page: Option<u64>,
     page_size: Option<u64>,
     style: Option<String>,
@@ -154,6 +155,7 @@ pub struct LegacyDeleteBody {
 
 #[derive(Debug, Deserialize)]
 pub struct LegacyCreatePostBody {
+    space_slug: Option<String>,
     contents: Vec<LegacyIncomingContent>,
     tags: Vec<String>,
     users: Vec<String>,
@@ -195,19 +197,31 @@ pub async fn list_posts(
     let page_size = query.page_size.unwrap_or(20).clamp(1, 100);
     let style = query.style.as_deref().unwrap_or("newest");
     let viewer = authenticate_optional_request(state.app(), &headers).await?;
+    let space_slug = query.space_slug.as_deref();
 
     let posts = if style.eq_ignore_ascii_case("following") {
         if let Some(actor) = viewer.clone() {
-            state.app().list_feed(&actor, page, page_size).await?
+            state
+                .app()
+                .list_feed_in_space(&actor, space_slug, page, page_size)
+                .await?
         } else {
-            state.app().list_posts(page, page_size).await?
+            state
+                .app()
+                .list_posts_in_space(viewer.as_ref(), space_slug, page, page_size)
+                .await?
         }
     } else if style.eq_ignore_ascii_case("hots") {
-        state.app().list_hot_posts(page, page_size).await?
+        state
+            .app()
+            .list_hot_posts_in_space(viewer.as_ref(), space_slug, page, page_size)
+            .await?
     } else if style.eq_ignore_ascii_case("search") {
         state
             .app()
-            .search_posts(
+            .search_posts_in_space(
+                viewer.as_ref(),
+                space_slug,
                 query.query.as_deref().unwrap_or_default(),
                 query.query_type.as_deref(),
                 page,
@@ -215,7 +229,10 @@ pub async fn list_posts(
             )
             .await?
     } else {
-        state.app().list_posts(page, page_size).await?
+        state
+            .app()
+            .list_posts_in_space(viewer.as_ref(), space_slug, page, page_size)
+            .await?
     };
 
     let post_ids = posts.items.iter().map(|item| item.id).collect::<Vec<_>>();
@@ -310,8 +327,9 @@ pub async fn create_post(
         .collect::<Vec<_>>();
     let post = state
         .app()
-        .create_legacy_post(
+        .create_legacy_post_in_space(
             &actor,
+            payload.space_slug.as_deref(),
             &contents,
             &payload.tags,
             payload.attachment_price,

@@ -106,7 +106,7 @@ const storeUser = useStoreUser();
 const storeProfile = useStoreProfile();
 const { collapsedRight, refreshTopicFollow } = storeToRefs(storeMain);
 const { userInfo, userLogined } = storeToRefs(storeUser);
-const { profile } = storeToRefs(storeProfile);
+const { profile, currentSpaceSlug } = storeToRefs(storeProfile);
 
 const router = useRouter();
 const registerUserCount = ref(0);
@@ -140,6 +140,7 @@ const loadHotTags = () => {
     type: 'hot_extral',
     num: rightHotTopicMaxSize,
     extral_num: rightFollowTopicMaxSize,
+    space_slug: currentSpaceSlug.value,
   })
     .then((res) => {
       hotTags.value = res.topics;
@@ -162,6 +163,7 @@ const handleSearch = () => {
     name: 'home',
     query: {
       q: keyword.value,
+      space: currentSpaceSlug.value,
     },
   });
 };
@@ -208,6 +210,10 @@ onMounted(() => {
   }
   loadHotTags();
 });
+
+watch(currentSpaceSlug, () => {
+  loadHotTags();
+});
 </script>
 
 <style lang="less" scoped>
@@ -216,6 +222,8 @@ onMounted(() => {
   height: 0; /* 隐藏滚动条的高度 */
 }
 .rightbar-wrap {
+    --rightbar-panel-bg: transparent;
+    --rightbar-panel-bg-dark: #18181c;
     width: 240px;
     position: fixed;
     left: calc(50% + var(--content-main) / 2 + 10px);
@@ -250,6 +258,7 @@ onMounted(() => {
 
     .hottopic-wrap {
         margin-bottom: 10px;
+        background-color: var(--rightbar-panel-bg);
     }
 
     .site-info {
@@ -263,6 +272,8 @@ onMounted(() => {
     }
 
     .copyright-wrap {
+        background-color: var(--rightbar-panel-bg);
+
         .copyright {
             font-size: 12px;
             opacity: 0.75;
@@ -273,12 +284,8 @@ onMounted(() => {
         }
     }
 }
-.dark {
-    .hottopic-wrap {
-        background-color: #18181c;
-    }
-    .copyright-wrap {
-        background-color: #18181c;
-    }
+:global(.dark) .hottopic-wrap,
+:global(.dark) .copyright-wrap {
+    background-color: var(--rightbar-panel-bg-dark);
 }
 </style>

@@ -1,5 +1,7 @@
 use chrono::Utc;
-use evt_domain::{AppError, SiteProfile, VersionInfo};
+use evt_domain::{
+    AppError, LEGACY_DEFAULT_SPACE_SLUG, PUBLIC_SPACE_SLUG, SiteProfile, VersionInfo,
+};
 
 use crate::AppContext;
 
@@ -13,7 +15,15 @@ impl AppContext {
     }
 
     pub fn site_profile(&self) -> SiteProfile {
-        self.site_profile_snapshot()
+        let mut profile = self.site_profile_snapshot();
+        if profile.default_space_slug.trim().is_empty()
+            || profile
+                .default_space_slug
+                .eq_ignore_ascii_case(LEGACY_DEFAULT_SPACE_SLUG)
+        {
+            profile.default_space_slug = PUBLIC_SPACE_SLUG.to_string();
+        }
+        profile
     }
 
     pub async fn healthcheck(&self) -> Result<(), AppError> {

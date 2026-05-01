@@ -6,6 +6,7 @@ mod posts;
 mod session;
 mod site_settings;
 mod social;
+mod spaces;
 mod system;
 mod tags;
 mod users;

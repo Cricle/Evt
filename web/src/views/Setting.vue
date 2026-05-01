@@ -341,6 +341,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref, reactive } from 'vue';
+import { useRouter } from 'vue-router';
 import { useStoreMain } from '@/store/main';
 import { Edit } from '@vicons/tabler';
 import type {
@@ -366,6 +367,7 @@ const allowActivation =
 const storeMain = useStoreMain();
 const storeUser = useStoreUser();
 const storeProfile = useStoreProfile();
+const router = useRouter();
 const { userInfo } = storeToRefs(storeUser);
 const { profile } = storeToRefs(storeProfile);
 
@@ -771,9 +773,12 @@ onMounted(() => {
         }
     }
 }
-.dark {
-    .setting-card {
-        background-color: rgba(16, 16, 20, 0.75);
-    }
+.setting-card {
+    --setting-surface-bg: transparent;
+    background-color: var(--setting-surface-bg);
+}
+
+:global(.dark) .setting-card {
+    --setting-surface-bg: rgba(16, 16, 20, 0.75);
 }
 </style>

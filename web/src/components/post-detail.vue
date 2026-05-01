@@ -254,7 +254,6 @@ import {
   highlightPost,
   visibilityPost,
 } from '@/api/post';
-import { createComment } from '@/api/post';
 import type { DropdownOption } from 'naive-ui';
 import { VisibilityEnum } from '@/utils/IEnum';
 import copy from 'copy-to-clipboard';
@@ -317,6 +316,7 @@ const whisperSuccess = () => {
 
 const emit = defineEmits<{
   (e: 'reload', post_id: number): void;
+  (e: 'reaction-added', payload: { reactions: Item.ReactionGroup[]; commentCount: number }): void;
 }>();
 
 // 使用 usePostContent composable (包含额外字段)
@@ -643,24 +643,21 @@ const handlePostReaction = (emoji: string) => {
     return;
   }
 
-  createComment({
+  Api.v1.posts.post.reactions({
     post_id: post.value.id,
-    users: [],
-    contents: [
-      {
-        content: emoji,
-        type: 2,
-        sort: 100,
-      },
-    ],
+    emoji,
   })
-    .then(() => {
+    .then((res) => {
       post.value = {
         ...post.value,
-        upvote_count: post.value.upvote_count + 1,
+        reactions: res.reactions || [],
+        upvote_count: (res.reactions || []).reduce((sum, item) => sum + item.count, 0),
+        comment_count: res.comment_count,
       };
-      window.$message.success(`已添加表情 ${emoji}`);
-      emit('reload', post.value.id);
+      emit('reaction-added', {
+        reactions: res.reactions || [],
+        commentCount: res.comment_count,
+      });
     })
     .catch((err) => {
       console.log(err);
@@ -710,11 +707,12 @@ if (userInfo.value.id > 0) {
 
 <style lang="less">
 .detail-item {
+    --post-detail-bg: var(--surface-subtle);
     width: 100%;
     padding: 16px;
     box-sizing: border-box;
 
-    background: #f7f9f9;
+    background: var(--post-detail-bg);
     .nickname-wrap {
         font-size: 14px;
     }
@@ -764,11 +762,6 @@ if (userInfo.value.id > 0) {
         opacity: 0.75;
         font-size: 12px;
         margin-top: 10px;
-    }
-}
-.dark {
-    .detail-item {
-        background: #18181c;
     }
 }
 </style>

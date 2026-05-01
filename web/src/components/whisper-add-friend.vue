@@ -92,6 +92,9 @@ const sendWhisper = () => {
 
 <style lang="less" scoped>
 .whisper-wrap {
+    --whisper-surface: transparent;
+    background-color: var(--whisper-surface);
+
     .whisper-line {
         margin-top: 10px;
 
@@ -102,9 +105,8 @@ const sendWhisper = () => {
         }
     }
 }
-.dark {
-    .whisper-wrap {
-        background-color: rgba(16, 16, 20, 0.75);
-    }
+
+:global(.dark) .whisper-wrap {
+    --whisper-surface: rgba(16, 16, 20, 0.75);
 }
 </style>

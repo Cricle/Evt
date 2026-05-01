@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     auth::{authenticate_optional_request, authenticate_request},
-    handlers::legacy_access::{batch_relation_maps, can_view_post, legacy_visibility},
+    handlers::legacy_access::batch_relation_maps,
     response::{ApiEnvelope, HttpApiError, success},
     state::HttpState,
 };
@@ -190,31 +190,41 @@ pub async fn user_posts(
         "post" => {
             state
                 .app()
-                .list_user_posts(&query.username, page, page_size)
+                .list_user_posts_for_viewer(actor.as_ref(), &query.username, page, page_size)
                 .await?
         }
         "star" => {
             state
                 .app()
-                .list_user_star_posts(&query.username, page, page_size)
+                .list_user_star_posts_for_viewer(actor.as_ref(), &query.username, page, page_size)
                 .await?
         }
         "highlight" => {
             state
                 .app()
-                .list_user_highlight_posts(&query.username, page, page_size)
+                .list_user_highlight_posts_for_viewer(
+                    actor.as_ref(),
+                    &query.username,
+                    page,
+                    page_size,
+                )
                 .await?
         }
         "media" => {
             state
                 .app()
-                .list_user_media_posts(&query.username, page, page_size)
+                .list_user_media_posts_for_viewer(actor.as_ref(), &query.username, page, page_size)
                 .await?
         }
         "comment" => {
             state
                 .app()
-                .list_user_commented_posts(&query.username, page, page_size)
+                .list_user_commented_posts_for_viewer(
+                    actor.as_ref(),
+                    &query.username,
+                    page,
+                    page_size,
+                )
                 .await?
         }
         _ => {
@@ -253,18 +263,6 @@ pub async fn user_posts(
         list: posts
             .items
             .into_iter()
-            .filter(|post| {
-                can_view_post(
-                    actor.as_ref(),
-                    post.user_id,
-                    legacy_visibility(post_states.get(&post.id)),
-                    following_status
-                        .get(&post.user_id)
-                        .copied()
-                        .unwrap_or(false),
-                    friend_status.get(&post.user_id).copied().unwrap_or(false),
-                )
-            })
             .map(|post| {
                 let user = if use_profile_author && post.user_id == profile.id {
                     compat_user_from_profile(&profile, is_following, is_friend)

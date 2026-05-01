@@ -6,11 +6,13 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test:unit": "vitest run",
+    "test:unit:coverage": "vitest run --coverage",
     "check": "biome check --write",
     "format": "biome format --write",
     "tauri": "tauri",
-    "e2e": "npm_config_registry=https://registry.npmjs.org yarn playwright test",
-    "e2e:install": "npm_config_registry=https://registry.npmjs.org yarn add -D @playwright/test@^1.55.0 && npm_config_registry=https://registry.npmjs.org yarn playwright install chromium"
+    "e2e": "yarn build && npm_config_registry=https://mirrors.tuna.tsinghua.edu.cn/npm/ yarn playwright test",
+    "e2e:install": "npm_config_registry=https://mirrors.tuna.tsinghua.edu.cn/npm/ yarn add -D @playwright/test@^1.55.0 && npm_config_registry=https://mirrors.tuna.tsinghua.edu.cn/npm/ yarn playwright install chromium"
   },
   "dependencies": {
     "@ckeditor/ckeditor5-build-classic": "^44.3.0",
@@ -26,7 +28,6 @@
     "lodash": "^4.17.21",
     "moment": "^2.30.1",
     "naive-ui": "^2.41.0",
-    "paopao-video-player": "^1.0.0",
     "pinia": "^3.0.4",
     "qrcode": "^1.5.4",
     "unplugin-vue-components": "^28.5.0",
@@ -42,9 +43,12 @@
     "@types/node": "^22.14.1",
     "@types/qrcode": "^1.5.5",
     "@vitejs/plugin-vue": "^6.0.5",
+    "@vitest/coverage-v8": "^4.1.5",
     "@vue/compiler-sfc": "^3.5.13",
+    "jsdom": "^29.1.1",
     "typescript": "^5.8.3",
-    "vite": "^8.0.0"
+    "vite": "^8.0.0",
+    "vitest": "^4.1.5"
   },
   "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

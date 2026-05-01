@@ -1,23 +1,22 @@
 use std::{
     collections::HashMap,
+    path::Path,
     sync::{Arc, Mutex, RwLock},
     time::{Duration, Instant},
 };
 
 use anyhow::Context;
 use evt_config::Settings;
-use evt_domain::SiteProfile;
+use evt_domain::{LEGACY_DEFAULT_SPACE_SLUG, PUBLIC_SPACE_SLUG, SiteProfile};
 use sqlx::mysql::{MySqlPool, MySqlPoolOptions};
 
 use crate::auth::{JwtService, PasswordService};
 use crate::repository::{
     AttachmentRepository, CommentRepository, FollowRepository, FriendshipRepository,
-    LegacyPostRepository, MessageRepository, PostRepository, SiteSettingsRepository, TagRepository,
-    UserProfileRepository, UserRepository, WalletRepository,
+    LegacyPostRepository, MessageRepository, PostRepository, SiteSettingsRepository,
+    SpaceRepository, TagRepository, UserProfileRepository, UserRepository, WalletRepository,
 };
 use crate::storage::LocalAttachmentStorage;
-
-static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("../../migrations");
 
 #[derive(Clone)]
 pub struct AppContext {
@@ -34,6 +33,7 @@ pub struct AppContext {
     pub(crate) legacy_posts: LegacyPostRepository,
     pub(crate) wallet: WalletRepository,
     pub(crate) site_settings_store: SiteSettingsRepository,
+    pub(crate) spaces: SpaceRepository,
     pub(crate) tags: TagRepository,
     pub(crate) attachment_storage: LocalAttachmentStorage,
     pub(crate) site_profile: Arc<RwLock<SiteProfile>>,
@@ -57,7 +57,9 @@ impl AppContext {
             .await
             .with_context(|| "connect mysql")?;
 
-        MIGRATOR
+        sqlx::migrate::Migrator::new(Path::new("./migrations"))
+            .await
+            .with_context(|| "load migrations from ./migrations")?
             .run(&pool)
             .await
             .with_context(|| "run migrations")?;
@@ -82,6 +84,8 @@ impl AppContext {
         );
         let attachment_storage = LocalAttachmentStorage::new(&settings.storage.local_dir).await?;
         let site_profile = Arc::new(RwLock::new(SiteProfile {
+            default_space_slug: settings.site.default_space_slug.clone(),
+            enable_spaces: settings.site.enable_spaces,
             use_friendship: settings.site.use_friendship,
             enable_trends_bar: settings.site.enable_trends_bar,
             enable_wallet: settings.site.enable_wallet,
@@ -115,6 +119,7 @@ impl AppContext {
             legacy_posts: LegacyPostRepository::new(pool.clone()),
             wallet: WalletRepository::new(pool.clone()),
             site_settings_store: SiteSettingsRepository::new(pool.clone()),
+            spaces: SpaceRepository::new(pool.clone()),
             tags: TagRepository::new(pool.clone()),
             attachment_storage,
             site_profile,
@@ -127,6 +132,14 @@ impl AppContext {
 
         if let Ok(Some(payload)) = app.site_settings_store.load_payload().await {
             app.apply_site_profile_payload(&payload);
+        }
+
+        if let Some(owner) = app.users.find_first_summary().await.ok().flatten() {
+            let default_space_slug = app.site_profile_snapshot().default_space_slug;
+            let _ = app
+                .spaces
+                .ensure_default_space(&default_space_slug, owner.id)
+                .await;
         }
 
         Ok(app)
@@ -148,6 +161,24 @@ impl AppContext {
             .site_profile
             .write()
             .expect("site profile lock poisoned");
+        if let Some(value) = payload
+            .get("enable_spaces")
+            .and_then(serde_json::Value::as_bool)
+        {
+            site.enable_spaces = value;
+        }
+        if let Some(value) = payload
+            .get("default_space_slug")
+            .and_then(serde_json::Value::as_str)
+        {
+            site.default_space_slug = if value.trim().is_empty()
+                || value.eq_ignore_ascii_case(LEGACY_DEFAULT_SPACE_SLUG)
+            {
+                PUBLIC_SPACE_SLUG.to_string()
+            } else {
+                value.to_string()
+            };
+        }
         if let Some(value) = payload
             .get("use_friendship")
             .and_then(serde_json::Value::as_bool)

@@ -23,6 +23,7 @@ declare namespace NetParams {
   interface PostGetPosts {
     query: string | null;
     type: string;
+    space_slug?: string;
     style: 'newest' | 'hots' | 'following' | 'search';
     page: number;
     page_size: number;
@@ -65,6 +66,7 @@ declare namespace NetParams {
   interface PostGetTags {
     type: 'hot' | 'new' | 'follow' | 'pin' | 'hot_extral';
     num: number;
+    space_slug?: string;
     extral_num?: number;
   }
 
@@ -76,6 +78,7 @@ declare namespace NetParams {
   }
 
   interface PostCreatePost {
+    space_slug?: string;
     /** 帖子内容列表 */
     contents: Partial<Item.PostItemProps>[];
     /** 标签列表 */
@@ -135,17 +138,21 @@ declare namespace NetParams {
 
   interface PostStickTopic {
     topic_id: number;
+    space_slug?: string;
   }
 
   interface PostPinTopic {
     topic_id: number;
+    space_slug?: string;
   }
 
   interface PostFollowTopic {
     topic_id: number;
+    space_slug?: string;
   }
 
   interface PostUnfollowTopic {
     topic_id: number;
+    space_slug?: string;
   }
 }

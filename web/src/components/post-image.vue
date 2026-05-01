@@ -242,12 +242,13 @@ const props = withDefaults(
     margin-top: 10px;
 }
 .post-img {
+    --post-image-border: #eee;
     display: flex;
     margin: 0;
     border-radius: 3px;
     overflow: hidden;
     background: rgba(0, 0, 0, 0.1);
-    border: 1px solid #eee;
+    border: 1px solid var(--post-image-border);
     img {
         width: 100%;
         height: 100%;
@@ -262,10 +263,9 @@ const props = withDefaults(
 .x3 {
     height: 100px;
 }
-.dark {
-    .post-img {
-        border: 1px solid #333;
-    }
+
+.dark .post-img {
+    --post-image-border: #333;
 }
 @media screen and (max-width: 821px) {
     .x1 {

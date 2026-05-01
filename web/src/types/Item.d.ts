@@ -225,8 +225,18 @@ declare namespace Item {
     is_top: number;
     /** 是否精华 */
     is_essence: number;
+    /** 帖子表情回应聚合 */
+    reactions?: ReactionGroup[];
     /** 是否删除：0为未删除，1为已删除 */
     is_del?: 0 | 1;
+  }
+
+  interface ReactionGroup {
+    emoji: string;
+    count: number;
+    active?: boolean;
+    users: UserInfo[];
+    comment_ids?: number[];
   }
 
   /** 组件用帖子 */
@@ -349,6 +359,30 @@ declare namespace Item {
     is_pin?: 0 | 1;
     /** 是否删除：0为未删除，1为已删除 */
     is_del?: 0 | 1;
+  }
+
+  interface SpaceProps {
+    id: number;
+    slug: string;
+    name: string;
+    description: string;
+    owner_user_id: number;
+    visibility: 'public' | 'private';
+    members_count: number;
+    current_user_role?: 'owner' | 'admin' | 'member' | null;
+    created_at: string;
+    updated_at: string;
+  }
+
+  interface SpaceMemberProps {
+    space_id: number;
+    user_id: number;
+    username: string;
+    nickname: string;
+    avatar: string;
+    role: 'owner' | 'admin' | 'member';
+    invited_by_user_id: number;
+    created_at: string;
   }
 
   interface PagerProps {

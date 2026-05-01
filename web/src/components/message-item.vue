@@ -321,10 +321,14 @@ const handleReadMessage = (message: Item.MessageProps) => {
 
 <style lang="less" scoped>
 .message-item {
+  --message-item-bg: var(--surface-base);
+  --message-item-unread-bg: var(--surface-unread);
+  --message-item-brief-bg: var(--surface-base);
   padding: 16px;
+  background-color: var(--message-item-bg);
 
   &.unread {
-    background: #fcfffc;
+    background: var(--message-item-unread-bg);
   }
 
   .sender-wrap {
@@ -354,6 +358,7 @@ const handleReadMessage = (message: Item.MessageProps) => {
 
   .brief-wrap {
     margin-top: 10px;
+    background-color: var(--message-item-brief-bg);
 
     .brief-content {
       display: flex;
@@ -383,17 +388,7 @@ const handleReadMessage = (message: Item.MessageProps) => {
   }
 }
 
-.dark {
-  .message-item {
-    &.unread {
-      background: #0f180b;
-    }
-
-    .brief-wrap {
-      background-color: #18181c;
-    }
-
-    background-color: rgba(16, 16, 20, 0.75);
-  }
+:global(.dark) .message-item {
+  --message-item-brief-bg: var(--surface-subtle);
 }
 </style>

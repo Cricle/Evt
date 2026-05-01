@@ -1,6 +1,20 @@
 :root {
     // 如果要变更中间栏的大小，修改此处即可
     --content-main: 620px;
+    --nav-bg: rgba(255, 255, 255, 0.78);
+    --surface-base: transparent;
+    --surface-subtle: #f7f9f9;
+    --surface-muted: #fafafc;
+    --surface-unread: #fcfffc;
+    --surface-dark-base: rgba(16, 16, 20, 0.75);
+    --surface-dark-panel: #18181c;
+    --surface-dark-unread: #0f180b;
+    --accent-link: #18a058;
+    --accent-link-dark: #63e2b7;
+    --text-link-plain: #000;
+    --text-link-plain-dark: #eee;
+    --text-link-secondary: #333;
+    --text-link-secondary-dark: #ddd;
 }
 
 .app-container {
@@ -8,7 +22,6 @@
 
     .app-wrap {
         width: 100%;
-        // max-width: 1000px;
         margin: 0 auto;
     }
 }
@@ -44,7 +57,7 @@
 }
 
 .following-link {
-    color: #000;
+    color: var(--text-link-plain);
     text-decoration: none;
     cursor: pointer;
     opacity: 0.75;
@@ -59,14 +72,14 @@
     cursor: pointer;
 
     &:hover {
-        color: #18a058;
+        color: var(--accent-link);
         opacity: 0.8;
     }
 }
 
 .hash-link,
 .user-link {
-    color: #18a058;
+    color: var(--accent-link);
     text-decoration: none;
     cursor: pointer;
 
@@ -76,7 +89,7 @@
 }
 
 .beian-link {
-    color: #333;
+    color: var(--text-link-secondary);
     text-decoration: none;
 
     &:hover {
@@ -85,7 +98,7 @@
 }
 
 .username-link {
-    color: #000;
+    color: var(--text-link-plain);
     text-decoration: none;
     cursor: pointer;
 
@@ -95,19 +108,27 @@
 }
 
 .dark {
+    --nav-bg: rgba(18, 24, 24, 0.9);
+    --surface-base: var(--surface-dark-base);
+    --surface-subtle: var(--surface-dark-panel);
+    --surface-muted: var(--surface-dark-panel);
+    --surface-unread: var(--surface-dark-unread);
+    --accent-link: var(--accent-link-dark);
+    --text-link-plain: var(--text-link-plain-dark);
+    --text-link-secondary: var(--text-link-secondary-dark);
 
     .hash-link,
     .user-link {
-        color: #63e2b7;
+        color: var(--accent-link);
     }
 
     .following-link,
     .username-link {
-        color: #eee;
+        color: var(--text-link-plain);
     }
 
     .beian-link {
-        color: #ddd;
+        color: var(--text-link-secondary);
     }
 }
 

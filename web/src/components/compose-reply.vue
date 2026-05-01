@@ -91,7 +91,6 @@ const handleReaction = (emoji: string) => {
     content: emoji,
   })
     .then(() => {
-      window.$message.success(`已添加表情 ${emoji}`);
       emit('reload');
     })
     .catch((err) => {
@@ -123,6 +122,10 @@ defineExpose({ switchReply });
 
 <style lang="less" scoped>
 .reply-compose-wrap {
+    --reply-action-accent: #18a058;
+    --reply-panel-bg: transparent;
+    background-color: var(--reply-panel-bg);
+
     .reply-switch {
         display: flex;
         align-items: center;
@@ -164,7 +167,7 @@ defineExpose({ switchReply });
         }
 
         .show {
-            color: #18a058;
+            color: var(--reply-action-accent);
             cursor: pointer;
             opacity: 0.75;
             transition: transform 0.18s ease, opacity 0.18s ease;
@@ -182,15 +185,8 @@ defineExpose({ switchReply });
     }
 }
 
-.dark {
-    .reply-compose-wrap {
-        background-color: rgba(16, 16, 20, 0.75);
-
-        .reply-switch {
-            .show {
-                color: #63e2b7;
-            }
-        }
-    }
+:global(.dark) .reply-compose-wrap {
+    --reply-action-accent: #63e2b7;
+    --reply-panel-bg: rgba(16, 16, 20, 0.75);
 }
 </style>

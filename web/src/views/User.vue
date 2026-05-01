@@ -645,9 +645,14 @@ watch(
     }
 }
 
-.dark {
-    .profile-wrap, .pagination-wrap {
-        background-color: rgba(16, 16, 20, 0.75);
-    }
+.profile-wrap,
+.pagination-wrap {
+    --user-surface-bg: transparent;
+    background-color: var(--user-surface-bg);
+}
+
+:global(.dark) .profile-wrap,
+:global(.dark) .pagination-wrap {
+    --user-surface-bg: rgba(16, 16, 20, 0.75);
 }
 </style>

@@ -307,6 +307,7 @@ const execHightlightAction = () => {
 }
 
 .reaction-chip {
+    --comment-reaction-chip-bg: rgba(16, 136, 91, 0.08);
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -314,16 +315,17 @@ const execHightlightAction = () => {
     padding: 0 12px;
     border: 0;
     border-radius: 999px;
-    background: rgba(16, 136, 91, 0.08);
+    background: var(--comment-reaction-chip-bg);
     color: inherit;
     cursor: default;
     animation: reaction-pop 0.2s ease;
 }
 
 .reply-wrap {
+    --comment-reply-bg: var(--surface-muted);
     margin-top: 10px;
     border-radius: 5px;
-    background: #fafafc;
+    background: var(--comment-reply-bg);
 
     .reply-item {
         &:last-child {
@@ -342,12 +344,12 @@ const execHightlightAction = () => {
         transform: scale(1);
     }
 }
-.dark {
-    .reply-wrap {
-        background: #18181c;
-    }
-    .comment-item {
-        background-color: rgba(16, 16, 20, 0.75);
-    }
+
+:global(.dark) .reaction-chip {
+    --comment-reaction-chip-bg: rgba(99, 226, 183, 0.12);
+}
+
+:global(.dark) .comment-item {
+    background-color: var(--surface-base);
 }
 </style>

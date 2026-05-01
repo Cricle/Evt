@@ -146,7 +146,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useStoreMain } from '@/store/main';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import QRCode from 'qrcode';
 import { LogoAlipay } from '@vicons/ionicons5';
 import { userInfo as fetchUserInfo } from '@/api/auth';
@@ -162,6 +162,7 @@ const { collapsedRight } = storeToRefs(storeMain);
 const { userInfo } = storeToRefs(storeUser);
 
 const route = useRoute();
+const router = useRouter();
 
 const showRecharge = ref(false);
 const selectedRechargeAmount = ref(100);
@@ -270,6 +271,11 @@ onMounted(() => {
 </script>
 
 <style lang="less" scoped>
+.main-content-wrap {
+    --wallet-income: #18a058;
+    --wallet-surface-bg: transparent;
+}
+
 .balance-wrap {
     padding: 16px;
 
@@ -294,7 +300,7 @@ onMounted(() => {
     }
 
     .income {
-        color: #18a058;
+        color: var(--wallet-income);
     }
 }
 .pagination-wrap {
@@ -321,12 +327,9 @@ onMounted(() => {
     }
 }
 
-.dark {
-    .income {
-        color: #63e2b7;
-    }
-    .main-content-wrap {
-        background-color: rgba(16, 16, 20, 0.75);
-    }
+:global(.dark) .main-content-wrap {
+    --wallet-income: #63e2b7;
+    --wallet-surface-bg: rgba(16, 16, 20, 0.75);
+    background-color: var(--wallet-surface-bg);
 }
 </style>

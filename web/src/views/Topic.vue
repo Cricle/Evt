@@ -38,11 +38,14 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { getTags } from '@/api/post';
 import { useStoreMain } from '@/store/main';
 import { useStoreUser } from '@/store/user';
+import { useStoreProfile } from '@/store/profile';
 import { storeToRefs } from 'pinia';
 
 const storeMain = useStoreMain();
 const storeUser = useStoreUser();
+const storeProfile = useStoreProfile();
 const { userLogined } = storeToRefs(storeUser);
+const { currentSpaceSlug, spaces } = storeToRefs(storeProfile);
 
 const tags = ref<Item.TagProps[]>([]);
 const tagType = ref<'hot' | 'new' | 'follow' | 'pin'>('hot');
@@ -74,6 +77,7 @@ const loadTags = () => {
   getTags({
     type: tagType.value,
     num: 50,
+    space_slug: currentSpaceSlug.value,
   })
     .then((res) => {
       tags.value = res.topics;
@@ -94,15 +98,24 @@ const changeTab = (tab: 'hot' | 'new' | 'follow' | 'pin') => {
 onMounted(() => {
   loadTags();
 });
+
+watch(currentSpaceSlug, () => {
+  loadTags();
+});
 </script>
 
 <style lang="less" scoped>
 .tags-wrap {
+    --topic-surface-bg: transparent;
     padding: 20px;
+    background-color: var(--topic-surface-bg);
 }
-.dark {
-    .tags-wrap, .empty-wrap {
-        background-color: rgba(16, 16, 20, 0.75);
-    }
+
+.empty-wrap {
+    background-color: var(--topic-surface-bg);
+}
+:global(.dark) .tags-wrap,
+:global(.dark) .empty-wrap {
+    --topic-surface-bg: rgba(16, 16, 20, 0.75);
 }
 </style>

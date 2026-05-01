@@ -14,45 +14,19 @@
 
         <div class="editor-toolbar">
           <div class="editor-tools-left">
-            <input ref="imageInputRef" class="hidden-input" type="file" accept="image/*" multiple @change="handleFilePick('public/image', $event)" />
-            <input ref="videoInputRef" class="hidden-input" type="file" accept="video/mp4,video/quicktime" @change="handleFilePick('public/video', $event)" />
-            <input ref="attachmentInputRef" class="hidden-input" type="file" accept=".zip,application/zip,application/x-zip-compressed" multiple @change="handleFilePick('attachment', $event)" />
-
-            <button type="button" class="tool-btn" @click="imageInputRef?.click()">
-              <span>🖼️</span>
-              图片
-            </button>
-            <button
-              v-if="profile.allowTweetVideo"
-              type="button"
-              class="tool-btn"
-              @click="videoInputRef?.click()"
-            >
-              <span>🎬</span>
-              视频
-            </button>
-            <button
-              v-if="profile.allowTweetAttachment"
-              type="button"
-              class="tool-btn"
-              @click="attachmentInputRef?.click()"
-            >
-              <span>📦</span>
-              附件
-            </button>
-            <button type="button" class="tool-btn" @click="showLinkSet = !showLinkSet">
-              <span>🔗</span>
-              链接
-            </button>
-            <button
+            <n-button
               v-if="allowTweetVisibility"
-              type="button"
+              type="success"
+              secondary
+              strong
+              round
+              size="small"
               class="tool-btn"
-              @click="showVisibilitySet = !showVisibilitySet"
+              @click="togglePanel('visibility')"
             >
               <span>👁️</span>
               可见性
-            </button>
+            </n-button>
           </div>
 
           <div class="editor-tools-right">
@@ -69,22 +43,14 @@
               </template>
               已输入 {{ plainText.length }} 字
             </n-tooltip>
-            <n-button type="primary" secondary round :loading="submitting" @click="submitPost">
+            <n-button type="success" secondary round :loading="submitting" @click="submitPost">
               发布
             </n-button>
           </div>
         </div>
 
         <transition name="editor-expand">
-          <div v-if="showLinkSet" class="editor-extend">
-            <n-dynamic-input v-model:value="links" placeholder="请输入以 http(s):// 开头的链接" :min="0" :max="3">
-              <template #create-button-default> 添加链接 </template>
-            </n-dynamic-input>
-          </div>
-        </transition>
-
-        <transition name="editor-expand">
-          <div v-if="showVisibilitySet" class="editor-extend">
+          <div v-if="editorPanel === 'visibility'" class="editor-extend">
             <n-radio-group v-model:value="visitType" name="visibility">
               <n-space>
                 <n-radio v-for="visit in visibilities" :key="visit.value" :value="visit.value" :label="visit.label" />
@@ -94,54 +60,35 @@
         </transition>
 
         <div v-if="uploading.length > 0" class="uploading-list">
-          <div v-for="item in uploading" :key="item.id" class="uploading-item">
-            <span>{{ item.name }}</span>
+          <div v-for="item in uploading" :key="item" class="uploading-item">
+            <span>{{ item }}</span>
             <n-spin size="small" />
           </div>
         </div>
 
-        <div v-if="imageContents.length > 0" class="asset-section">
-          <div class="asset-label">图片</div>
-          <div class="asset-grid">
-            <div v-for="item in imageContents" :key="item.id" class="asset-card">
-              <img :src="item.content" alt="" />
-              <button type="button" class="asset-remove" @click="removeAsset('image', item.id)">×</button>
-            </div>
-          </div>
+        <div v-if="assetPills.length > 0" class="asset-pill-list">
+          <button
+            v-for="asset in assetPills"
+            :key="asset.id"
+            type="button"
+            class="asset-pill"
+            @click="removeAsset(asset)"
+          >
+            <span>{{ asset.icon }} {{ asset.name }}</span>
+            <span class="asset-pill-remove">×</span>
+          </button>
         </div>
 
-        <div v-if="videoContents.length > 0" class="asset-section">
-          <div class="asset-label">视频</div>
-          <div class="asset-stack">
-            <div v-for="item in videoContents" :key="item.id" class="asset-line">
-              <span class="emoji">🎬</span>
-              <a :href="item.content" target="_blank" rel="noreferrer">{{ item.content }}</a>
-              <button type="button" class="asset-remove inline" @click="removeAsset('video', item.id)">×</button>
-            </div>
-          </div>
+        <div v-if="attachmentPriceVisible" class="attachment-price-wrap">
+          <n-input-number v-model:value="attachmentPrice" :min="0" :max="100000" placeholder="请输入附件价格，0 为免费附件">
+            <template #prefix>
+              <span>附件价格￥</span>
+            </template>
+          </n-input-number>
         </div>
 
-        <div v-if="attachmentContents.length > 0" class="asset-section">
-          <div class="asset-label">附件</div>
-          <div class="asset-stack">
-            <div v-for="item in attachmentContents" :key="item.id" class="asset-line">
-              <span class="emoji">📦</span>
-              <a :href="item.content" target="_blank" rel="noreferrer">{{ item.content }}</a>
-              <button type="button" class="asset-remove inline" @click="removeAsset('attachment', item.id)">×</button>
-            </div>
-          </div>
-          <div v-if="profile.allowTweetAttachmentPrice" class="attachment-price-wrap">
-            <n-input-number
-              v-model:value="attachmentPrice"
-              :min="0"
-              :max="100000"
-              placeholder="请输入附件价格，0 为免费附件"
-            >
-              <template #prefix>
-                <span>附件价格￥</span>
-              </template>
-            </n-input-number>
-          </div>
+        <div v-if="mediaHints.length > 0" class="media-hint-list">
+          <div v-for="hint in mediaHints" :key="hint" class="media-hint">{{ hint }}</div>
         </div>
       </div>
     </div>
@@ -149,38 +96,38 @@
     <div v-else class="compose-login-card">
       <div class="compose-login-title">登录后，精彩更多</div>
       <div class="compose-login-actions">
-        <n-button strong secondary round type="primary" @click="goAuth('signin')">登录</n-button>
-        <n-button v-if="profile.allowUserRegister" strong secondary round type="info" @click="goAuth('signup')">注册</n-button>
+        <n-button strong secondary round type="success" @click="goAuth('signin')">登录</n-button>
+        <n-button v-if="profile.allowUserRegister" strong secondary round type="success" ghost @click="goAuth('signup')">
+          注册
+        </n-button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { Ckeditor } from '@ckeditor/ckeditor5-vue';
 import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
-import DOMPurify from 'dompurify';
 import { storeToRefs } from 'pinia';
 import { createPost } from '@/api/post';
 import { useStoreProfile } from '@/store/profile';
-import { TOKEN_KEY, useStoreUser } from '@/store/user';
-import { VisibilityEnum, PostItemTypeEnum } from '@/utils/IEnum';
+import { useStoreUser } from '@/store/user';
+import { VisibilityEnum } from '@/utils/IEnum';
 import { parsePostTag } from '@/utils/content';
-import { isZipFile } from '@/utils/isZipFile';
-import { buildApiUrl } from '@/utils/api';
-import { request } from '@/utils/request';
 import { goToAuth, type AuthMode } from '@/utils/authRoute';
 import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
-
-type UploadKind = 'public/image' | 'public/video' | 'attachment';
-type AssetKind = 'image' | 'video' | 'attachment';
-
-interface UploadingItem {
-  id: string;
-  name: string;
-}
+import EvtUploadPlugin, {
+  EVT_UPLOAD_PLUGIN_OPTIONS,
+  type UploadedAsset,
+} from '@/components/ckeditor-upload-plugin';
+import {
+  buildComposePostContents,
+  hasComposeContent,
+  syncImageAssetsWithEditor,
+  type ComposeAsset,
+} from '@/components/compose-editor-content';
 
 const emit = defineEmits<{
   (e: 'post-success', post: Item.PostProps): void;
@@ -199,27 +146,22 @@ const router = useRouter();
 const storeUser = useStoreUser();
 const storeProfile = useStoreProfile();
 const { userInfo } = storeToRefs(storeUser);
-const { profile } = storeToRefs(storeProfile);
+const { profile, currentSpaceSlug } = storeToRefs(storeProfile);
 
 const editorHtml = ref('');
 const submitting = ref(false);
-const showLinkSet = ref(false);
-const showVisibilitySet = ref(false);
-const links = ref<string[]>([]);
-const imageContents = ref<Item.PostItemProps[]>([]);
-const videoContents = ref<Item.PostItemProps[]>([]);
-const attachmentContents = ref<Item.PostItemProps[]>([]);
-const uploading = ref<UploadingItem[]>([]);
+const editorPanel = ref<'link' | 'visibility' | ''>('');
+const imageContents = ref<ComposeAsset[]>([]);
+const videoContents = ref<ComposeAsset[]>([]);
+const attachmentContents = ref<ComposeAsset[]>([]);
+const links = ref<ComposeAsset[]>([]);
 const attachmentPrice = ref(0);
 const visitType = ref<VisibilityEnum>(VisibilityEnum.PUBLIC);
 const defaultVisitType = ref<VisibilityEnum>(VisibilityEnum.PUBLIC);
-
-const imageInputRef = ref<HTMLInputElement | null>(null);
-const videoInputRef = ref<HTMLInputElement | null>(null);
-const attachmentInputRef = ref<HTMLInputElement | null>(null);
+const uploading = ref<string[]>([]);
+const mediaHints = ref<string[]>([]);
 
 const allowTweetVisibility = import.meta.env.VITE_ALLOW_TWEET_VISIBILITY.toLowerCase() === 'true';
-const uploadGateway = buildApiUrl('/v1/attachment');
 
 const editorConfig = {
   licenseKey: 'GPL',
@@ -233,18 +175,47 @@ const editorConfig = {
     'numberedList',
     'blockQuote',
     '|',
+    'imageUpload',
+    'evtVideoUpload',
+    'evtAttachmentUpload',
+    'evtLink',
+    'mediaEmbed',
     'undo',
     'redo',
   ],
   placeholder: '说说您的新鲜事...',
+  extraPlugins: [EvtUploadPlugin],
+  [EVT_UPLOAD_PLUGIN_OPTIONS]: {
+    onStart: (fileName: string) => {
+      if (!uploading.value.includes(fileName)) {
+        uploading.value.push(fileName);
+      }
+    },
+    onUploaded: (asset: UploadedAsset) => {
+      handleUploadedAsset(asset);
+    },
+    onFinish: (fileName: string) => {
+      uploading.value = uploading.value.filter((item) => item !== fileName);
+    },
+    onError: (error: unknown) => {
+      console.error(error);
+      window.$message.error('上传失败');
+    },
+    onLinkCreate: (url: string) => {
+      addLink(url);
+    },
+  },
 };
 
 const plainText = computed(() => {
-  const sanitized = DOMPurify.sanitize(editorHtml.value, {
-    ALLOWED_TAGS: [],
-    ALLOWED_ATTR: [],
-  });
-  return sanitized.replace(/\s+/g, ' ').trim();
+  return buildComposePostContents({
+    textHtml: editorHtml.value,
+    images: imageContents.value,
+    videos: videoContents.value,
+    attachments: attachmentContents.value,
+    links: links.value,
+    attachmentPrice: attachmentPrice.value * 100,
+  }).plainText;
 });
 
 const visibilities = computed(() => {
@@ -259,199 +230,141 @@ const visibilities = computed(() => {
   return result;
 });
 
+const attachmentPriceVisible = computed(() => profile.value.allowTweetAttachmentPrice);
+const assetPills = computed(() => {
+  return [
+    ...videoContents.value.map((asset) => ({ ...asset, icon: '🎬' })),
+    ...attachmentContents.value.map((asset) => ({ ...asset, icon: '📎' })),
+    ...links.value.map((asset) => ({ ...asset, icon: '🔗' })),
+  ];
+});
+
 const goAuth = (mode: AuthMode) => {
   goToAuth(router, mode, router.currentRoute.value.fullPath);
 };
 
-const sanitizeHtml = (html: string) => {
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'blockquote', 'a'],
-    ALLOWED_ATTR: ['href', 'target', 'rel'],
-  });
+const toComposeAsset = (kind: ComposeAsset['kind'], content: string, name: string) => {
+  return {
+    id: `${kind}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+    kind,
+    name,
+    content,
+  } satisfies ComposeAsset;
 };
 
-const nextAssetId = () => Date.now() + Math.floor(Math.random() * 10_000);
-
-const validateUpload = async (kind: UploadKind, file: File) => {
-  if (kind === 'public/image') {
-    if (!['image/webp', 'image/png', 'image/jpg', 'image/jpeg', 'image/gif'].includes(file.type)) {
-      return '图片仅允许 webp/png/jpg/gif 格式';
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      return '图片大小不能超过10MB';
-    }
-    return '';
-  }
-
-  if (kind === 'public/video') {
-    if (!['video/mp4', 'video/quicktime'].includes(file.type)) {
-      return '视频仅允许 mp4/mov 格式';
-    }
-    if (file.size > 100 * 1024 * 1024) {
-      return '视频大小不能超过100MB';
-    }
-    return '';
-  }
-
-  if (!(await isZipFile(file))) {
-    return '附件仅允许 zip 格式';
-  }
-  if (file.size > 100 * 1024 * 1024) {
-    return '附件大小不能超过100MB';
-  }
-  return '';
-};
-
-const uploadSingleFile = async (kind: UploadKind, file: File) => {
-  const errorMessage = await validateUpload(kind, file);
-  if (errorMessage) {
-    window.$message.warning(errorMessage);
+const addLink = (url: string) => {
+  const value = url.trim();
+  if (!value) {
     return;
   }
 
-  const id = `${Date.now()}-${file.name}`;
-  uploading.value.push({
-    id,
-    name: file.name,
-  });
+  if (!/^https?:\/\//i.test(value)) {
+    window.$message.warning('请输入以 http(s):// 开头的链接');
+    return;
+  }
 
-  try {
-    const form = new FormData();
-    form.append('type', kind);
-    form.append('file', file);
+  if (links.value.some((item) => item.content === value)) {
+    return;
+  }
 
-    const res = await request<FormData, {
-      user_id: number;
-      file_size: number;
-      img_width: number;
-      img_height: number;
-      type: number;
-      content: string;
-    }>({
-      method: 'post',
-      url: uploadGateway,
-      data: form,
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem(TOKEN_KEY) || ''}`,
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+  if (links.value.length >= 3) {
+    window.$message.warning('最多添加 3 个链接');
+    return;
+  }
 
-    const asset = {
-      id: nextAssetId(),
-      content: res.content,
-      type:
-        kind === 'public/image'
-          ? PostItemTypeEnum.IMAGEURL
-          : kind === 'public/video'
-            ? PostItemTypeEnum.VIDEOURL
-            : PostItemTypeEnum.ATTACHMENT,
-      sort: 0,
-      post_id: 0,
-      created_on: Date.now(),
-    } as Item.PostItemProps;
+  links.value = [...links.value, toComposeAsset('link', value, value)];
+};
 
-    if (kind === 'public/image') {
-      imageContents.value.push(asset);
-    } else if (kind === 'public/video') {
-      videoContents.value.push(asset);
-    } else {
-      attachmentContents.value.push(asset);
+const togglePanel = (panel: 'visibility') => {
+  editorPanel.value = editorPanel.value === panel ? '' : panel;
+};
+
+const syncEditorImages = () => {
+  imageContents.value = syncImageAssetsWithEditor(editorHtml.value, imageContents.value);
+};
+
+const handleUploadedAsset = (asset: UploadedAsset) => {
+  if (asset.kind === 'public/image') {
+    return;
+  }
+
+  if (asset.kind === 'public/video') {
+    if (!profile.value.allowTweetVideo) {
+      window.$message.warning('当前站点未开启视频发布');
+      return;
     }
-  } finally {
-    uploading.value = uploading.value.filter((item) => item.id !== id);
+    videoContents.value = [...videoContents.value, toComposeAsset('video', asset.content, asset.name)];
+    window.$message.success(`视频 ${asset.name} 上传成功`);
+    return;
   }
+
+  if (!profile.value.allowTweetAttachment) {
+    window.$message.warning('当前站点未开启附件发布');
+    return;
+  }
+  attachmentContents.value = [...attachmentContents.value, toComposeAsset('attachment', asset.content, asset.name)];
+  window.$message.success(`附件 ${asset.name} 上传成功`);
 };
 
-const handleFilePick = async (kind: UploadKind, event: Event) => {
-  const input = event.target as HTMLInputElement;
-  const files = Array.from(input.files || []);
-  for (const file of files) {
-    await uploadSingleFile(kind, file);
+const removeAsset = (asset: ComposeAsset) => {
+  if (asset.kind === 'video') {
+    videoContents.value = videoContents.value.filter((item) => item.id !== asset.id);
+    return;
   }
-  input.value = '';
-};
-
-const removeAsset = (kind: AssetKind, assetId: number) => {
-  if (kind === 'image') {
-    imageContents.value = imageContents.value.filter((item) => item.id !== assetId);
-  } else if (kind === 'video') {
-    videoContents.value = videoContents.value.filter((item) => item.id !== assetId);
-  } else {
-    attachmentContents.value = attachmentContents.value.filter((item) => item.id !== assetId);
+  if (asset.kind === 'attachment') {
+    attachmentContents.value = attachmentContents.value.filter((item) => item.id !== asset.id);
+    return;
+  }
+  if (asset.kind === 'link') {
+    links.value = links.value.filter((item) => item.id !== asset.id);
   }
 };
 
 const resetEditor = () => {
   editorHtml.value = '';
-  links.value = [];
   imageContents.value = [];
   videoContents.value = [];
   attachmentContents.value = [];
+  links.value = [];
   attachmentPrice.value = 0;
-  showLinkSet.value = false;
-  showVisibilitySet.value = false;
+  editorPanel.value = '';
   visitType.value = defaultVisitType.value;
+  uploading.value = [];
+  mediaHints.value = [];
 };
 
 const submitPost = async () => {
-  const normalizedText = plainText.value;
-  if (!normalizedText) {
+  syncEditorImages();
+  if (
+    !hasComposeContent(editorHtml.value, {
+      images: imageContents.value,
+      videos: videoContents.value,
+      attachments: attachmentContents.value,
+      links: links.value,
+    })
+  ) {
     window.$message.warning('请输入内容哦');
     return;
   }
-  if (normalizedText.length > profile.value.defaultTweetMaxLength) {
+  if (plainText.value.length > profile.value.defaultTweetMaxLength) {
     window.$message.warning(`内容不能超过 ${profile.value.defaultTweetMaxLength} 字`);
     return;
   }
 
-  const html = sanitizeHtml(editorHtml.value);
-  const { tags, users } = parsePostTag(`${normalizedText} `);
-  const contents: Partial<Item.PostItemProps>[] = [];
-  let sort = 100;
-
-  contents.push({
-    content: html,
-    type: PostItemTypeEnum.TEXT,
-    sort,
+  const { contents, plainText: normalizedText, textContent } = buildComposePostContents({
+    textHtml: editorHtml.value,
+    images: imageContents.value,
+    videos: videoContents.value,
+    attachments: attachmentContents.value,
+    links: links.value,
+    attachmentPrice: attachmentPrice.value * 100,
   });
-
-  for (const image of imageContents.value) {
-    sort++;
-    contents.push({
-      content: image.content,
-      type: PostItemTypeEnum.IMAGEURL,
-      sort,
-    });
-  }
-  for (const video of videoContents.value) {
-    sort++;
-    contents.push({
-      content: video.content,
-      type: PostItemTypeEnum.VIDEOURL,
-      sort,
-    });
-  }
-  for (const attachment of attachmentContents.value) {
-    sort++;
-    contents.push({
-      content: attachment.content,
-      type: PostItemTypeEnum.ATTACHMENT,
-      sort,
-    });
-  }
-  for (const link of links.value.filter(Boolean)) {
-    sort++;
-    contents.push({
-      content: link,
-      type: PostItemTypeEnum.LINKURL,
-      sort,
-    });
-  }
+  const { tags, users } = parsePostTag(`${normalizedText || textContent} `);
 
   submitting.value = true;
   try {
     const post = await createPost({
+      space_slug: currentSpaceSlug.value,
       contents,
       tags: Array.from(new Set(tags)),
       users: Array.from(new Set(users)),
@@ -478,12 +391,30 @@ onMounted(() => {
     defaultVisitType.value = VisibilityEnum.PRIVATE;
   }
   visitType.value = defaultVisitType.value;
+  mediaHints.value = ['图片、视频、附件和链接都已收进编辑器工具栏'];
+});
+
+watch(editorHtml, () => {
+  syncEditorImages();
 });
 </script>
 
 <style scoped lang="less">
 .compose-editor {
+  --compose-panel-bg: rgba(255, 255, 255, 0.9);
+  --compose-panel-border: rgba(18, 75, 51, 0.1);
+  --compose-panel-shadow: 0 24px 70px rgba(20, 70, 48, 0.08);
+  --compose-soft-bg: rgba(16, 136, 91, 0.06);
+  --compose-soft-bg-strong: rgba(16, 136, 91, 0.08);
+  --compose-text-main: rgba(15, 23, 42, 0.94);
+  --compose-text-subtle: rgba(15, 23, 42, 0.66);
+  --compose-editor-bg: rgba(255, 255, 255, 0.88);
+  --compose-editor-toolbar-bg: rgba(245, 250, 247, 0.92);
+  --compose-editor-border: rgba(18, 75, 51, 0.12);
+  --compose-accent: #18a058;
+  --compose-accent-ring: rgba(24, 160, 88, 0.24);
   width: 100%;
+  color: var(--compose-text-main);
 }
 
 .editor-shell {
@@ -509,20 +440,11 @@ onMounted(() => {
 
 .editor-card {
   padding: 18px;
-  border: 1px solid rgba(18, 75, 51, 0.08);
   border-radius: 24px;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 22px 48px rgba(38, 80, 60, 0.08);
-}
-
-:deep(.ck-editor__editable_inline) {
-  min-height: 240px;
-  max-height: 420px;
-  border-radius: 0 0 16px 16px;
-}
-
-:deep(.ck-toolbar) {
-  border-radius: 16px 16px 0 0;
+  overflow: hidden;
+  border: 1px solid var(--compose-panel-border);
+  background: var(--compose-panel-bg);
+  box-shadow: var(--compose-panel-shadow);
 }
 
 .editor-toolbar {
@@ -548,21 +470,7 @@ onMounted(() => {
   gap: 8px;
   height: 38px;
   padding: 0 14px;
-  border: 0;
   border-radius: 999px;
-  background: rgba(16, 136, 91, 0.08);
-  color: #12724d;
-  cursor: pointer;
-  transition: transform 0.2s ease, background-color 0.2s ease;
-
-  &:hover {
-    transform: translateY(-1px);
-    background: rgba(16, 136, 91, 0.14);
-  }
-}
-
-.hidden-input {
-  display: none;
 }
 
 .text-statistic {
@@ -576,86 +484,56 @@ onMounted(() => {
 }
 
 .uploading-list,
-.asset-section {
+.media-hint-list,
+.asset-pill-list {
   margin-top: 16px;
+  display: grid;
+  gap: 10px;
 }
 
 .uploading-item,
-.asset-line {
+.media-hint {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 10px 12px;
   border-radius: 14px;
-  background: rgba(16, 136, 91, 0.06);
+  background: var(--compose-soft-bg);
+  overflow-wrap: anywhere;
 }
 
-.asset-label {
-  margin-bottom: 10px;
-  font-size: 13px;
-  font-weight: 700;
-  opacity: 0.78;
+.asset-pill-list {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
-.asset-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+.asset-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
-}
-
-.asset-card {
-  position: relative;
-  aspect-ratio: 1 / 1;
-  overflow: hidden;
-  border-radius: 18px;
-  background: rgba(0, 0, 0, 0.05);
-
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-}
-
-.asset-remove {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 28px;
-  height: 28px;
+  width: 100%;
+  padding: 10px 12px;
   border: 0;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.58);
-  color: #fff;
-  font-size: 18px;
+  border-radius: 14px;
+  background: var(--compose-soft-bg-strong);
+  color: inherit;
+  text-align: left;
   cursor: pointer;
-
-  &.inline {
-    position: static;
-    background: rgba(0, 0, 0, 0.08);
-    color: #333;
-  }
 }
 
-.asset-stack {
-  display: grid;
-  gap: 10px;
-}
-
-.emoji {
+.asset-pill-remove {
   font-size: 18px;
-}
-
-.attachment-price-wrap {
-  margin-top: 12px;
+  line-height: 1;
+  opacity: 0.65;
 }
 
 .compose-login-card {
   padding: 24px;
   border-radius: 22px;
-  background: rgba(255, 255, 255, 0.84);
-  border: 1px solid rgba(18, 75, 51, 0.08);
+  border: 1px solid var(--compose-panel-border);
+  background: var(--compose-panel-bg);
+  box-shadow: var(--compose-panel-shadow);
 }
 
 .compose-login-title {
@@ -669,6 +547,47 @@ onMounted(() => {
   gap: 12px;
 }
 
+.compose-editor :deep(.ck.ck-editor) {
+  color: var(--compose-text-main);
+}
+
+.compose-editor :deep(.ck.ck-toolbar) {
+  border-color: var(--compose-editor-border);
+  background: var(--compose-editor-toolbar-bg);
+}
+
+.compose-editor :deep(.ck.ck-toolbar .ck-button),
+.compose-editor :deep(.ck.ck-toolbar .ck-button .ck-button__label),
+.compose-editor :deep(.ck.ck-toolbar .ck-icon) {
+  color: var(--compose-text-main);
+}
+
+.compose-editor :deep(.ck.ck-editor__main > .ck-editor__editable) {
+  min-height: 240px;
+  border-color: var(--compose-editor-border);
+  background: var(--compose-editor-bg);
+  color: var(--compose-text-main);
+}
+
+.compose-editor :deep(.ck.ck-editor__main > .ck-editor__editable.ck-focused) {
+  border-color: var(--compose-accent);
+  box-shadow: 0 0 0 1px var(--compose-accent-ring);
+}
+
+.compose-editor :deep(.ck.ck-editor__editable_inline) {
+  color-scheme: light;
+}
+
+.compose-editor :deep(.n-input-number) {
+  --n-color: var(--compose-editor-bg);
+  --n-color-focus: var(--compose-editor-bg);
+  --n-border: var(--compose-editor-border);
+  --n-border-hover: var(--compose-accent);
+  --n-border-focus: var(--compose-accent);
+  --n-text-color: var(--compose-text-main);
+  --n-placeholder-color: var(--compose-text-subtle);
+}
+
 .editor-expand-enter-active,
 .editor-expand-leave-active {
   transition: all 0.22s ease;
@@ -680,14 +599,27 @@ onMounted(() => {
   transform: translateY(-8px);
 }
 
-@media screen and (max-width: 821px) {
-  .editor-card {
-    padding: 14px;
-    border-radius: 20px;
-  }
+:global(.dark) .compose-editor {
+  --compose-panel-bg: rgba(18, 24, 24, 0.9);
+  --compose-panel-border: rgba(148, 163, 184, 0.12);
+  --compose-panel-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+  --compose-soft-bg: rgba(99, 226, 183, 0.1);
+  --compose-soft-bg-strong: rgba(99, 226, 183, 0.12);
+  --compose-text-main: rgba(241, 245, 249, 0.94);
+  --compose-text-subtle: rgba(226, 232, 240, 0.72);
+  --compose-editor-bg: rgba(25, 33, 33, 0.92);
+  --compose-editor-toolbar-bg: rgba(22, 28, 28, 0.96);
+  --compose-editor-border: rgba(148, 163, 184, 0.16);
+  --compose-accent: #63e2b7;
+  --compose-accent-ring: rgba(99, 226, 183, 0.26);
+}
 
-  :deep(.ck-editor__editable_inline) {
-    min-height: 180px;
-  }
+:global(.dark) .compose-editor :deep(.ck.ck-toolbar .ck-button:hover),
+:global(.dark) .compose-editor :deep(.ck.ck-toolbar .ck-button.ck-on) {
+  background: rgba(99, 226, 183, 0.14);
+}
+
+:global(.dark) .compose-editor :deep(.ck.ck-editor__editable_inline) {
+  color-scheme: dark;
 }
 </style>

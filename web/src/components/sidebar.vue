@@ -45,7 +45,7 @@
                 <n-button strong secondary round type="primary" @click="goAuth('signin')">
                     登录
                 </n-button>
-                <n-button strong secondary round type="info" @click="goAuth('signup')">
+                <n-button strong secondary round type="primary" ghost @click="goAuth('signup')">
                     注册
                 </n-button>
             </div>
@@ -300,7 +300,6 @@ window.$message = useMessage();
         border-radius: 21px;
     }
 
-
     .logo-wrap {
         display: flex;
         justify-content: flex-start;
@@ -399,8 +398,18 @@ window.$message = useMessage();
 
 @media screen and (max-width: 821px) {
     .sidebar-wrap {
-        width: 200px;
-        right: calc(100% - 200px);
+        width: 100%;
+        max-width: 100%;
+        right: auto;
+        left: 0;
+        position: relative;
+        height: auto;
+        min-height: 100%;
+        max-height: none;
+        padding: 12px 12px 20px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
     }
 
     .logo-wrap {
@@ -410,12 +419,15 @@ window.$message = useMessage();
     }
 
     .user-wrap {
+        position: static;
+        margin-top: auto;
+        padding-top: 20px;
 
         .user-avatar,
         .user-info,
         .login-only-wrap,
         .login-wrap {
-            margin-bottom: 32px;
+            margin-bottom: 0;
         }
 
         //     .user-mini-wrap {

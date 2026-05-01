@@ -12,5 +12,6 @@ pub mod legacy_users;
 pub mod messages;
 pub mod posts;
 pub mod session;
+pub mod spaces;
 pub mod system;
 pub mod users;

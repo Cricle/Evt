@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
-use evt_domain::{AppError, CommentContentItem, CommentSummary, PagedResponse};
+use evt_domain::{AppError, CommentContentItem, CommentSummary, PagedResponse, UserPreview};
 use sqlx::{FromRow, MySql, MySqlPool, QueryBuilder};
+use std::collections::HashMap;
 
 use super::map_db_error;
 
@@ -116,6 +117,7 @@ impl CommentRepository {
             ) reaction_stats ON reaction_stats.comment_id = c.id
             LEFT JOIN legacy_comment_states lcs ON lcs.comment_id = c.id
             WHERE c.post_id = ?
+              AND COALESCE(lcs.is_reaction, FALSE) = FALSE
             ORDER BY {order_by}
             LIMIT ? OFFSET ?
             "#
@@ -189,6 +191,63 @@ impl CommentRepository {
             .map(|items| items.into_iter().map(Into::into).collect())
             .map_err(map_db_error)
     }
+
+    pub async fn list_post_reaction_comments(
+        &self,
+        post_id: i64,
+    ) -> Result<Vec<PostReactionCommentRow>, AppError> {
+        sqlx::query_as::<_, PostReactionCommentRow>(
+            r#"
+            SELECT
+              c.id AS comment_id,
+              c.user_id,
+              cc.content AS emoji,
+              up.nickname,
+              up.avatar,
+              u.username,
+              u.created_at
+            FROM comments c
+            INNER JOIN comment_contents cc
+              ON cc.comment_id = c.id
+             AND cc.content_type = 2
+            INNER JOIN users u ON u.id = c.user_id
+            LEFT JOIN user_profiles up ON up.user_id = u.id
+            WHERE c.post_id = ?
+              AND c.content = cc.content
+              AND NOT EXISTS (
+                SELECT 1
+                FROM comment_contents cc_other
+                WHERE cc_other.comment_id = c.id
+                  AND (cc_other.content_type <> 2 OR cc_other.id <> cc.id)
+              )
+            ORDER BY c.id ASC
+            "#,
+        )
+        .bind(post_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_db_error)
+    }
+
+    pub async fn delete_reaction_comment(
+        &self,
+        comment_id: i64,
+        user_id: i64,
+    ) -> Result<bool, AppError> {
+        let result = sqlx::query(
+            r#"
+            DELETE FROM comments
+            WHERE id = ? AND user_id = ?
+            "#,
+        )
+        .bind(comment_id)
+        .bind(user_id)
+        .execute(&self.pool)
+        .await
+        .map_err(map_db_error)?;
+
+        Ok(result.rows_affected() > 0)
+    }
 }
 
 fn comment_sort_clause(style: &str) -> &'static str {
@@ -236,6 +295,17 @@ struct CommentContentRow {
     created_at: DateTime<Utc>,
 }
 
+#[derive(Debug, FromRow)]
+pub struct PostReactionCommentRow {
+    pub comment_id: i64,
+    pub user_id: i64,
+    pub emoji: String,
+    pub nickname: Option<String>,
+    pub avatar: Option<String>,
+    pub username: String,
+    pub created_at: DateTime<Utc>,
+}
+
 impl From<CommentRow> for CommentSummary {
     fn from(row: CommentRow) -> Self {
         Self {
@@ -261,4 +331,42 @@ impl From<CommentContentRow> for CommentContentItem {
             created_at: row.created_at,
         }
     }
+}
+
+pub fn group_post_reactions(
+    rows: Vec<PostReactionCommentRow>,
+    viewer_id: Option<i64>,
+) -> Vec<evt_domain::PostReactionSummary> {
+    let mut grouped: HashMap<String, evt_domain::PostReactionSummary> = HashMap::new();
+
+    for row in rows {
+      let entry = grouped.entry(row.emoji.clone()).or_insert_with(|| evt_domain::PostReactionSummary {
+        emoji: row.emoji.clone(),
+        count: 0,
+        active: false,
+        users: Vec::new(),
+        comment_ids: Vec::new(),
+      });
+      entry.count += 1;
+      entry.comment_ids.push(row.comment_id);
+      if viewer_id == Some(row.user_id) {
+        entry.active = true;
+      }
+      entry.users.push(UserPreview {
+        id: row.user_id,
+        username: row.username.clone(),
+        nickname: row.nickname.clone().unwrap_or_else(|| row.username.clone()),
+        avatar: row.avatar.unwrap_or_default(),
+        created_at: row.created_at,
+      });
+    }
+
+    let mut reactions = grouped.into_values().collect::<Vec<_>>();
+    reactions.sort_by(|left, right| {
+      right
+        .count
+        .cmp(&left.count)
+        .then_with(|| left.emoji.cmp(&right.emoji))
+    });
+    reactions
 }

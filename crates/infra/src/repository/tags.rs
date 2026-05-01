@@ -1,5 +1,5 @@
 use evt_domain::{AppError, TagSummary};
-use sqlx::{FromRow, MySqlPool};
+use sqlx::{FromRow, MySql, MySqlPool, Transaction};
 
 use super::map_db_error;
 
@@ -13,19 +13,28 @@ impl TagRepository {
         Self { pool }
     }
 
-    pub async fn record_tags(&self, user_id: i64, tags: &[String]) -> Result<(), AppError> {
+    pub async fn record_tags_tx(
+        &self,
+        tx: &mut Transaction<'_, MySql>,
+        space_id: i64,
+        user_id: i64,
+        tags: &[String],
+    ) -> Result<(), AppError> {
         for tag in tags {
             sqlx::query(
                 r#"
-                INSERT INTO tags (user_id, tag, quote_num)
-                VALUES (?, ?, 1)
+                INSERT INTO tags (space_id, user_id, tag, quote_num)
+                VALUES (?, ?, ?, 1)
                 ON DUPLICATE KEY UPDATE
+                  space_id = VALUES(space_id),
+                  user_id = VALUES(user_id),
                   quote_num = quote_num + 1
                 "#,
             )
+            .bind(space_id)
             .bind(user_id)
             .bind(tag)
-            .execute(&self.pool)
+            .execute(&mut **tx)
             .await
             .map_err(map_db_error)?;
         }
@@ -33,17 +42,23 @@ impl TagRepository {
         Ok(())
     }
 
-    pub async fn suggest(&self, keyword: &str, limit: u64) -> Result<Vec<String>, AppError> {
+    pub async fn suggest(
+        &self,
+        space_id: i64,
+        keyword: &str,
+        limit: u64,
+    ) -> Result<Vec<String>, AppError> {
         let pattern = format!("%{}%", keyword.trim());
         sqlx::query_scalar::<_, String>(
             r#"
             SELECT tag
             FROM tags
-            WHERE tag LIKE ?
+            WHERE space_id = ? AND tag LIKE ?
             ORDER BY quote_num DESC, id DESC
             LIMIT ?
             "#,
         )
+        .bind(space_id)
         .bind(pattern)
         .bind(limit as i64)
         .fetch_all(&self.pool)
@@ -51,11 +66,12 @@ impl TagRepository {
         .map_err(map_db_error)
     }
 
-    pub async fn list_hot(&self, limit: u64) -> Result<Vec<TagSummary>, AppError> {
+    pub async fn list_hot(&self, space_id: i64, limit: u64) -> Result<Vec<TagSummary>, AppError> {
         self.fetch_tags(
             r#"
             SELECT
               t.id,
+              t.space_id,
               t.user_id,
               u.username,
               t.tag,
@@ -66,19 +82,22 @@ impl TagRepository {
               FALSE AS is_pin
             FROM tags t
             INNER JOIN users u ON u.id = t.user_id
+            WHERE t.space_id = ?
             ORDER BY t.quote_num DESC, t.id DESC
             LIMIT ?
             "#,
+            Some(space_id),
             limit,
         )
         .await
     }
 
-    pub async fn list_new(&self, limit: u64) -> Result<Vec<TagSummary>, AppError> {
+    pub async fn list_new(&self, space_id: i64, limit: u64) -> Result<Vec<TagSummary>, AppError> {
         self.fetch_tags(
             r#"
             SELECT
               t.id,
+              t.space_id,
               t.user_id,
               u.username,
               t.tag,
@@ -89,9 +108,11 @@ impl TagRepository {
               FALSE AS is_pin
             FROM tags t
             INNER JOIN users u ON u.id = t.user_id
+            WHERE t.space_id = ?
             ORDER BY t.created_at DESC, t.id DESC
             LIMIT ?
             "#,
+            Some(space_id),
             limit,
         )
         .await
@@ -99,6 +120,7 @@ impl TagRepository {
 
     pub async fn list_followed(
         &self,
+        space_id: i64,
         user_id: i64,
         limit: u64,
     ) -> Result<Vec<TagSummary>, AppError> {
@@ -106,6 +128,7 @@ impl TagRepository {
             r#"
             SELECT
               t.id,
+              t.space_id,
               t.user_id,
               u.username,
               t.tag,
@@ -117,21 +140,28 @@ impl TagRepository {
             FROM topic_users tu
             INNER JOIN tags t ON t.id = tu.tag_id
             INNER JOIN users u ON u.id = t.user_id
-            WHERE tu.user_id = ?
+            WHERE tu.space_id = ? AND tu.user_id = ?
             ORDER BY tu.is_top DESC, tu.updated_at DESC, tu.id DESC
             LIMIT ?
             "#,
+            space_id,
             user_id,
             limit,
         )
         .await
     }
 
-    pub async fn list_pinned(&self, user_id: i64, limit: u64) -> Result<Vec<TagSummary>, AppError> {
+    pub async fn list_pinned(
+        &self,
+        space_id: i64,
+        user_id: i64,
+        limit: u64,
+    ) -> Result<Vec<TagSummary>, AppError> {
         self.fetch_followed(
             r#"
             SELECT
               t.id,
+              t.space_id,
               t.user_id,
               u.username,
               t.tag,
@@ -143,10 +173,11 @@ impl TagRepository {
             FROM topic_users tu
             INNER JOIN tags t ON t.id = tu.tag_id
             INNER JOIN users u ON u.id = t.user_id
-            WHERE tu.user_id = ? AND tu.is_pin = TRUE
+            WHERE tu.space_id = ? AND tu.user_id = ? AND tu.is_pin = TRUE
             ORDER BY tu.updated_at DESC, tu.id DESC
             LIMIT ?
             "#,
+            space_id,
             user_id,
             limit,
         )
@@ -155,27 +186,29 @@ impl TagRepository {
 
     pub async fn list_hot_with_followed(
         &self,
+        space_id: i64,
         user_id: Option<i64>,
         hot_limit: u64,
         extra_limit: u64,
     ) -> Result<(Vec<TagSummary>, Vec<TagSummary>), AppError> {
-        let hot = self.list_hot(hot_limit).await?;
+        let hot = self.list_hot(space_id, hot_limit).await?;
         let extra = match user_id {
-            Some(user_id) => self.list_followed(user_id, extra_limit).await?,
+            Some(user_id) => self.list_followed(space_id, user_id, extra_limit).await?,
             None => Vec::new(),
         };
         Ok((hot, extra))
     }
 
-    pub async fn follow(&self, user_id: i64, tag_id: i64) -> Result<(), AppError> {
+    pub async fn follow(&self, space_id: i64, user_id: i64, tag_id: i64) -> Result<(), AppError> {
         sqlx::query(
             r#"
-            INSERT INTO topic_users (user_id, tag_id, is_top, is_pin)
-            VALUES (?, ?, FALSE, FALSE)
+            INSERT INTO topic_users (space_id, user_id, tag_id, is_top, is_pin)
+            VALUES (?, ?, ?, FALSE, FALSE)
             ON DUPLICATE KEY UPDATE
               updated_at = CURRENT_TIMESTAMP
             "#,
         )
+        .bind(space_id)
         .bind(user_id)
         .bind(tag_id)
         .execute(&self.pool)
@@ -184,13 +217,14 @@ impl TagRepository {
         .map_err(map_db_error)
     }
 
-    pub async fn unfollow(&self, user_id: i64, tag_id: i64) -> Result<(), AppError> {
+    pub async fn unfollow(&self, space_id: i64, user_id: i64, tag_id: i64) -> Result<(), AppError> {
         sqlx::query(
             r#"
             DELETE FROM topic_users
-            WHERE user_id = ? AND tag_id = ?
+            WHERE space_id = ? AND user_id = ? AND tag_id = ?
             "#,
         )
+        .bind(space_id)
         .bind(user_id)
         .bind(tag_id)
         .execute(&self.pool)
@@ -199,44 +233,64 @@ impl TagRepository {
         .map_err(map_db_error)
     }
 
-    pub async fn toggle_top(&self, user_id: i64, tag_id: i64) -> Result<bool, AppError> {
+    pub async fn toggle_top(
+        &self,
+        space_id: i64,
+        user_id: i64,
+        tag_id: i64,
+    ) -> Result<bool, AppError> {
         sqlx::query(
             r#"
             UPDATE topic_users
             SET is_top = NOT is_top
-            WHERE user_id = ? AND tag_id = ?
+            WHERE space_id = ? AND user_id = ? AND tag_id = ?
             "#,
         )
+        .bind(space_id)
         .bind(user_id)
         .bind(tag_id)
         .execute(&self.pool)
         .await
         .map_err(map_db_error)?;
 
-        self.follow_state(user_id, tag_id, "is_top").await
+        self.follow_state(space_id, user_id, tag_id, "is_top").await
     }
 
-    pub async fn toggle_pin(&self, user_id: i64, tag_id: i64) -> Result<bool, AppError> {
+    pub async fn toggle_pin(
+        &self,
+        space_id: i64,
+        user_id: i64,
+        tag_id: i64,
+    ) -> Result<bool, AppError> {
         sqlx::query(
             r#"
             UPDATE topic_users
             SET is_pin = NOT is_pin
-            WHERE user_id = ? AND tag_id = ?
+            WHERE space_id = ? AND user_id = ? AND tag_id = ?
             "#,
         )
+        .bind(space_id)
         .bind(user_id)
         .bind(tag_id)
         .execute(&self.pool)
         .await
         .map_err(map_db_error)?;
 
-        self.follow_state(user_id, tag_id, "is_pin").await
+        self.follow_state(space_id, user_id, tag_id, "is_pin").await
     }
 
-    async fn follow_state(&self, user_id: i64, tag_id: i64, field: &str) -> Result<bool, AppError> {
-        let sql =
-            format!("SELECT {field} FROM topic_users WHERE user_id = ? AND tag_id = ? LIMIT 1");
+    async fn follow_state(
+        &self,
+        space_id: i64,
+        user_id: i64,
+        tag_id: i64,
+        field: &str,
+    ) -> Result<bool, AppError> {
+        let sql = format!(
+            "SELECT {field} FROM topic_users WHERE space_id = ? AND user_id = ? AND tag_id = ? LIMIT 1"
+        );
         sqlx::query_scalar::<_, bool>(&sql)
+            .bind(space_id)
             .bind(user_id)
             .bind(tag_id)
             .fetch_one(&self.pool)
@@ -244,8 +298,19 @@ impl TagRepository {
             .map_err(map_db_error)
     }
 
-    async fn fetch_tags(&self, sql: &str, limit: u64) -> Result<Vec<TagSummary>, AppError> {
-        sqlx::query_as::<_, TagRow>(sql)
+    async fn fetch_tags(
+        &self,
+        sql: &str,
+        space_id: Option<i64>,
+        limit: u64,
+    ) -> Result<Vec<TagSummary>, AppError> {
+        let query = sqlx::query_as::<_, TagRow>(sql);
+        let query = if let Some(space_id) = space_id {
+            query.bind(space_id)
+        } else {
+            query
+        };
+        query
             .bind(limit as i64)
             .fetch_all(&self.pool)
             .await
@@ -256,10 +321,12 @@ impl TagRepository {
     async fn fetch_followed(
         &self,
         sql: &str,
+        space_id: i64,
         user_id: i64,
         limit: u64,
     ) -> Result<Vec<TagSummary>, AppError> {
         sqlx::query_as::<_, TagRow>(sql)
+            .bind(space_id)
             .bind(user_id)
             .bind(limit as i64)
             .fetch_all(&self.pool)
@@ -272,6 +339,7 @@ impl TagRepository {
 #[derive(Debug, FromRow)]
 struct TagRow {
     id: i64,
+    space_id: i64,
     user_id: i64,
     username: String,
     tag: String,
@@ -286,6 +354,7 @@ impl From<TagRow> for TagSummary {
     fn from(row: TagRow) -> Self {
         Self {
             id: row.id,
+            space_id: row.space_id,
             user_id: row.user_id,
             username: row.username,
             tag: row.tag,

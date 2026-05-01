@@ -6,7 +6,7 @@
             <n-list-item>
                 <n-spin :show="loading">
                     <div class="detail-wrap" v-if="post.id > 0">
-                        <post-detail :post="post" @reload="reloadPost" />
+                        <post-detail :post="post" @reload="reloadPost" @reaction-added="appendPostReaction" />
                     </div>
                     <div class="empty-wrap" v-else>
                         <n-empty size="large" description="暂无数据" />
@@ -29,25 +29,20 @@
 
             <div v-if="post.id > 0 && reactions.length > 0" class="reaction-overview">
                 <div class="reaction-title">表情回应</div>
-                <div class="reaction-list">
-                    <button
-                        v-for="reaction in reactions"
-                        :key="reaction.emoji"
-                        type="button"
-                        class="reaction-chip"
-                        :title="reaction.users.map((user) => user.nickname || user.username).join('、')"
-                    >
-                        <span>{{ reaction.emoji }}</span>
-                        <span>{{ reaction.count }}</span>
-                    </button>
-                </div>
+                <post-reaction-bar
+                    :reactions="reactions"
+                    :count="post.upvote_count"
+                    :max-visible="16"
+                    :show-add-button="false"
+                    @select="handlePostReaction"
+                />
             </div>
 
             <div v-if="post.id > 0">
-                <div v-if="commentLoading" class="skeleton-wrap">
-                    <post-skeleton :num="5" />
-                </div>
-                <div v-else>
+                    <div v-if="commentLoading && comments.length === 0" class="skeleton-wrap">
+                        <post-skeleton :num="5" />
+                    </div>
+                    <div v-else>
                     <div class="empty-wrap" v-if="comments.length === 0">
                         <n-empty size="large" description="暂无评论，快来抢沙发" />
                     </div>
@@ -80,8 +75,15 @@ import { getPost, getPostComments } from '@/api/post';
 import InfiniteLoading from 'v3-infinite-loading';
 import 'v3-infinite-loading/lib/style.css';
 import { splitCommentReactions } from '@/utils/reactions';
+import { mergeCommentPage, nextCommentPage } from '@/utils/comment-feed';
+import { useStoreUser } from '@/store/user';
+import { storeToRefs } from 'pinia';
+import PostReactionBar from '@/components/post-reaction-bar.vue';
+import { Api } from '@/utils/request';
 
 const route = useRoute();
+const storeUser = useStoreUser();
+const { userInfo } = storeToRefs(storeUser);
 const post = ref<Item.PostProps>({} as Item.PostProps);
 const loading = ref(false);
 const commentLoading = ref(false);
@@ -109,9 +111,7 @@ let stateHandler = {
 
 const commentTab = (tab: 'default' | 'hots' | 'newest') => {
   sortStrategy.value = tab;
-  if (tab === 'default') {
-    defaultCommentsSort.value = true;
-  }
+  defaultCommentsSort.value = tab === 'default';
   loadComments(stateHandler);
 };
 
@@ -136,6 +136,7 @@ const loadPost = () => {
     .then((res) => {
       loading.value = false;
       post.value = res;
+      reactions.value = res.reactions || [];
 
       // 加载评论
       loadComments(stateHandler);
@@ -150,39 +151,34 @@ const defaultNoMore = ref<boolean>(false);
 const defaultComments = ref<Item.CommentProps[]>([]);
 const loadDefaultComments = ($state: any) => {
   if (defaultNoMore.value) {
+    $state?.complete?.();
     return;
   }
+  const requestedPage = defaultCommmentsPage;
   getPostComments({
     id: post.value.id as number,
     style: 'default',
-    page: defaultCommmentsPage,
+    page: requestedPage,
     page_size: pageSize,
   })
     .then((res) => {
       if ($state !== null) {
         stateHandler = $state;
       }
-      if (res.list.length < pageSize) {
-        defaultNoMore.value = true;
-      } else {
-        defaultCommmentsPage++;
-      }
-      if (res.list.length > 0) {
-        if (defaultCommmentsPage === 1) {
-          defaultComments.value = res.list;
-        } else {
-          defaultComments.value.push(...res.list);
-        }
-      }
+      defaultNoMore.value = res.list.length < pageSize;
+      defaultComments.value = mergeCommentPage(defaultComments.value, res.list, requestedPage);
+      defaultCommmentsPage = nextCommentPage(requestedPage, res.list.length, pageSize);
       const reactionView = splitCommentReactions(defaultComments.value);
       comments.value = reactionView.visibleComments;
-      reactions.value = reactionView.reactions;
-      stateHandler.loaded();
+      if (!post.value.reactions?.length) {
+        reactions.value = reactionView.reactions;
+      }
+      $state?.loaded?.();
       commentLoading.value = false;
     })
     .catch((err) => {
       commentLoading.value = false;
-      stateHandler.error();
+      $state?.error?.();
     });
 };
 
@@ -191,39 +187,34 @@ let hotsNoMore = ref<boolean>(false);
 const hotsComments = ref<Item.CommentProps[]>([]);
 const loadHotsComments = ($state: any) => {
   if (hotsNoMore.value) {
+    $state?.complete?.();
     return;
   }
+  const requestedPage = hotsCommmentsPage;
   getPostComments({
     id: post.value.id as number,
     style: 'hots',
-    page: hotsCommmentsPage,
+    page: requestedPage,
     page_size: pageSize,
   })
     .then((res) => {
       if ($state !== null) {
         stateHandler = $state;
       }
-      if (res.list.length < pageSize) {
-        hotsNoMore.value = true;
-      } else {
-        hotsCommmentsPage++;
-      }
-      if (res.list.length > 0) {
-        if (hotsCommmentsPage === 1) {
-          hotsComments.value = res.list;
-        } else {
-          hotsComments.value.push(...res.list);
-        }
-      }
+      hotsNoMore.value = res.list.length < pageSize;
+      hotsComments.value = mergeCommentPage(hotsComments.value, res.list, requestedPage);
+      hotsCommmentsPage = nextCommentPage(requestedPage, res.list.length, pageSize);
       const reactionView = splitCommentReactions(hotsComments.value);
       comments.value = reactionView.visibleComments;
-      reactions.value = reactionView.reactions;
-      stateHandler.loaded();
+      if (!post.value.reactions?.length) {
+        reactions.value = reactionView.reactions;
+      }
+      $state?.loaded?.();
       commentLoading.value = false;
     })
     .catch((err) => {
       commentLoading.value = false;
-      stateHandler.error();
+      $state?.error?.();
     });
 };
 
@@ -232,39 +223,34 @@ let newestNoMore = ref<boolean>(false);
 const newestComments = ref<Item.CommentProps[]>([]);
 const loadNewestComments = ($state: any) => {
   if (newestNoMore.value) {
+    $state?.complete?.();
     return;
   }
+  const requestedPage = newestCommmentsPage;
   getPostComments({
     id: post.value.id as number,
     style: 'newest',
-    page: newestCommmentsPage,
+    page: requestedPage,
     page_size: pageSize,
   })
     .then((res) => {
       if ($state !== null) {
         stateHandler = $state;
       }
-      if (res.list.length < pageSize) {
-        newestNoMore.value = true;
-      } else {
-        newestCommmentsPage++;
-      }
-      if (res.list.length > 0) {
-        if (newestCommmentsPage === 1) {
-          newestComments.value = res.list;
-        } else {
-          newestComments.value.push(...res.list);
-        }
-      }
+      newestNoMore.value = res.list.length < pageSize;
+      newestComments.value = mergeCommentPage(newestComments.value, res.list, requestedPage);
+      newestCommmentsPage = nextCommentPage(requestedPage, res.list.length, pageSize);
       const reactionView = splitCommentReactions(newestComments.value);
       comments.value = reactionView.visibleComments;
-      reactions.value = reactionView.reactions;
-      stateHandler.loaded();
+      if (!post.value.reactions?.length) {
+        reactions.value = reactionView.reactions;
+      }
+      $state?.loaded?.();
       commentLoading.value = false;
     })
     .catch((err) => {
       commentLoading.value = false;
-      stateHandler.error();
+      $state?.error?.();
     });
 };
 
@@ -285,25 +271,41 @@ const loadComments = ($state: any) => {
     comments.value = newestComments.value;
     loadNewestComments($state);
   }
-  commentLoading.value = false;
 };
 
 const reloadComments = () => {
-  // 这里需要做特殊处理,目前暴力处理，一切都重新加载
-  // TODO：后续持续优化， 这里有大bug！！！
   defaultCommmentsPage = 1;
-  defaultNoMore.value = false;
-  defaultComments.value = [];
-
   hotsCommmentsPage = 1;
-  hotsNoMore.value = false;
-  hotsComments.value = [];
-
   newestCommmentsPage = 1;
+  defaultNoMore.value = false;
+  hotsNoMore.value = false;
   newestNoMore.value = false;
-  newestComments.value = [];
-
   loadComments(stateHandler);
+};
+
+const appendPostReaction = (payload: { reactions: Item.ReactionGroup[]; commentCount: number }) => {
+  reactions.value = payload.reactions;
+  post.value = {
+    ...post.value,
+    reactions: payload.reactions,
+    upvote_count: payload.reactions.reduce((sum, item) => sum + item.count, 0),
+    comment_count: payload.commentCount,
+  };
+};
+
+const handlePostReaction = (emoji: string) => {
+  if (userInfo.value.id < 1) {
+    return;
+  }
+  Api.v1.posts.post.reactions({
+    post_id: post.value.id,
+    emoji,
+  }).then((res) => {
+    appendPostReaction({
+      reactions: res.reactions || [],
+      commentCount: res.comment_count,
+    });
+  });
 };
 
 onMounted(() => {
@@ -346,26 +348,10 @@ watch(postId, () => {
     opacity: 0.72;
 }
 
-.reaction-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.reaction-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    height: 34px;
-    padding: 0 12px;
-    border: 0;
-    border-radius: 999px;
-    background: rgba(16, 136, 91, 0.08);
-    cursor: default;
-    animation: reaction-pop 0.2s ease;
-}
-
 .main-content-wrap {
+    --post-view-surface: transparent;
+    background-color: var(--post-view-surface);
+
     .load-more {
         margin-bottom: 8px;
         .load-more-spinner {
@@ -375,12 +361,13 @@ watch(postId, () => {
     }
 }
 
+.skeleton-wrap {
+    background-color: var(--post-view-surface);
+}
 
-.dark {
-    .main-content-wrap,
-    .skeleton-wrap {
-        background-color: rgba(16, 16, 20, 0.75);
-    }
+:global(.dark) .main-content-wrap,
+:global(.dark) .skeleton-wrap {
+    --post-view-surface: rgba(16, 16, 20, 0.75);
 }
 
 @keyframes reaction-pop {

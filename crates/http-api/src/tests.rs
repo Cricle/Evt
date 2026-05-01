@@ -9,7 +9,7 @@ use axum::{
 };
 use evt_config::{
     AppSettings, DatabaseSettings, GrpcSettings, HttpSettings, JwtSettings, ServerSettings,
-    Settings, SiteSettings, StorageSettings, WebSettings,
+    Settings, SiteSettings, StorageSettings, TelemetrySettings, WebSettings,
 };
 use tower::util::ServiceExt;
 
@@ -66,10 +66,17 @@ fn test_settings() -> Settings {
         storage: StorageSettings {
             local_dir: storage_dir.display().to_string(),
         },
+        telemetry: TelemetrySettings {
+            enabled: false,
+            service_name: "evt-test".into(),
+            otlp_endpoint: "http://127.0.0.1:4317".into(),
+        },
         web: WebSettings {
             dist_dir: web_dist_dir.display().to_string(),
         },
         site: SiteSettings {
+            enable_spaces: true,
+            default_space_slug: "public".into(),
             allow_user_register: true,
             allow_phone_bind: false,
             use_friendship: true,
@@ -189,6 +196,33 @@ async fn site_profile_endpoint_keeps_existing_fields() {
         body["data"]["copyright_right_link"],
         "https://example.com/right"
     );
+}
+
+#[tokio::test]
+async fn site_profile_endpoint_reflects_runtime_default_space_slug() {
+    let app = evt_infra::AppContext::bootstrap_lazy(test_settings())
+        .await
+        .expect("build lazy app context");
+    app.apply_site_profile_payload(&serde_json::json!({
+        "default_space_slug": "team-alpha"
+    }));
+    let app = router(HttpState::new(app));
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/v1/site/profile")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = response_json(response).await;
+    assert_eq!(body["code"], 0);
+    assert_eq!(body["data"]["default_space_slug"], "team-alpha");
 }
 
 #[tokio::test]

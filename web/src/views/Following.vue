@@ -173,7 +173,14 @@ onMounted(() => {
 <style lang="less" scoped>
 
 .main-content-wrap {
+    --following-surface-bg: transparent;
     padding: 20px;
+    background-color: var(--following-surface-bg);
+}
+
+.empty-wrap,
+.skeleton-wrap {
+    background-color: var(--following-surface-bg);
 }
 
 .load-more {
@@ -193,9 +200,9 @@ onMounted(() => {
     }
 }
 
-.dark {
-    .main-content-wrap, .empty-wrap, .skeleton-wrap {
-        background-color: rgba(16, 16, 20, 0.75);
-    }
+:global(.dark) .main-content-wrap,
+:global(.dark) .empty-wrap,
+:global(.dark) .skeleton-wrap {
+    --following-surface-bg: rgba(16, 16, 20, 0.75);
 }
 </style>

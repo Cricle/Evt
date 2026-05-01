@@ -113,38 +113,19 @@
                     :links="post.links" />
             </template>
             <template #action>
-                <n-space justify="space-between">
-                    <n-popover trigger="click" placement="top">
-                        <template #trigger>
-                            <div class="opt-item hover" @click.stop>
-                                <n-icon size="18" class="opt-item-icon">
-                                    <happy-outline />
-                                </n-icon>
-                                {{ post.upvote_count }}
-                            </div>
-                        </template>
-                        <emoji-reaction-picker @select="handlePostReaction" />
-                    </n-popover>
-                    <div class="opt-item hover" @click.stop="goPostDetail(post.id)">
-                        <n-icon size="18" class="opt-item-icon">
-                            <chatbox-outline />
-                        </n-icon>
-                        {{ post.comment_count }}
-                    </div>
-                    <div class="opt-item hover" @click.stop="handlePostCollection">
-                        <n-icon size="18" class="opt-item-icon">
-                            <bookmark-outline />
-                        </n-icon>
-                        {{ post.collection_count }}
-                    </div>
-                </n-space>
+                <post-reaction-bar
+                    :reactions="postReactions"
+                    :count="post.upvote_count"
+                    :max-visible="12"
+                    @select="handlePostReaction"
+                />
             </template>
         </n-thing>
     </div>
 </template>
 
 <script setup lang="ts">
-import { h, ref, computed } from 'vue';
+import { h, ref, computed, watch } from 'vue';
 import { useStoreMain } from '@/store/main';
 import { useRouter } from 'vue-router';
 import { NIcon, useDialog } from 'naive-ui';
@@ -152,12 +133,9 @@ import type { Component } from 'vue';
 import type { DropdownOption } from 'naive-ui';
 import { formatPrettyDate } from '@/utils/formatTime';
 import { preparePost } from '@/utils/content';
-import { createComment, postCollection } from '@/api/post';
+import { createComment } from '@/api/post';
 import {
   PaperPlaneOutline,
-  HappyOutline,
-  BookmarkOutline,
-  ChatboxOutline,
   ShareSocialOutline,
   PersonAddOutline,
   PersonRemoveOutline,
@@ -172,9 +150,11 @@ import { Api } from '@/utils/request';
 import UserAction from '@/composables/useUserAction';
 import { usePostContent } from '@/composables/usePostContent';
 import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
-import EmojiReactionPicker from '@/components/emoji-reaction-picker.vue';
 import { useStoreUser } from '@/store/user';
 import { goToAuth } from '@/utils/authRoute';
+import PostReactionBar from '@/components/post-reaction-bar.vue';
+import type { ReactionGroup } from '@/utils/reactions';
+import { splitCommentReactions } from '@/utils/reactions';
 
 const router = useRouter();
 
@@ -299,53 +279,35 @@ const handleTweetAction = async (
 
 // 使用 usePostContent composable
 const post = usePostContent(props.post);
+const postReactions = ref<ReactionGroup[]>([]);
+
+watch(
+  () => props.post,
+  (value) => {
+    const withComments = value as Item.PostProps & { comments?: Item.CommentProps[] };
+    postReactions.value = value.reactions || splitCommentReactions(withComments.comments || []).reactions;
+  },
+  { immediate: true },
+);
+
 const handlePostReaction = (emoji: string) => {
   if (userInfo.value.id < 1) {
     goToAuth(router, 'signin', router.currentRoute.value.fullPath);
     return;
   }
 
-  createComment({
+  Api.v1.posts.post.reactions({
     post_id: post.value.id,
-    users: [],
-    contents: [
-      {
-        content: emoji,
-        type: 2,
-        sort: 100,
-      },
-    ],
-  })
-    .then(() => {
-      post.value = {
-        ...post.value,
-        upvote_count: post.value.upvote_count + 1,
-      };
-      window.$message.success(`已添加表情 ${emoji}`);
-    })
-    .catch((err) => {
-      console.log(err);
-    });
-};
-const handlePostCollection = () => {
-  postCollection({
-    id: post.value.id,
+    emoji,
   })
     .then((res) => {
-      if (res.status) {
-        post.value = {
-          ...post.value,
-          collection_count: post.value.collection_count + 1,
-        };
-      } else {
-        post.value = {
-          ...post.value,
-          collection_count:
-            post.value.collection_count > 0
-              ? post.value.collection_count - 1
-              : 0,
-        };
-      }
+      postReactions.value = res.reactions || [];
+      post.value = {
+        ...post.value,
+        reactions: res.reactions || [],
+        upvote_count: (res.reactions || []).reduce((sum, item) => sum + item.count, 0),
+        comment_count: res.comment_count,
+      };
     })
     .catch((err) => {
       console.log(err);
@@ -392,9 +354,12 @@ const doClickText = (e: MouseEvent, id: number) => {
 
 <style lang="less">
 .post-item {
+    --post-item-hover-bg: var(--surface-subtle);
+    --post-item-bg: var(--surface-base);
     width: 100%;
     padding: 16px;
     box-sizing: border-box;
+    background-color: var(--post-item-bg);
 
     .nickname-wrap {
         font-size: 14px;
@@ -444,7 +409,7 @@ const doClickText = (e: MouseEvent, id: number) => {
     }
     
     &:hover {
-        background: #f7f9f9;
+        background: var(--post-item-hover-bg);
     }
     
     &.hover {
@@ -459,12 +424,5 @@ const doClickText = (e: MouseEvent, id: number) => {
         margin-bottom: 8px !important;
     }
 }
-.dark {
-    .post-item {
-        &:hover {
-            background: #18181c;
-        }
-        background-color: rgba(16, 16, 20, 0.75);
-    }
-}
+
 </style>

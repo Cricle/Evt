@@ -53,6 +53,7 @@ pub struct PinTopicResponse {
 pub struct TopicListQuery {
     #[serde(rename = "type")]
     tag_type: String,
+    space_slug: Option<String>,
     num: u64,
     extral_num: Option<u64>,
 }
@@ -60,11 +61,13 @@ pub struct TopicListQuery {
 #[derive(Debug, Deserialize)]
 pub struct SuggestTagsQuery {
     k: Option<String>,
+    space_slug: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct TopicActionBody {
     topic_id: i64,
+    space_slug: Option<String>,
 }
 
 pub async fn list_tags(
@@ -75,7 +78,8 @@ pub async fn list_tags(
     let actor = authenticate_optional_request(state.app(), &headers).await?;
     let (topics, extral_topics) = state
         .app()
-        .list_tags(
+        .list_tags_in_space(
+            query.space_slug.as_deref(),
             &query.tag_type,
             query.num.max(1).min(100),
             query.extral_num.unwrap_or(0).min(100),
@@ -107,7 +111,12 @@ pub async fn suggest_tags(
 ) -> Result<Json<ApiEnvelope<SuggestResponse>>, HttpApiError> {
     let suggest = state
         .app()
-        .suggest_tags(query.k.as_deref().unwrap_or_default(), 8)
+        .suggest_tags_in_space(
+            None,
+            query.space_slug.as_deref(),
+            query.k.as_deref().unwrap_or_default(),
+            8,
+        )
         .await?;
     Ok(Json(success(SuggestResponse { suggest })))
 }
@@ -118,7 +127,10 @@ pub async fn follow_tag(
     Json(payload): Json<TopicActionBody>,
 ) -> Result<Json<ApiEnvelope<serde_json::Value>>, HttpApiError> {
     let actor = authenticate_request(state.app(), &headers).await?;
-    state.app().follow_tag(&actor, payload.topic_id).await?;
+    state
+        .app()
+        .follow_tag_in_space(&actor, payload.space_slug.as_deref(), payload.topic_id)
+        .await?;
     Ok(Json(success(serde_json::json!({}))))
 }
 
@@ -128,7 +140,10 @@ pub async fn unfollow_tag(
     Json(payload): Json<TopicActionBody>,
 ) -> Result<Json<ApiEnvelope<serde_json::Value>>, HttpApiError> {
     let actor = authenticate_request(state.app(), &headers).await?;
-    state.app().unfollow_tag(&actor, payload.topic_id).await?;
+    state
+        .app()
+        .unfollow_tag_in_space(&actor, payload.space_slug.as_deref(), payload.topic_id)
+        .await?;
     Ok(Json(success(serde_json::json!({}))))
 }
 
@@ -138,7 +153,10 @@ pub async fn stick_tag(
     Json(payload): Json<TopicActionBody>,
 ) -> Result<Json<ApiEnvelope<StickTopicResponse>>, HttpApiError> {
     let actor = authenticate_request(state.app(), &headers).await?;
-    let status = state.app().toggle_tag_top(&actor, payload.topic_id).await?;
+    let status = state
+        .app()
+        .toggle_tag_top_in_space(&actor, payload.space_slug.as_deref(), payload.topic_id)
+        .await?;
     Ok(Json(success(StickTopicResponse {
         top_status: if status { 1 } else { 0 },
     })))
@@ -150,7 +168,10 @@ pub async fn pin_tag(
     Json(payload): Json<TopicActionBody>,
 ) -> Result<Json<ApiEnvelope<PinTopicResponse>>, HttpApiError> {
     let actor = authenticate_request(state.app(), &headers).await?;
-    let status = state.app().toggle_tag_pin(&actor, payload.topic_id).await?;
+    let status = state
+        .app()
+        .toggle_tag_pin_in_space(&actor, payload.space_slug.as_deref(), payload.topic_id)
+        .await?;
     Ok(Json(success(PinTopicResponse {
         pin_status: if status { 1 } else { 0 },
     })))
@@ -190,5 +211,54 @@ fn to_topic_item(item: TagSummary, previews: &HashMap<i64, UserPreview>) -> Topi
         is_following: if item.is_following { 1 } else { 0 },
         is_top: if item.is_top { 1 } else { 0 },
         is_pin: if item.is_pin { 1 } else { 0 },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use chrono::Utc;
+    use evt_domain::{TagSummary, UserPreview};
+
+    use super::to_topic_item;
+
+    #[test]
+    fn to_topic_item_prefers_user_preview_metadata() {
+        let created_at = Utc::now();
+        let item = to_topic_item(
+            TagSummary {
+                id: 3,
+                space_id: 8,
+                user_id: 5,
+                username: "fallback".into(),
+                tag: "rust".into(),
+                quote_num: 9,
+                created_at,
+                is_following: true,
+                is_top: true,
+                is_pin: false,
+            },
+            &HashMap::from([(
+                5,
+                UserPreview {
+                    id: 5,
+                    username: "evt".into(),
+                    nickname: "Evt".into(),
+                    avatar: "avatar.png".into(),
+                    created_at,
+                },
+            )]),
+        );
+
+        assert_eq!(item.id, 3);
+        assert_eq!(item.user.username, "evt");
+        assert_eq!(item.user.nickname, "Evt");
+        assert_eq!(item.user.avatar, "avatar.png");
+        assert_eq!(item.tag, "rust");
+        assert_eq!(item.quote_num, 9);
+        assert_eq!(item.is_following, 1);
+        assert_eq!(item.is_top, 1);
+        assert_eq!(item.is_pin, 0);
     }
 }
