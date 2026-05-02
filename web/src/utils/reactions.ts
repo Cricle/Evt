@@ -47,11 +47,6 @@ export interface CommentReactionView {
   reactions: ReactionGroup[];
 }
 
-export interface ReplyReactionView {
-  visibleReplies: Item.ReplyProps[];
-  reactions: ReactionGroup[];
-}
-
 export interface ReactionDisplaySummary {
   visible: ReactionGroup[];
   hiddenCount: number;
@@ -104,24 +99,6 @@ export const splitCommentReactions = (comments: Item.CommentProps[]): CommentRea
 
   return {
     visibleComments,
-    reactions: sortReactionGroups(Array.from(reactionMap.values())),
-  };
-};
-
-export const splitReplyReactions = (replies: Item.ReplyProps[]): ReplyReactionView => {
-  const visibleReplies: Item.ReplyProps[] = [];
-  const reactionMap = buildReactionMap();
-
-  replies.forEach((reply) => {
-    if (isEmojiReaction(reply.content)) {
-      appendReaction(reactionMap, normalizeReaction(reply.content), reply.user);
-      return;
-    }
-    visibleReplies.push(reply);
-  });
-
-  return {
-    visibleReplies,
     reactions: sortReactionGroups(Array.from(reactionMap.values())),
   };
 };

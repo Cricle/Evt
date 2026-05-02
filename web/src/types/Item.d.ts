@@ -66,8 +66,6 @@ declare namespace Item {
     user: UserInfo;
     /** 评论内容 */
     contents: CommentItemProps[];
-    /** 回复列表 */
-    replies: ReplyProps[];
     /** 评论者IP地址 */
     ip?: string;
     /** 评论者城市地址 */
@@ -95,42 +93,6 @@ declare namespace Item {
     texts: CommentItemProps[];
     /** 图片评论列表 */
     imgs: CommentItemProps[];
-  }
-
-  /** 回复内容 */
-  interface ReplyProps {
-    /** 内容ID */
-    id: number;
-    /** 评论ID */
-    comment_id: number;
-    /** 回复人ID */
-    user_id: number;
-    /** 回复人用户数据 */
-    user: UserInfo;
-    /** 艾特人ID */
-    at_user_id: number;
-    /** 艾特人用户数据 */
-    at_user: UserInfo;
-    /** 内容 */
-    content: string;
-    /** 回复人IP地址 */
-    ip?: string;
-    /** 回复人城市地址 */
-    ip_loc: string;
-    /** 点赞数 */
-    thumbs_up_count: number;
-    /** 是否点赞，0为未点赞，1为已点赞 */
-    is_thumbs_up: import('@/utils/IEnum').YesNoEnum;
-    /** 是否反对，0为未反对，1为已反对 */
-    is_thumbs_down: import('@/utils/IEnum').YesNoEnum;
-    /** 创建时间 */
-    created_on: number;
-    /** 修改时间 */
-    modified_on?: number;
-    /** 删除时间 */
-    deleted_on?: number;
-    /** 是否删除，0为未删除，1为已删除 */
-    is_del?: 0 | 1;
   }
 
   /** 联系人数据 */
@@ -283,8 +245,6 @@ declare namespace Item {
     comment: CommentProps;
     /** 回复ID */
     reply_id: number;
-    /** 回复内容 */
-    replay: ReplyProps;
     /** 创建时间 */
     created_on: number;
     /** 修改时间 */

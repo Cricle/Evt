@@ -1141,44 +1141,6 @@ async fn local_http_e2e_covers_web_and_legacy_post_comment_flow() {
         .as_i64()
         .expect("owner comment on second post id");
 
-    let third_legacy_reply_before_invite = client
-        .post(format!("{}/v1/post/comment/reply", server.base_url))
-        .bearer_auth(&third_token)
-        .json(&serde_json::json!({
-            "comment_id": comment_id,
-            "content": "should be blocked before invite",
-            "at_user_id": 0
-        }))
-        .send()
-        .await
-        .expect("third legacy reply before invite");
-    assert_eq!(third_legacy_reply_before_invite.status(), StatusCode::BAD_REQUEST);
-    let third_legacy_reply_before_invite_body: Value = third_legacy_reply_before_invite
-        .json()
-        .await
-        .expect("third legacy reply before invite json");
-    assert_eq!(third_legacy_reply_before_invite_body["code"], 20007);
-
-    let second_create_reply = client
-        .post(format!("{}/v1/post/comment/reply", server.base_url))
-        .bearer_auth(&second_token)
-        .json(&serde_json::json!({
-            "comment_id": comment_id,
-            "content": "evt private reply",
-            "at_user_id": first_user_id
-        }))
-        .send()
-        .await
-        .expect("second create reply response");
-    assert_eq!(second_create_reply.status(), StatusCode::OK);
-    let second_create_reply_body: Value = second_create_reply
-        .json()
-        .await
-        .expect("second create reply json");
-    let reply_id = second_create_reply_body["data"]["id"]
-        .as_i64()
-        .expect("reply id");
-
     let remove_second_member = client
         .delete(format!("{}/v1/spaces/members", server.base_url))
         .bearer_auth(&token)
@@ -1240,20 +1202,6 @@ async fn local_http_e2e_covers_web_and_legacy_post_comment_flow() {
         assert_eq!(response_body["code"], 20007, "path={path}");
     }
 
-    let second_delete_reply_after_removal = client
-        .delete(format!("{}/v1/post/comment/reply", server.base_url))
-        .bearer_auth(&second_token)
-        .json(&serde_json::json!({
-            "id": reply_id
-        }))
-        .send()
-        .await
-        .expect("second delete reply after removal response");
-    assert_eq!(
-        second_delete_reply_after_removal.status(),
-        StatusCode::BAD_REQUEST
-    );
-
     let re_add_second_member = client
         .post(format!("{}/v1/spaces/members", server.base_url))
         .bearer_auth(&token)
@@ -1300,19 +1248,6 @@ async fn local_http_e2e_covers_web_and_legacy_post_comment_flow() {
         .await
         .expect("wrong comment thumbsup response");
     assert_eq!(wrong_comment_thumbsup.status(), StatusCode::BAD_REQUEST);
-
-    let wrong_reply_thumbsup = client
-        .post(format!("{}/v1/tweet/reply/thumbsup", server.base_url))
-        .bearer_auth(&second_token)
-        .json(&serde_json::json!({
-            "tweet_id": tagged_post_id,
-            "comment_id": comment_id,
-            "reply_id": reply_id
-        }))
-        .send()
-        .await
-        .expect("wrong reply thumbsup response");
-    assert_eq!(wrong_reply_thumbsup.status(), StatusCode::BAD_REQUEST);
 
     let list_tags = client
         .get(format!(

@@ -254,16 +254,6 @@ pub struct LegacyCommentState {
     pub is_reaction: bool,
 }
 
-#[derive(Clone, Debug, Serialize)]
-pub struct CommentReplySummary {
-    pub id: i64,
-    pub comment_id: i64,
-    pub user_id: i64,
-    pub at_user_id: i64,
-    pub content: String,
-    pub created_at: DateTime<Utc>,
-}
-
 #[derive(Clone, Debug)]
 pub struct CreateContentInput {
     pub content: String,

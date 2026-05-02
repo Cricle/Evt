@@ -37,9 +37,6 @@ ALTER TABLE posts
 ALTER TABLE comments
   ADD INDEX idx_comments_post_user_created_at (post_id, user_id, created_at, id);
 
-ALTER TABLE comment_replies
-  ADD INDEX idx_comment_replies_comment_created_at (comment_id, created_at, id);
-
 ALTER TABLE tags
   ADD COLUMN space_id BIGINT NOT NULL DEFAULT 0 AFTER user_id,
   ADD CONSTRAINT uq_tags_space_tag UNIQUE KEY (space_id, tag),

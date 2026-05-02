@@ -5,7 +5,6 @@ import {
   DEFAULT_REACTION_EMOJIS,
   isEmojiReaction,
   splitCommentReactions,
-  splitReplyReactions,
   summarizeReactionGroups,
   upsertReactionGroup,
 } from '@/utils/reactions';
@@ -49,7 +48,6 @@ describe('reaction utils', () => {
           created_on: 0,
         },
       ],
-      replies: [],
       ip_loc: '',
       is_essence: 0,
       thumbs_up_count: 0,
@@ -81,41 +79,6 @@ describe('reaction utils', () => {
         emoji: '👍',
         count: 2,
         users: [emojiComment.user, secondEmojiComment.user],
-      },
-    ]);
-  });
-
-  it('splits emoji-only replies into aggregated reaction groups', () => {
-    const emojiReply = {
-      id: 1,
-      comment_id: 1,
-      user_id: 1,
-      user: buildUser(1, 'alice'),
-      at_user_id: 0,
-      at_user: buildUser(0, 'system'),
-      content: '🔥',
-      ip_loc: '',
-      thumbs_up_count: 0,
-      is_thumbs_up: 0,
-      is_thumbs_down: 0,
-      created_on: 0,
-    } satisfies Item.ReplyProps;
-
-    const textReply = {
-      ...emojiReply,
-      id: 2,
-      user_id: 2,
-      user: buildUser(2, 'bob'),
-      content: 'normal reply',
-    } satisfies Item.ReplyProps;
-
-    const view = splitReplyReactions([emojiReply, textReply]);
-    expect(view.visibleReplies).toHaveLength(1);
-    expect(view.reactions).toEqual([
-      {
-        emoji: '🔥',
-        count: 1,
-        users: [emojiReply.user],
       },
     ]);
   });

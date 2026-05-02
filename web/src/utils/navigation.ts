@@ -1,7 +1,10 @@
 import type { RouteLocationRaw, Router } from 'vue-router';
 
-type MinimalRouter = Pick<Router, 'push' | 'resolve' | 'currentRoute'>;
+type MinimalRouter = Pick<Router, 'back' | 'push' | 'resolve' | 'currentRoute'>;
 type MinimalLocation = Pick<Location, 'assign'>;
+type MinimalHistoryState = {
+  back?: string | null;
+} | null;
 
 export const normalizeResolvedHref = (href: string, fullPath: string) => {
   if (href.startsWith('#') || href.startsWith('/#') || href.startsWith('http')) {
@@ -9,6 +12,9 @@ export const normalizeResolvedHref = (href: string, fullPath: string) => {
   }
   return `#${fullPath}`;
 };
+
+export const canUseHistoryBack = (state?: MinimalHistoryState) =>
+  typeof state?.back === 'string' && state.back.length > 0;
 
 export const pushWithFallback = async (
   router: MinimalRouter,
@@ -26,4 +32,18 @@ export const pushWithFallback = async (
   if (router.currentRoute.value.fullPath !== resolved.fullPath && locationRef) {
     locationRef.assign(normalizeResolvedHref(resolved.href, resolved.fullPath));
   }
+};
+
+export const backWithFallback = async (
+  router: MinimalRouter,
+  fallbackTarget: RouteLocationRaw,
+  locationRef?: MinimalLocation | null,
+  state?: MinimalHistoryState,
+) => {
+  if (canUseHistoryBack(state)) {
+    router.back();
+    return;
+  }
+
+  await pushWithFallback(router, fallbackTarget, locationRef);
 };

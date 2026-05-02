@@ -103,6 +103,7 @@ import {
 import { storeToRefs } from 'pinia';
 import { useStoreProfile } from '@/store/profile';
 import { buildHomeRouteWithSpace } from '@/utils/tagRoute';
+import { backWithFallback } from '@/utils/navigation';
 
 const storeMain = useStoreMain();
 const storeProfile = useStoreProfile();
@@ -155,12 +156,13 @@ const switchTheme = (theme: boolean) => {
     storeMain.triggerTheme('light');
   }
 };
-const goBack = () => {
-  if (window.history.length <= 1) {
-    router.push(buildHomeRouteWithSpace({}, currentSpaceSlug.value));
-  } else {
-    router.go(-1);
-  }
+const goBack = async () => {
+  await backWithFallback(
+    router,
+    buildHomeRouteWithSpace({}, currentSpaceSlug.value),
+    typeof window !== 'undefined' ? window.location : null,
+    typeof window !== 'undefined' ? window.history.state : null,
+  );
 };
 const activeDrawer = () => {
   activeDrawerRef.value = true;

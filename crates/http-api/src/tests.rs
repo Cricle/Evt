@@ -443,10 +443,6 @@ async fn legacy_web_compat_routes_exist_with_expected_auth_behavior() {
         ("/v1/friend/requesting", r#"{"user_id":1,"greetings":"hi"}"#),
         ("/v1/user/nickname", r#"{"nickname":"abc"}"#),
         ("/v1/post/lock", r#"{"id":1}"#),
-        (
-            "/v1/post/comment/reply",
-            r#"{"comment_id":1,"content":"hi","at_user_id":0}"#,
-        ),
         ("/v1/admin/settings/save", r#"{"items":[]}"#),
     ] {
         let response = app
@@ -463,20 +459,6 @@ async fn legacy_web_compat_routes_exist_with_expected_auth_behavior() {
             .unwrap();
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED, "path {path}");
     }
-
-    let response = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method("DELETE")
-                .uri("/v1/post/comment/reply")
-                .header("content-type", "application/json")
-                .body(Body::from(r#"{"id":1}"#))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }
 
 #[tokio::test]

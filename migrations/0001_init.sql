@@ -193,35 +193,18 @@ CREATE TABLE IF NOT EXISTS legacy_comment_states (
   CONSTRAINT fk_legacy_comment_states_comment_id FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS comment_replies (
-  id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  comment_id BIGINT NOT NULL,
-  user_id BIGINT NOT NULL,
-  at_user_id BIGINT NOT NULL DEFAULT 0,
-  content TEXT NOT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  CONSTRAINT fk_comment_replies_comment_id FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE,
-  CONSTRAINT fk_comment_replies_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  INDEX idx_comment_replies_comment_id (comment_id),
-  INDEX idx_comment_replies_user_id (user_id)
-);
-
 CREATE TABLE IF NOT EXISTS comment_reactions (
   id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT NOT NULL,
   post_id BIGINT NOT NULL,
   comment_id BIGINT NOT NULL,
-  reply_id BIGINT NOT NULL DEFAULT 0,
-  target_type TINYINT NOT NULL,
   is_thumbs_up BOOLEAN NOT NULL DEFAULT FALSE,
   is_thumbs_down BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_comment_reactions_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  CONSTRAINT uq_comment_reactions_target UNIQUE KEY (user_id, comment_id, reply_id, target_type),
-  INDEX idx_comment_reactions_comment_id (comment_id),
-  INDEX idx_comment_reactions_reply_id (reply_id)
+  CONSTRAINT uq_comment_reactions_target UNIQUE KEY (user_id, comment_id),
+  INDEX idx_comment_reactions_comment_id (comment_id)
 );
 
 CREATE TABLE IF NOT EXISTS friendships (

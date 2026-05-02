@@ -101,33 +101,13 @@
                 <post-image
                     v-if="comment.imgs.length > 0"
                     :imgs="comment.imgs" />
-                  <!-- 回复编辑器 -->
-                  <compose-reply
-                    ref="replyComposeRef"
-                    :comment="comment"
-                    :at-userid="replyAtUserID"
-                    :at-username="replyAtUsername"
-                    @reload="reload"
-                    @reset="resetReply"
-                />
-                <!-- 回复列表 -->
-                <div class="reply-wrap">
-                    <reply-item
-                        v-for="reply in visibleReplies"
-                        :key="reply.id"
-                        :reply="reply"
-                        :tweet-id="comment.post_id"
-                        @focusReply="focusReply"
-                        @reload="reload"
-                    />
-                </div>
             </template>
         </n-thing>
     </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { computed } from 'vue';
 import { useStoreMain } from '@/store/main';
 import { useStoreProfile } from '@/store/profile';
 import { useStoreUser } from '@/store/user';
@@ -138,13 +118,9 @@ import { deleteComment, highlightComment } from '@/api/post';
 import { YesNoEnum } from '@/utils/IEnum';
 import { storeToRefs } from 'pinia';
 import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
-import { splitReplyReactions } from '@/utils/reactions';
 import { buildTagSearchRoute } from '@/utils/tagRoute';
 
 const router = useRouter();
-const replyAtUserID = ref(0);
-const replyAtUsername = ref('');
-const replyComposeRef = ref();
 
 const storeMain = useStoreMain();
 const storeProfile = useStoreProfile();
@@ -180,8 +156,6 @@ const comment = computed(() => {
   return comment;
 });
 
-const visibleReplies = computed(() => splitReplyReactions(props.comment.replies || []).visibleReplies);
-
 const doClickText = (e: MouseEvent, id: number | string) => {
   const target = e.target as HTMLElement | null;
   if (!target?.dataset.detail) {
@@ -202,18 +176,8 @@ const doClickText = (e: MouseEvent, id: number | string) => {
     }
   }
 };
-
-const focusReply = (reply: Item.ReplyProps) => {
-  replyAtUserID.value = reply.user_id;
-  replyAtUsername.value = reply.user?.username || '';
-  replyComposeRef.value?.switchReply(true);
-};
 const reload = () => {
   emit('reload');
-};
-const resetReply = () => {
-  replyAtUserID.value = 0;
-  replyAtUsername.value = '';
 };
 
 const execDelAction = () => {
@@ -289,18 +253,4 @@ const execHightlightAction = () => {
         }
     }
 }
-
-.reply-wrap {
-    --comment-reply-bg: var(--surface-muted);
-    margin-top: 10px;
-    border-radius: 5px;
-    background: var(--comment-reply-bg);
-
-    .reply-item {
-        &:last-child {
-            border-bottom: none;
-        }
-    }
-}
-
 </style>

@@ -413,16 +413,6 @@ pub async fn list_comments(
         .app()
         .legacy_comment_states_by_ids(&comment_ids)
         .await?;
-    let replies = state.app().list_comment_replies(&comment_ids).await?;
-    let replies_by_comment = group_comment_replies(replies);
-    let reply_user_ids = replies_by_comment
-        .values()
-        .flat_map(|items| {
-            items
-                .iter()
-                .flat_map(|item| [item.user_id, item.at_user_id])
-        })
-        .collect::<Vec<_>>();
     let comment_user_ids = comments
         .items
         .iter()
@@ -430,25 +420,14 @@ pub async fn list_comments(
         .collect::<Vec<_>>();
     let users = state
         .app()
-        .batch_user_previews_by_ids(
-            &comment_user_ids
-                .iter()
-                .copied()
-                .chain(reply_user_ids.iter().copied())
-                .collect::<Vec<_>>(),
-        )
+        .batch_user_previews_by_ids(&comment_user_ids)
         .await?;
-    let reply_ids = replies_by_comment
-        .values()
-        .flat_map(|items| items.iter().map(|item| item.id))
-        .collect::<Vec<_>>();
     let comment_thumb_counts = state.app().comment_thumb_counts(&comment_ids).await?;
-    let reply_thumb_counts = state.app().reply_thumb_counts(&reply_ids).await?;
     let reaction_statuses = match viewer.as_ref() {
         Some(viewer) => {
             state
                 .app()
-                .reaction_status_map(viewer.id, &comment_ids, &reply_ids)
+                .reaction_status_map(viewer.id, &comment_ids)
                 .await?
         }
         None => HashMap::new(),
@@ -463,7 +442,6 @@ pub async fn list_comments(
                     &comment,
                     grouped_contents.get(&comment.id).map(Vec::as_slice),
                     comment_states.get(&comment.id),
-                    replies_by_comment.get(&comment.id).map(Vec::as_slice),
                     comment_thumb_counts
                         .get(&comment.id)
                         .copied()
@@ -472,8 +450,6 @@ pub async fn list_comments(
                         .get(&(0, comment.id))
                         .copied()
                         .unwrap_or((false, false)),
-                    &reply_thumb_counts,
-                    &reaction_statuses,
                     &users,
                 )
             })
@@ -518,11 +494,8 @@ pub async fn create_comment(
         &comment,
         grouped_contents.get(&comment.id).map(Vec::as_slice),
         states.get(&comment.id),
-        None,
         0,
         (false, false),
-        &HashMap::new(),
-        &HashMap::new(),
         &users,
     ))))
 }
@@ -643,11 +616,8 @@ fn to_legacy_comment(
     comment: &CommentSummary,
     contents: Option<&[CommentContentItem]>,
     state: Option<&evt_domain::LegacyCommentState>,
-    replies: Option<&[evt_domain::CommentReplySummary]>,
     thumbs_up_count: i64,
     self_status: (bool, bool),
-    reply_thumb_counts: &HashMap<i64, i64>,
-    reaction_statuses: &HashMap<(i32, i64), (bool, bool)>,
     users: &HashMap<i64, evt_domain::UserPreview>,
 ) -> LegacyComment {
     let created_on = comment.created_at.timestamp();
@@ -670,44 +640,7 @@ fn to_legacy_comment(
             &comment.content,
             contents,
         ),
-        replies: replies
-            .unwrap_or(&[])
-            .iter()
-            .map(|reply| {
-                let status = reaction_statuses
-                    .get(&(1, reply.id))
-                    .copied()
-                    .unwrap_or((false, false));
-                serde_json::json!({
-                    "id": reply.id,
-                    "comment_id": reply.comment_id,
-                    "user_id": reply.user_id,
-                    "user": fallback_user(
-                        users.get(&reply.user_id),
-                        reply.user_id,
-                        "",
-                        reply.created_at.timestamp(),
-                        false,
-                        false,
-                    ),
-                    "at_user_id": reply.at_user_id,
-                    "at_user": fallback_user(
-                        users.get(&reply.at_user_id),
-                        reply.at_user_id,
-                        "",
-                        reply.created_at.timestamp(),
-                        false,
-                        false,
-                    ),
-                    "content": reply.content,
-                    "ip_loc": "",
-                    "thumbs_up_count": reply_thumb_counts.get(&reply.id).copied().unwrap_or_default(),
-                    "is_thumbs_up": if status.0 { 1 } else { 0 },
-                    "is_thumbs_down": if status.1 { 1 } else { 0 },
-                    "created_on": reply.created_at.timestamp()
-                })
-            })
-            .collect(),
+        replies: Vec::new(),
         ip_loc: String::new(),
         is_essence: if state.map(|item| item.is_essence).unwrap_or(false) {
             1
@@ -778,19 +711,6 @@ fn fallback_user(
         balance: 0,
         status: 1,
     }
-}
-
-fn group_comment_replies(
-    replies: Vec<evt_domain::CommentReplySummary>,
-) -> HashMap<i64, Vec<evt_domain::CommentReplySummary>> {
-    let mut grouped = HashMap::new();
-    for reply in replies {
-        grouped
-            .entry(reply.comment_id)
-            .or_insert_with(Vec::new)
-            .push(reply);
-    }
-    grouped
 }
 
 fn apply_post_state(post: &mut LegacyPost, state: Option<&evt_domain::LegacyPostState>) {

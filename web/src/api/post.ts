@@ -161,28 +161,6 @@ export const highlightComment = (
   });
 };
 
-/** 发布评论回复 */
-export const createCommentReply = (
-  data: NetParams.PostCreateCommentReply,
-): Promise<NetReq.PostCreateCommentReply> => {
-  return request({
-    method: 'post',
-    url: '/v1/post/comment/reply',
-    data,
-  });
-};
-
-/** 删除评论回复 */
-export const deleteCommentReply = (
-  data: NetParams.PostDeleteCommentReply,
-): Promise<NetReq.PostDeleteCommentReply> => {
-  return request({
-    method: 'delete',
-    url: '/v1/post/comment/reply',
-    data,
-  });
-};
-
 export const getPostReactions = (
   postId: number,
 ): Promise<Item.ReactionGroup[]> => {

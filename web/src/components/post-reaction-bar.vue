@@ -12,8 +12,8 @@
             type="button"
             @click.stop="emit('select', reaction.emoji)"
           >
-            <span>{{ reaction.emoji }}</span>
-            <span>{{ reaction.count }}</span>
+            <span class="reaction-chip-emoji">{{ reaction.emoji }}</span>
+            <span class="reaction-chip-count">{{ reaction.count }}</span>
           </button>
           <div v-if="hiddenReactionsCount > 0" class="reaction-chip reaction-chip-more">
             +{{ hiddenReactionsCount }}
@@ -22,9 +22,9 @@
         </template>
         <template v-else>
           <div class="reaction-chip reaction-chip-empty">
-            <span>😀</span>
-            <span>表情回复</span>
-            <span v-if="count > 0">{{ count }}</span>
+            <span class="reaction-chip-emoji">😀</span>
+            <span class="reaction-chip-label">表情回复</span>
+            <span v-if="count > 0" class="reaction-chip-count">{{ count }}</span>
           </div>
         </template>
       </div>
@@ -85,6 +85,7 @@ const hiddenReactionsCount = computed(() => Math.max(props.reactions.length - vi
   --reaction-chip-active-shadow: inset 0 0 0 1px var(--accent-soft-ring);
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 3px;
   min-height: 24px;
   padding: 0 8px;
@@ -94,6 +95,8 @@ const hiddenReactionsCount = computed(() => Math.max(props.reactions.length - vi
   color: var(--reaction-chip-text);
   font-size: 11px;
   font-family: var(--emoji-font-stack);
+  line-height: 1;
+  vertical-align: middle;
   transition:
     transform 0.18s ease,
     background-color 0.18s ease,
@@ -120,10 +123,25 @@ const hiddenReactionsCount = computed(() => Math.max(props.reactions.length - vi
   font-weight: 600;
 }
 
-.reaction-chip span:first-child {
+.reaction-chip-emoji {
   font-size: 12px;
   line-height: 1;
   font-family: var(--emoji-font-stack);
+  flex: 0 0 auto;
+}
+
+.reaction-chip-count,
+.reaction-chip-label {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
+
+.reaction-chip-count {
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transform: translateY(0.5px);
 }
 
 :global(.dark) .reaction-chip {

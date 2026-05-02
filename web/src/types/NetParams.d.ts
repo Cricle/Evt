@@ -92,12 +92,6 @@ declare namespace NetParams {
     comment_id: number;
   }
 
-  interface PostTweetReplyThumbs {
-    tweet_id: number;
-    comment_id: number;
-    reply_id: number;
-  }
-
   interface PostCreateComment {
     /** 内容ID */
     post_id: number;
@@ -112,19 +106,6 @@ declare namespace NetParams {
   }
 
   interface PostHighlightComment {
-    id: number;
-  }
-
-  interface PostCreateCommentReply {
-    /** 艾特的用户UID */
-    at_user_id: number;
-    /** 回复的评论ID */
-    comment_id: number;
-    /** 回复内容 */
-    content: string;
-  }
-
-  interface PostDeleteCommentReply {
     id: number;
   }
 

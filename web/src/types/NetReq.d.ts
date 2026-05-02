@@ -63,8 +63,6 @@ declare namespace NetReq {
 
   interface PostTweetCommentThumbs {}
 
-  interface PostTweetReplyThumbs {}
-
   type PostCreateComment = Item.CommentProps;
 
   interface PostDeleteComment {}
@@ -72,10 +70,6 @@ declare namespace NetReq {
   interface PostHighlightComment {
     highlight_status: import('@/utils/IEnum').YesNoEnum;
   }
-
-  type PostCreateCommentReply = Item.ReplyProps;
-
-  interface PostDeleteCommentReply {}
 
   interface IndexTrendsResp {
     list: Item.IndexTrendsItem[];

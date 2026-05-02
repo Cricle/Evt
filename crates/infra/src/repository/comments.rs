@@ -113,17 +113,11 @@ impl CommentRepository {
             FROM comments c
             INNER JOIN users u ON u.id = c.user_id
             LEFT JOIN (
-                SELECT comment_id, COUNT(*) AS reply_count
-                FROM comment_replies
-                GROUP BY comment_id
-            ) reply_stats ON reply_stats.comment_id = c.id
-            LEFT JOIN (
                 SELECT
                   comment_id,
                   COALESCE(SUM(CASE WHEN is_thumbs_up THEN 1 ELSE 0 END), 0) AS thumbs_up_count,
                   COALESCE(SUM(CASE WHEN is_thumbs_down THEN 1 ELSE 0 END), 0) AS thumbs_down_count
                 FROM comment_reactions
-                WHERE target_type = 0
                 GROUP BY comment_id
             ) reaction_stats ON reaction_stats.comment_id = c.id
             LEFT JOIN legacy_comment_states lcs ON lcs.comment_id = c.id
@@ -372,7 +366,7 @@ impl CommentRepository {
 fn comment_sort_clause(style: &str) -> &'static str {
     match style {
         "hots" => {
-            "COALESCE(lcs.is_essence, FALSE) DESC, (COALESCE(reply_stats.reply_count, 0) * 2 + COALESCE(reaction_stats.thumbs_up_count, 0) * 4 - COALESCE(reaction_stats.thumbs_down_count, 0)) DESC, c.id DESC"
+            "COALESCE(lcs.is_essence, FALSE) DESC, (COALESCE(reaction_stats.thumbs_up_count, 0) * 4 - COALESCE(reaction_stats.thumbs_down_count, 0)) DESC, c.id DESC"
         }
         "newest" => "COALESCE(lcs.is_essence, FALSE) DESC, c.id DESC",
         _ => "COALESCE(lcs.is_essence, FALSE) DESC, c.id ASC",
@@ -392,7 +386,6 @@ mod tests {
     fn legacy_comment_sort_styles_match_expected_clauses() {
         assert!(comment_sort_clause("default").contains("c.id ASC"));
         assert!(comment_sort_clause("newest").contains("c.id DESC"));
-        assert!(comment_sort_clause("hots").contains("reply_count, 0) * 2"));
         assert!(comment_sort_clause("hots").contains("thumbs_up_count, 0) * 4"));
         assert!(comment_sort_clause("hots").contains("thumbs_down_count, 0)"));
     }

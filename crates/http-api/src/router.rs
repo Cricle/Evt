@@ -164,25 +164,12 @@ pub fn router(state: HttpState) -> Router {
             post(handlers::legacy_moderation::comment_highlight),
         )
         .route(
-            "/v1/post/comment/reply",
-            post(handlers::legacy_moderation::comment_reply)
-                .delete(handlers::legacy_moderation::comment_reply_delete),
-        )
-        .route(
             "/v1/tweet/comment/thumbsup",
             post(handlers::legacy_moderation::comment_thumbsup),
         )
         .route(
             "/v1/tweet/comment/thumbsdown",
             post(handlers::legacy_moderation::comment_thumbsdown),
-        )
-        .route(
-            "/v1/tweet/reply/thumbsup",
-            post(handlers::legacy_moderation::reply_thumbsup),
-        )
-        .route(
-            "/v1/tweet/reply/thumbsdown",
-            post(handlers::legacy_moderation::reply_thumbsdown),
         )
         .route(
             "/v1/admin/site/status",
