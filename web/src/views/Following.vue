@@ -36,15 +36,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { nextTick, ref, onMounted, computed, watch } from 'vue';
 import InfiniteLoading from 'v3-infinite-loading';
 import { useRoute } from 'vue-router';
 import { Api } from '@/utils/request';
 import { usePagination } from '@/composables/usePagination';
 import UserAction from '@/composables/useUserAction';
 import UserCard from '@/components/user-card.vue';
+import { useStoreProfile } from '@/store/profile';
+import { storeToRefs } from 'pinia';
+import { resolveSpaceSlug } from '@/utils/spaces';
 
 const route = useRoute();
+const storeProfile = useStoreProfile();
+const { currentSpaceSlug } = storeToRefs(storeProfile);
 
 const list = ref<Item.ContactItemProps[]>([]);
 const nickname = (route.query.n as string) || '粉丝详情';
@@ -97,6 +102,14 @@ const handleUnfollowSuccess = () => {
   }
 };
 
+const syncSpaceFromRoute = () => {
+  const routeSpace = typeof route.query.space === 'string' ? route.query.space : '';
+  currentSpaceSlug.value = resolveSpaceSlug(
+    routeSpace || currentSpaceSlug.value,
+    storeProfile.profile.defaultSpaceSlug,
+  );
+};
+
 const loadFollows = (username: string, scrollToBottom: boolean = false) => {
   if (list.value.length === 0) {
     loading.value = true;
@@ -116,9 +129,9 @@ const loadFollows = (username: string, scrollToBottom: boolean = false) => {
       } else {
         list.value = res.list;
         if (scrollToBottom) {
-          setTimeout(() => {
-            window.scrollTo(0, 99999);
-          }, 50);
+          void nextTick(() => {
+            window.scrollTo(0, document.body.scrollHeight);
+          });
         }
       }
       totalPage.value = Math.ceil(res.pager.total_rows / pageSize.value);
@@ -150,9 +163,9 @@ const loadFollowings = (username: string, scrollToBottom: boolean = false) => {
       } else {
         list.value = res.list;
         if (scrollToBottom) {
-          setTimeout(() => {
-            window.scrollTo(0, 99999);
-          }, 50);
+          void nextTick(() => {
+            window.scrollTo(0, document.body.scrollHeight);
+          });
         }
       }
       totalPage.value = Math.ceil(res.pager.total_rows / pageSize.value);
@@ -166,8 +179,16 @@ const loadFollowings = (username: string, scrollToBottom: boolean = false) => {
 };
 
 onMounted(() => {
+  syncSpaceFromRoute();
   loadPage();
 });
+
+watch(
+  () => route.query.space,
+  () => {
+    syncSpaceFromRoute();
+  },
+);
 </script>
 
 <style lang="less" scoped>

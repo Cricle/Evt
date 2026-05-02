@@ -67,9 +67,7 @@ function loadSiteProfile() {
         getSiteProfile()
             .then((res) => {
                 storeProfile.updateSiteProfile(res);
-            }).catch((err) => {
-                console.log(err);
-            });
+            }).catch(() => {});
     }
 }
 

@@ -7,7 +7,7 @@
             :render-icon="renderMenuIcon" :value="selectedPath" @update:value="goRouter" />
 
         <div class="user-wrap" v-if="userInfo.id > 0">
-            <n-avatar class="user-avatar" round :size="34" :src="userInfo.avatar" />
+            <n-avatar class="user-avatar" round :size="34" :src="userInfo.avatar || DEFAULT_USER_AVATAR" />
 
             <div class="user-info">
                 <div class="nickname">
@@ -54,16 +54,14 @@
 </template>
 
 <script setup lang="ts">
-import { h, ref, watch, computed } from 'vue';
+import { h, ref, watch, computed, onBeforeUnmount } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStoreMain } from '@/store/main';
 import { NIcon, NBadge, useMessage } from 'naive-ui';
 import {
   HomeOutline,
-  BookmarksOutline,
   MegaphoneOutline,
   ChatbubblesOutline,
-  LeafOutline,
   PeopleOutline,
   WalletOutline,
   SettingsOutline,
@@ -77,55 +75,64 @@ import { useStoreProfile } from '@/store/profile';
 import { storeToRefs } from 'pinia';
 import { Api } from '@/utils/request';
 import { goToAuth, type AuthMode } from '@/utils/authRoute';
+import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
+import { buildHomeRouteWithSpace } from '@/utils/tagRoute';
 
 const storeMain = useStoreMain();
 const storeUser = useStoreUser();
 const storeProfile = useStoreProfile();
 const { unreadMsgCount } = storeToRefs(storeMain);
 const { userInfo } = storeToRefs(storeUser);
-const { profile } = storeToRefs(storeProfile);
+const { profile, currentSpaceSlug } = storeToRefs(storeProfile);
 
 const route = useRoute();
 const router = useRouter();
 const hasUnreadMsg = ref(false);
 const selectedPath = ref<any>(route.name || '');
-const msgLoop = ref();
+const msgLoop = ref<ReturnType<typeof setInterval>>();
 
-const enableAnnoucement =
-  import.meta.env.VITE_ENABLE_ANOUNCEMENT.toLowerCase() === 'true';
+const enableAnnouncement =
+  (import.meta.env.VITE_ENABLE_ANNOUNCEMENT ??
+    import.meta.env.VITE_ENABLE_ANOUNCEMENT).toLowerCase() === 'true';
 
 watch(route, () => {
   selectedPath.value = route.name;
 });
-watch(() => [unreadMsgCount, userInfo, profile], () => {
-  hasUnreadMsg.value = unreadMsgCount.value > 0;
-  if (userInfo.value.id > 0) {
-    if (!msgLoop.value) {
-      Api.v1.user.get.msgcount.unread({})
-        .then((res) => {
-          hasUnreadMsg.value = res.count > 0;
-          storeMain.updateUnreadMsgCount(res.count);
-        })
-        .catch((err) => {
-          console.log(err);
-        });
+const syncUnreadMessages = () => {
+  Api.v1.user.get.msgcount.unread({})
+    .then((res) => {
+      hasUnreadMsg.value = res.count > 0;
+      storeMain.updateUnreadMsgCount(res.count);
+    })
+    .catch(() => {});
+};
 
-      msgLoop.value = setInterval(() => {
-        Api.v1.user.get.msgcount.unread({})
-          .then((res) => {
-            hasUnreadMsg.value = res.count > 0;
-            storeMain.updateUnreadMsgCount(res.count);
-          })
-          .catch((err) => {
-            console.log(err);
-          });
-      }, profile.value.defaultMsgLoopInterval);
-    }
-  } else {
-    if (msgLoop.value) {
-      clearInterval(msgLoop.value);
-    }
+const clearMsgLoop = () => {
+  if (msgLoop.value) {
+    clearInterval(msgLoop.value);
+    msgLoop.value = undefined;
   }
+};
+
+watch(
+  [() => unreadMsgCount.value, () => userInfo.value.id, () => profile.value.defaultMsgLoopInterval],
+  () => {
+    hasUnreadMsg.value = unreadMsgCount.value > 0;
+
+    if (userInfo.value.id <= 0) {
+      clearMsgLoop();
+      return;
+    }
+
+    clearMsgLoop();
+    syncUnreadMessages();
+    msgLoop.value = setInterval(syncUnreadMessages, profile.value.defaultMsgLoopInterval);
+  },
+  { immediate: true },
+);
+
+onBeforeUnmount(() => {
+  clearMsgLoop();
 });
 const menuOptions = computed(() => {
   const options = [
@@ -142,31 +149,19 @@ const menuOptions = computed(() => {
       href: '/topic',
     },
   ];
-  if (enableAnnoucement) {
+  if (enableAnnouncement) {
     options.push({
       label: '公告',
-      key: 'anouncement',
+      key: 'announcement',
       icon: () => h(MegaphoneOutline),
-      href: '/anouncement',
+      href: '/announcement',
     });
   }
-  options.push({
-    label: '主页',
-    key: 'profile',
-    icon: () => h(LeafOutline),
-    href: '/profile',
-  });
   options.push({
     label: '消息',
     key: 'messages',
     icon: () => h(ChatbubblesOutline),
     href: '/messages',
-  });
-  options.push({
-    label: '收藏',
-    key: 'collection',
-    icon: () => h(BookmarksOutline),
-    href: '/collection',
   });
   if (profile.value.useFriendship) {
     options.push({
@@ -252,10 +247,28 @@ const renderMenuIcon = (option: AnyObject) => {
 
 const goRouter = (name: string, item: any = {}) => {
   selectedPath.value = name;
+  const keepSpace =
+    name === 'home' || name === 'topic' || name === 'compose' || name === 'create-space';
+  if (name === 'home') {
+    router.push(
+      buildHomeRouteWithSpace(
+        {
+          t: new Date().getTime(),
+        },
+        currentSpaceSlug.value,
+      ),
+    );
+    return;
+  }
   router.push({
     name,
     query: {
       t: new Date().getTime(),
+      ...(keepSpace && currentSpaceSlug.value
+        ? {
+            space: currentSpaceSlug.value,
+          }
+        : {}),
     },
   });
 };

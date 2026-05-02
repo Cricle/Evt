@@ -18,12 +18,15 @@
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
+import { useStoreProfile } from '@/store/profile';
+import { storeToRefs } from 'pinia';
+import { buildHomeRouteWithSpace } from '@/utils/tagRoute';
 
 const router = useRouter();
+const storeProfile = useStoreProfile();
+const { currentSpaceSlug } = storeToRefs(storeProfile);
 const goHome = () => {
-  router.push({
-    path: '/',
-  });
+  router.push(buildHomeRouteWithSpace({}, currentSpaceSlug.value));
 };
 </script>
 

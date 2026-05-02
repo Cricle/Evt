@@ -1,8 +1,9 @@
 import { defineStore } from "pinia";
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import {
     LEGACY_DEFAULT_SPACE_SLUG,
     normalizeDefaultSpaceSlug,
+    resolveSpaceSlug,
 } from '@/utils/spaces';
 
 export const useStoreProfile = defineStore("profile", () => {
@@ -29,7 +30,16 @@ export const useStoreProfile = defineStore("profile", () => {
         copyrightRight: 'Github',
         copyrightRightLink: 'https://github.com/Cricle/Evt',
     });
-    const currentSpaceSlug = ref('');
+    const currentSpaceSlugState = ref('');
+    const currentSpaceSlug = computed({
+        get: () => currentSpaceSlugState.value,
+        set: (value: string) => {
+            currentSpaceSlugState.value = resolveSpaceSlug(
+                value,
+                profile.value.defaultSpaceSlug,
+            );
+        },
+    });
     const spaces = ref<Item.SpaceProps[]>([]);
     const activeSpaceMembers = ref<Item.SpaceMemberProps[]>([]);
 
@@ -41,7 +51,7 @@ export const useStoreProfile = defineStore("profile", () => {
         profile.value.defaultSpaceSlug = normalizeDefaultSpaceSlug(
             import.meta.env.VITE_DEFAULT_SPACE_SLUG,
         );
-        currentSpaceSlug.value = '';
+        currentSpaceSlug.value = profile.value.defaultSpaceSlug;
 
         profile.value.enableTrendsBar =
             import.meta.env.VITE_ENABLE_TRENDS_BAR.toLowerCase() === 'true';

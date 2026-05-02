@@ -144,7 +144,10 @@ pub async fn user_profile(
     Query(query): Query<CompatUserProfileQuery>,
 ) -> Result<Json<ApiEnvelope<CompatUserInfo>>, HttpApiError> {
     let actor = authenticate_optional_request(state.app(), &headers).await?;
-    let profile = state.app().get_user_profile(&query.username).await?;
+    let profile = state
+        .app()
+        .get_user_profile_for_viewer(actor.as_ref(), &query.username)
+        .await?;
     let (is_following, is_friend) = match actor {
         Some(ref actor) if actor.id != profile.id => (
             state.app().is_following(actor.id, profile.id).await?,
@@ -238,7 +241,10 @@ pub async fn user_posts(
             })));
         }
     };
-    let profile = state.app().get_user_profile(&query.username).await?;
+    let profile = state
+        .app()
+        .get_user_profile_for_viewer(actor.as_ref(), &query.username)
+        .await?;
     let (is_following, is_friend) = match actor {
         Some(ref actor) if actor.id != profile.id => (
             state.app().is_following(actor.id, profile.id).await?,

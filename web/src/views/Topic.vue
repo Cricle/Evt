@@ -35,12 +35,15 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { getTags } from '@/api/post';
 import { useStoreMain } from '@/store/main';
 import { useStoreUser } from '@/store/user';
 import { useStoreProfile } from '@/store/profile';
 import { storeToRefs } from 'pinia';
+import { resolveSpaceSlug } from '@/utils/spaces';
 
+const route = useRoute();
 const storeMain = useStoreMain();
 const storeUser = useStoreUser();
 const storeProfile = useStoreProfile();
@@ -53,6 +56,14 @@ const loading = ref(false);
 const tagsChecked = ref(false);
 const inFollowTab = ref(false);
 const inPinTab = ref(false);
+
+const syncSpaceFromRoute = () => {
+  const routeSpace = typeof route.query.space === 'string' ? route.query.space : '';
+  currentSpaceSlug.value = resolveSpaceSlug(
+    routeSpace || currentSpaceSlug.value,
+    storeProfile.profile.defaultSpaceSlug,
+  );
+};
 
 watch(tagsChecked, () => {
   if (!tagsChecked.value) {
@@ -83,9 +94,8 @@ const loadTags = () => {
       tags.value = res.topics;
       loading.value = false;
     })
-    .catch((err) => {
+    .catch(() => {
       tags.value = [];
-      console.log(err);
       loading.value = false;
     });
 };
@@ -96,8 +106,16 @@ const changeTab = (tab: 'hot' | 'new' | 'follow' | 'pin') => {
   loadTags();
 };
 onMounted(() => {
+  syncSpaceFromRoute();
   loadTags();
 });
+
+watch(
+  () => route.query.space,
+  () => {
+    syncSpaceFromRoute();
+  },
+);
 
 watch(currentSpaceSlug, () => {
   loadTags();

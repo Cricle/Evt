@@ -16,16 +16,7 @@
         <n-card v-if="showFollowTopics" class="hottopic-wrap" title="关注话题" embedded :bordered="false" size="small">
             <n-spin :show="loading">
                 <div class="hot-tag-item" v-for="tag in followTags" :key="tag.id">
-                    <router-link
-                        class="hash-link"
-                        :to="{
-                            name: 'home',
-                            query: {
-                                q: tag.tag,
-                                t: 'tag',
-                            },
-                        }"
-                    >
+                    <router-link class="hash-link" :to="buildTagSearchRoute(tag.tag, currentSpaceSlug)">
                         #{{ tag.tag }}
                     </router-link>
 
@@ -38,16 +29,7 @@
         <n-card class="hottopic-wrap" title="热门话题" embedded :bordered="false" size="small">
             <n-spin :show="loading">
                 <div class="hot-tag-item" v-for="tag in hotTags" :key="tag.id">
-                    <router-link
-                        class="hash-link"
-                        :to="{
-                            name: 'home',
-                            query: {
-                                q: tag.tag,
-                                t: 'tag',
-                            },
-                        }"
-                    >
+                    <router-link class="hash-link" :to="buildTagSearchRoute(tag.tag, currentSpaceSlug)">
                         #{{ tag.tag }}
                     </router-link>
 
@@ -95,6 +77,7 @@ import { useStoreProfile } from '@/store/profile';
 import { storeToRefs } from 'pinia';
 import { Api } from '@/utils/request';
 import { useStoreUser } from '@/store/user';
+import { buildHomeRouteWithSpace, buildTagSearchRoute } from '@/utils/tagRoute';
 
 const hotTags = ref<Item.TagProps[]>([]);
 const followTags = ref<Item.TagProps[]>([]);
@@ -159,13 +142,14 @@ const formatQuoteNum = (num: number) => {
   return num;
 };
 const handleSearch = () => {
-  router.push({
-    name: 'home',
-    query: {
-      q: keyword.value,
-      space: currentSpaceSlug.value,
-    },
-  });
+  router.push(
+    buildHomeRouteWithSpace(
+      {
+        q: keyword.value,
+      },
+      currentSpaceSlug.value,
+    ),
+  );
 };
 const showFollowTopics = computed({
   get: () => {

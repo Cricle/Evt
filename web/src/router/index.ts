@@ -51,20 +51,24 @@ const routes = [
     component: () => import('@/views/Topic.vue'),
   },
   {
-    path: '/anouncement',
-    name: 'anouncement',
+    path: '/announcement',
+    alias: ['/anouncement'],
+    name: 'announcement',
     meta: {
       title: '公告',
     },
-    component: () => import('@/views/Anouncement.vue'),
+    component: () => import('@/views/Announcement.vue'),
   },
   {
     path: '/profile',
     name: 'profile',
     meta: {
-      title: '主页',
+      title: '设置',
     },
-    component: () => import('@/views/Profile.vue'),
+    redirect: (to) => ({
+      name: 'setting',
+      query: to.query,
+    }),
   },
   {
     path: '/u',
@@ -81,14 +85,6 @@ const routes = [
       title: '消息',
     },
     component: () => import('@/views/Messages.vue'),
-  },
-  {
-    path: '/collection',
-    name: 'collection',
-    meta: {
-      title: '收藏',
-    },
-    component: () => import('@/views/Collection.vue'),
   },
   {
     path: '/contacts',

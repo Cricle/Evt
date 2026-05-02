@@ -209,7 +209,7 @@ declare namespace Item {
     upvote_count: number;
     /** 评论数 */
     comment_count: number;
-    /** 收藏数 */
+    /** 兼容字段，收藏功能已移除 */
     collection_count: number;
     /** 分享数 */
     share_count: number;

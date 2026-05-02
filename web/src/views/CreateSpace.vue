@@ -74,13 +74,16 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
+import { onMounted, reactive, ref } from 'vue';
 import type { FormInst, FormRules } from 'naive-ui';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { Api } from '@/utils/request';
 import { useStoreProfile } from '@/store/profile';
 import { storeToRefs } from 'pinia';
+import { buildHomeRouteWithSpace } from '@/utils/tagRoute';
+import { resolveSpaceSlug } from '@/utils/spaces';
 
+const route = useRoute();
 const router = useRouter();
 const storeProfile = useStoreProfile();
 const { currentSpaceSlug, spaces } = storeToRefs(storeProfile);
@@ -116,6 +119,14 @@ const rules: FormRules = {
   ],
 };
 
+onMounted(() => {
+  const routeSpace = typeof route.query.space === 'string' ? route.query.space : '';
+  currentSpaceSlug.value = resolveSpaceSlug(
+    routeSpace || currentSpaceSlug.value,
+    storeProfile.profile.defaultSpaceSlug,
+  );
+});
+
 const handleSubmit = async () => {
   await formRef.value?.validate();
   submitting.value = true;
@@ -135,12 +146,7 @@ const handleSubmit = async () => {
     currentSpaceSlug.value = created.slug;
     window.$message.success('广场创建成功');
 
-    router.replace({
-      name: 'home',
-      query: {
-        space: created.slug,
-      },
-    });
+    router.replace(buildHomeRouteWithSpace({}, created.slug));
   } finally {
     submitting.value = false;
   }
@@ -149,15 +155,11 @@ const handleSubmit = async () => {
 
 <style scoped lang="less">
 .create-space-page {
-  --space-bg-base: #f8fbf8;
-  --space-bg-glow: rgba(255, 255, 255, 0.84);
-  --space-bg-top: rgba(24, 160, 88, 0.12);
-  --space-bg-bottom: #eef6f0;
   min-height: 100vh;
   background:
-    radial-gradient(circle at left top, var(--space-bg-glow), transparent 34%),
-    radial-gradient(circle at top right, var(--space-bg-top), transparent 26%),
-    linear-gradient(180deg, var(--space-bg-base) 0%, var(--space-bg-bottom) 100%);
+    radial-gradient(circle at left top, var(--page-hero-bg-glow), transparent 34%),
+    radial-gradient(circle at top right, var(--page-hero-bg-accent), transparent 26%),
+    linear-gradient(180deg, var(--page-hero-bg-base) 0%, var(--page-hero-bg-bottom) 100%);
 }
 
 .create-space-shell {
@@ -171,9 +173,10 @@ const handleSubmit = async () => {
 }
 
 .create-space-card {
-  --create-space-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
-  border-radius: 24px;
-  box-shadow: var(--create-space-shadow);
+  border-radius: var(--page-card-radius);
+  box-shadow: var(--panel-shadow);
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
 }
 
 .create-space-copy {
@@ -219,15 +222,7 @@ const handleSubmit = async () => {
   }
 }
 
-:global(.dark) .create-space-page {
-  --space-bg-base: #101717;
-  --space-bg-glow: rgba(25, 33, 33, 0.46);
-  --space-bg-top: rgba(99, 226, 183, 0.1);
-  --space-bg-bottom: #111819;
-}
-
-:global(.dark) .create-space-card {
-  --create-space-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
-  background: rgba(18, 24, 27, 0.92);
+.create-space-page :deep(.n-card__content) {
+  padding: var(--page-card-padding);
 }
 </style>

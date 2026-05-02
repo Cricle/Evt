@@ -194,16 +194,6 @@
                         </div>
                         <div
                             class="opt-item hover"
-                            @click.stop="handlePostCollection"
-                        >
-                            <n-icon size="20" class="opt-item-icon">
-                                <bookmark-outline v-if="!hasCollected" />
-                                <bookmark v-if="hasCollected" color="#ff7600" />
-                            </n-icon>
-                            {{ post.collection_count }}
-                        </div>
-                        <div
-                            class="opt-item hover"
                             @click.stop="handlePostShare"
                         >
                             <n-icon size="20" class="opt-item-icon">
@@ -246,37 +236,38 @@ import {
 } from '@vicons/ionicons5';
 import { MoreHorizFilled } from '@vicons/material';
 import {
-  getPostCollection,
-  postCollection,
   deletePost,
   lockPost,
   stickPost,
   highlightPost,
   visibilityPost,
+  togglePostReaction,
 } from '@/api/post';
 import type { DropdownOption } from 'naive-ui';
 import { VisibilityEnum } from '@/utils/IEnum';
 import copy from 'copy-to-clipboard';
 import { storeToRefs } from 'pinia';
+import { useStoreProfile } from '@/store/profile';
 import { useStoreUser } from '@/store/user';
-import { Api } from '@/utils/request';
 import UserAction from '@/composables/useUserAction';
 import { usePostContent } from '@/composables/usePostContent';
 import EmojiReactionPicker from '@/components/emoji-reaction-picker.vue';
 import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
 import { goToAuth } from '@/utils/authRoute';
+import { buildHomeRouteWithSpace, buildPostRoute, buildTagSearchRoute } from '@/utils/tagRoute';
 
 const useFriendship =
   import.meta.env.VITE_USE_FRIENDSHIP.toLowerCase() === 'true';
 
 const storeMain = useStoreMain();
+const storeProfile = useStoreProfile();
 const storeUser = useStoreUser();
 const { collapsedLeft } = storeToRefs(storeMain);
+const { currentSpaceSlug } = storeToRefs(storeProfile);
 const { userInfo } = storeToRefs(storeUser);
 
 const router = useRouter();
 const dialog = useDialog();
-const hasCollected = ref(false);
 const props = withDefaults(
   defineProps<{
     post: Item.PostProps;
@@ -464,12 +455,7 @@ const onHandleFollowAction = (post: Item.PostProps) => {
 };
 
 const goPostDetail = (id: number) => {
-  router.push({
-    name: 'post',
-    query: {
-      id,
-    },
-  });
+  router.push(buildPostRoute(id, currentSpaceSlug.value));
 };
 const doClickText = (e: MouseEvent, id: number) => {
   if ((e.target as any).dataset.detail) {
@@ -477,13 +463,7 @@ const doClickText = (e: MouseEvent, id: number) => {
     if (d.length === 2) {
       storeMain.doRefresh();
       if (d[0] === 'tag') {
-        router.push({
-          name: 'home',
-          query: {
-            q: d[1],
-            t: 'tag',
-          },
-        });
+        router.push(buildTagSearchRoute(d[1], currentSpaceSlug.value));
       } else {
         router.push({
           name: 'user',
@@ -563,14 +543,12 @@ const execDelAction = () => {
   })
     .then((_res) => {
       window.$message.success('删除成功');
-      router.replace('/');
-
-      setTimeout(() => {
-        storeMain.doRefresh();
-      }, 50);
+      router.replace(buildHomeRouteWithSpace({}, currentSpaceSlug.value));
+      storeMain.doRefresh();
     })
     .catch((_err) => {
       loading.value = false;
+      window.$message.error('删除动态失败');
     });
 };
 const execLockAction = () => {
@@ -587,6 +565,7 @@ const execLockAction = () => {
     })
     .catch((_err) => {
       loading.value = false;
+      window.$message.error('更新锁定状态失败');
     });
 };
 const execStickAction = () => {
@@ -603,6 +582,7 @@ const execStickAction = () => {
     })
     .catch((_err) => {
       loading.value = false;
+      window.$message.error('更新置顶状态失败');
     });
 };
 const execHighlightAction = () => {
@@ -622,6 +602,7 @@ const execHighlightAction = () => {
     })
     .catch((_err) => {
       loading.value = false;
+      window.$message.error('更新亮点状态失败');
     });
 };
 const execVisibilityAction = () => {
@@ -635,6 +616,7 @@ const execVisibilityAction = () => {
     })
     .catch((_err) => {
       loading.value = false;
+      window.$message.error('修改可见性失败');
     });
 };
 const handlePostReaction = (emoji: string) => {
@@ -643,10 +625,7 @@ const handlePostReaction = (emoji: string) => {
     return;
   }
 
-  Api.v1.posts.post.reactions({
-    post_id: post.value.id,
-    emoji,
-  })
+  togglePostReaction(post.value.id, emoji)
     .then((res) => {
       post.value = {
         ...post.value,
@@ -659,30 +638,8 @@ const handlePostReaction = (emoji: string) => {
         commentCount: res.comment_count,
       });
     })
-    .catch((err) => {
-      console.log(err);
-    });
-};
-const handlePostCollection = () => {
-  postCollection({
-    id: post.value.id,
-  })
-    .then((res) => {
-      hasCollected.value = res.status;
-      if (res.status) {
-        post.value = {
-          ...post.value,
-          collection_count: post.value.collection_count + 1,
-        };
-      } else {
-        post.value = {
-          ...post.value,
-          collection_count: post.value.collection_count - 1,
-        };
-      }
-    })
-    .catch((err) => {
-      console.log(err);
+    .catch(() => {
+      window.$message.error('表情回复失败');
     });
 };
 const handlePostShare = () => {
@@ -691,18 +648,6 @@ const handlePostShare = () => {
   );
   window.$message.success('链接已复制到剪贴板');
 };
-
-if (userInfo.value.id > 0) {
-  getPostCollection({
-      id: post.value.id,
-    })
-      .then((res) => {
-        hasCollected.value = res.status;
-      })
-      .catch((err) => {
-        console.log(err);
-      });
-}
 </script>
 
 <style lang="less">

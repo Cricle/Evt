@@ -68,7 +68,7 @@ const hiddenReactionsCount = computed(() => Math.max(props.reactions.length - vi
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   cursor: pointer;
 }
 
@@ -77,22 +77,23 @@ const hiddenReactionsCount = computed(() => Math.max(props.reactions.length - vi
 }
 
 .reaction-chip {
-  --reaction-chip-bg: rgba(16, 136, 91, 0.08);
-  --reaction-chip-text: rgba(18, 43, 31, 0.92);
-  --reaction-chip-hover-bg: rgba(16, 136, 91, 0.14);
-  --reaction-chip-hover-shadow: 0 8px 20px rgba(16, 136, 91, 0.12);
-  --reaction-chip-active-bg: rgba(16, 136, 91, 0.2);
-  --reaction-chip-active-shadow: inset 0 0 0 1px rgba(16, 136, 91, 0.16);
+  --reaction-chip-bg: var(--accent-soft);
+  --reaction-chip-text: var(--text-link-secondary);
+  --reaction-chip-hover-bg: var(--accent-soft-hover);
+  --reaction-chip-hover-shadow: var(--shadow-accent-pop);
+  --reaction-chip-active-bg: var(--accent-soft-strong);
+  --reaction-chip-active-shadow: inset 0 0 0 1px var(--accent-soft-ring);
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  min-height: 30px;
-  padding: 0 10px;
+  gap: 3px;
+  min-height: 24px;
+  padding: 0 8px;
   border: 0;
   border-radius: 999px;
   background: var(--reaction-chip-bg);
   color: var(--reaction-chip-text);
-  font-size: 13px;
+  font-size: 11px;
+  font-family: var(--emoji-font-stack);
   transition:
     transform 0.18s ease,
     background-color 0.18s ease,
@@ -120,16 +121,15 @@ const hiddenReactionsCount = computed(() => Math.max(props.reactions.length - vi
 }
 
 .reaction-chip span:first-child {
-  font-size: 15px;
+  font-size: 12px;
   line-height: 1;
+  font-family: var(--emoji-font-stack);
 }
 
 :global(.dark) .reaction-chip {
-  --reaction-chip-bg: rgba(99, 226, 183, 0.12);
-  --reaction-chip-text: rgba(241, 245, 249, 0.94);
-  --reaction-chip-hover-bg: rgba(99, 226, 183, 0.18);
-  --reaction-chip-hover-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
-  --reaction-chip-active-bg: rgba(99, 226, 183, 0.22);
-  --reaction-chip-active-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.16);
+  --reaction-chip-bg: var(--accent-soft-dark);
+  --reaction-chip-hover-bg: var(--accent-soft-hover-dark);
+  --reaction-chip-active-bg: var(--accent-soft-strong-dark);
+  --reaction-chip-active-shadow: inset 0 0 0 1px var(--accent-soft-ring-dark);
 }
 </style>

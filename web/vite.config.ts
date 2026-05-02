@@ -24,17 +24,37 @@ export default defineConfig({
     },
   },
   build: {
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 2200,
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes('node_modules')) {
-            return id
-              .toString()
-              .split('node_modules/')[1]
-              .split('/')[0]
-              .toString();
+          if (!id.includes('node_modules')) {
+            return;
           }
+
+          if (id.includes('@ckeditor')) {
+            return 'ckeditor';
+          }
+
+          if (
+            id.includes('naive-ui') ||
+            id.includes('@vicons') ||
+            id.includes('vooks') ||
+            id.includes('vueuc') ||
+            id.includes('@css-render')
+          ) {
+            return 'ui-vendor';
+          }
+
+          if (id.includes('/vue/') || id.includes('/vue-router/') || id.includes('/pinia/')) {
+            return 'vue-vendor';
+          }
+
+          return id
+            .toString()
+            .split('node_modules/')[1]
+            .split('/')[0]
+            .toString();
         },
       },
     },

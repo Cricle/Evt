@@ -64,8 +64,13 @@ pub async fn change_password(
 pub async fn user_profile(
     State(state): State<HttpState>,
     Path(username): Path<String>,
+    headers: HeaderMap,
 ) -> Result<Json<ApiEnvelope<UserProfile>>, HttpApiError> {
-    let profile = state.app().get_user_profile(&username).await?;
+    let actor = authenticate_optional_request(state.app(), &headers).await?;
+    let profile = state
+        .app()
+        .get_user_profile_for_viewer(actor.as_ref(), &username)
+        .await?;
     Ok(Json(success(profile)))
 }
 

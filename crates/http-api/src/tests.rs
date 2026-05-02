@@ -324,11 +324,7 @@ async fn legacy_profile_and_social_routes_exist_with_expected_guard_behavior() {
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED, "path {path}");
     }
 
-    for path in [
-        "/v1/user/collections",
-        "/v1/post/star?id=1",
-        "/v1/post/collection?id=1",
-    ] {
+    for path in ["/v1/post/star?id=1"] {
         let response = app
             .clone()
             .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
@@ -346,7 +342,7 @@ async fn legacy_profile_and_social_routes_exist_with_expected_guard_behavior() {
         assert_eq!(response.status(), StatusCode::OK, "path {path}");
     }
 
-    for path in ["/v1/post/star", "/v1/post/collection"] {
+    for path in ["/v1/post/star"] {
         let response = app
             .clone()
             .oneshot(

@@ -45,14 +45,6 @@ declare namespace NetReq {
     status: boolean;
   }
 
-  interface PostGetPostCollection {
-    status: boolean;
-  }
-
-  interface PostPostCollection {
-    status: boolean;
-  }
-
   interface PostGetTags {
     topics: Item.TagProps[];
     extral_topics?: Item.TagProps[];
@@ -116,7 +108,8 @@ declare namespace NetReq {
     allow_user_register?: boolean;
     allow_phone_bind?: boolean;
     default_tweet_max_length?: number;
-    default_tweet_ellipsis_size?: number;
+    tweet_web_ellipsis_size?: number;
+    tweet_mobile_ellipsis_size?: number;
     default_tweet_visibility?: string;
     default_msg_loop_interval?: number;
     copyright_top?: string;

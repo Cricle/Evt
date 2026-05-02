@@ -20,7 +20,7 @@
                             <n-avatar
                                 round
                                 :size="48"
-                                :src="data.slotData.avatar"
+                                :src="data.slotData.avatar || DEFAULT_USER_AVATAR"
                                 class="slide-bar-item-avatar"
                             />
                         </n-badge>
@@ -103,9 +103,11 @@ import { useStoreUser } from '@/store/user';
 import { useStoreProfile } from '@/store/profile';
 import { storeToRefs } from 'pinia';
 import { Api } from '@/utils/request';
+import { resolveSpaceSlug } from '@/utils/spaces';
 import { usePagination } from '@/composables/usePagination';
 import UserAction from '@/composables/useUserAction';
 import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
+import { buildCreateSpaceRoute, buildPostRoute } from '@/utils/tagRoute';
 
 const storeMain = useStoreMain();
 const storeUser = useStoreUser();
@@ -235,7 +237,7 @@ const openDeleteFriend = (post: Item.PostProps) => {
     content:
       '将好友 “' +
       post.user.nickname +
-      '” 删除，将同时删除 点赞/收藏 列表中关于该朋友的 “好友可见” 推文',
+      '” 删除，将同时清理你与该好友相关的 “好友可见” 推文访问关系',
     positiveText: '确定',
     negativeText: '取消',
     onPositiveClick: () => {
@@ -355,7 +357,7 @@ const loadContacts = () => {
           title: item.nickname,
           style: 21,
           username: item.username,
-          avatar: item.avatar,
+          avatar: item.avatar || DEFAULT_USER_AVATAR,
           show: item.is_fresh,
         });
       }
@@ -364,9 +366,7 @@ const loadContacts = () => {
         slideBarKey.value++;
       }
     })
-    .catch((err) => {
-      console.log(err);
-    });
+    .catch(() => {});
 };
 
 const loadPosts = (style: 'newest' | 'hots' | 'following' | 'search') => {
@@ -404,7 +404,10 @@ const loadPosts = (style: 'newest' | 'hots' | 'following' | 'search') => {
 
 const syncSpaceFromRoute = () => {
   const routeSpace = typeof route.query.space === 'string' ? route.query.space : '';
-  selectedSpaceSlug.value = routeSpace || currentSpaceSlug.value;
+  selectedSpaceSlug.value = resolveSpaceSlug(
+    routeSpace || currentSpaceSlug.value,
+    profile.value.defaultSpaceSlug,
+  );
   currentSpaceSlug.value = selectedSpaceSlug.value;
 };
 
@@ -446,14 +449,7 @@ const loadActiveSpaceMembers = async () => {
 };
 
 const openCreateSpaceDialog = () => {
-  router.push({
-    name: 'create-space',
-    query: selectedSpaceSlug.value
-      ? {
-          from: selectedSpaceSlug.value,
-        }
-      : undefined,
-  });
+  router.push(buildCreateSpaceRoute(selectedSpaceSlug.value || currentSpaceSlug.value));
 };
 
 const openAddMemberDialog = () => {
@@ -632,12 +628,7 @@ const loadUserPosts = () => {
 
 const onPostSuccess = (post: Item.PostProps) => {
   // 暂时统统跳到详情页面，后续再精细化分场景优化
-  router.push({
-    name: 'post',
-    query: {
-      id: post.id,
-    },
-  });
+  router.push(buildPostRoute(post.id, selectedSpaceSlug.value || currentSpaceSlug.value));
   // // 如果不在第一页，需要跳转到详情页面
   // if (targetStyle.value != 1) {
   //     router.push({
@@ -716,20 +707,16 @@ watch(
     syncSpaceFromRoute();
     if (to.refresh !== from.refresh) {
       resetAll();
-      setTimeout(() => {
-        loadSpaces();
-        loadContacts();
-        loadMorePosts();
-      }, 0);
+      loadSpaces();
+      loadContacts();
+      loadMorePosts();
       return;
     }
     if (from.path !== '/post' && to.path === '/') {
       resetAll();
-      setTimeout(() => {
-        loadSpaces();
-        loadContacts();
-        loadMorePosts();
-      }, 0);
+      loadSpaces();
+      loadContacts();
+      loadMorePosts();
     }
   },
 );
@@ -767,7 +754,7 @@ watch(
 <style lang="less" scoped>
 .style-wrap,
 :deep(.space-member-list) {
-  --space-accent: #18a058;
+  --space-accent: var(--accent-primary);
   --space-danger-bg: rgba(210, 64, 53, 0.12);
   --space-danger-text: #b42318;
   --space-member-border: rgba(18, 75, 51, 0.08);
@@ -912,7 +899,6 @@ div:hover .slide-bar-item {
 :global(.dark) {
   .style-wrap,
   :deep(.space-member-list) {
-    --space-accent: #63e2b7;
     --space-danger-bg: rgba(244, 114, 114, 0.18);
     --space-danger-text: #fca5a5;
     --space-member-border: rgba(148, 163, 184, 0.14);

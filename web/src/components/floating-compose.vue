@@ -5,7 +5,7 @@
       class="floating-compose"
       type="button"
       aria-label="发布动态"
-      @click="goCompose"
+      @click.stop.prevent="goCompose"
     >
       <span class="floating-compose-plus">+</span>
     </button>
@@ -17,7 +17,8 @@ import { useRouter } from 'vue-router';
 import { TOKEN_KEY, useStoreUser } from '@/store/user';
 import { useStoreProfile } from '@/store/profile';
 import { storeToRefs } from 'pinia';
-import { resolveSpaceSlug } from '@/utils/spaces';
+import { buildComposeRoute } from '@/utils/tagRoute';
+import { pushWithFallback } from '@/utils/navigation';
 
 const router = useRouter();
 const storeUser = useStoreUser();
@@ -26,19 +27,13 @@ const { userLogined } = storeToRefs(storeUser);
 const { currentSpaceSlug } = storeToRefs(storeProfile);
 const hasToken = typeof window !== 'undefined' && !!localStorage.getItem(TOKEN_KEY);
 
-const goCompose = () => {
-  const spaceSlug = resolveSpaceSlug(
-    currentSpaceSlug.value,
-    storeProfile.profile.defaultSpaceSlug,
+const goCompose = async () => {
+  const target = buildComposeRoute(currentSpaceSlug.value);
+  await pushWithFallback(
+    router,
+    target,
+    typeof window !== 'undefined' ? window.location : null,
   );
-  router.push({
-    name: 'compose',
-    query: spaceSlug
-      ? {
-          space: spaceSlug,
-        }
-      : undefined,
-  });
 };
 </script>
 

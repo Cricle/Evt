@@ -46,8 +46,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: yarn
-          cache-dependency-path: web/yarn.lock
 
       - name: Install Playwright browsers
         working-directory: web
@@ -65,7 +63,9 @@ jobs:
           exit 1
 
       - name: Rust workspace tests
-        run: cargo test --workspace
+        run: |
+          cargo test --workspace --exclude evt-http-api
+          cargo test -p evt-http-api --lib
 
       - name: Rust local HTTP E2E
         run: cargo test -p evt-http-api --test e2e_local -- --nocapture

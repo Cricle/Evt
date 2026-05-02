@@ -241,6 +241,8 @@ const uploadImage = async (file: File) => {
       sort: imageContents.value.length + 101,
       created_on: Date.now(),
     });
+  } catch (_error) {
+    window.$message.error('评论图片上传失败');
   } finally {
     uploading.value = uploading.value.filter((item) => item.id !== id);
   }
@@ -299,9 +301,6 @@ const submitPost = () => {
       emit('post-success');
       cancelComment();
     })
-    .catch(() => {
-      submitting.value = false;
-    })
     .finally(() => {
       submitting.value = false;
     });
@@ -310,12 +309,12 @@ const submitPost = () => {
 
 <style lang="less" scoped>
 .compose-wrap {
-  --comment-soft-bg: rgba(16, 136, 91, 0.08);
-  --comment-soft-bg-hover: rgba(16, 136, 91, 0.14);
-  --comment-soft-bg-muted: rgba(16, 136, 91, 0.06);
-  --comment-accent: #12724d;
+  --comment-soft-bg: var(--accent-soft);
+  --comment-soft-bg-hover: var(--accent-soft-hover);
+  --comment-soft-bg-muted: var(--accent-soft-muted);
+  --comment-accent: var(--accent-primary);
   --comment-panel-bg: transparent;
-  --comment-remove-bg: rgba(0, 0, 0, 0.58);
+  --comment-remove-bg: var(--overlay-strong);
   --comment-remove-text: #fff;
   width: 100%;
   padding: 16px;
@@ -486,14 +485,5 @@ const submitPost = () => {
     opacity: 1;
     transform: scale(1);
   }
-}
-
-:global(.dark) .compose-wrap {
-  --comment-soft-bg: rgba(99, 226, 183, 0.12);
-  --comment-soft-bg-hover: rgba(99, 226, 183, 0.18);
-  --comment-soft-bg-muted: rgba(99, 226, 183, 0.08);
-  --comment-accent: #63e2b7;
-  --comment-panel-bg: rgba(16, 16, 20, 0.75);
-  --comment-remove-bg: rgba(15, 23, 42, 0.72);
 }
 </style>

@@ -44,6 +44,7 @@ export function usePostContent(post: Item.PostProps, includeExtraFields: boolean
     set: (newVal) => {
       post.upvote_count = newVal.upvote_count;
       post.collection_count = newVal.collection_count;
+      post.reactions = newVal.reactions;
       if (includeExtraFields) {
         post.comment_count = newVal.comment_count;
         post.is_essence = newVal.is_essence;

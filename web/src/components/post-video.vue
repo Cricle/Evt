@@ -33,8 +33,8 @@ const props = withDefaults(
 }
 
 .video-card {
-  --post-video-card-border: rgba(18, 75, 51, 0.1);
-  --post-video-card-bg: linear-gradient(180deg, rgba(20, 70, 48, 0.08), rgba(20, 70, 48, 0.02));
+  --post-video-card-border: var(--border-subtle);
+  --post-video-card-bg: linear-gradient(180deg, var(--accent-soft), transparent);
   overflow: hidden;
   border: 1px solid var(--post-video-card-border);
   border-radius: 18px;
@@ -42,19 +42,10 @@ const props = withDefaults(
 }
 
 .video-player {
-  --post-video-player-bg: #06120c;
+  --post-video-player-bg: var(--surface-subtle);
   display: block;
   width: 100%;
   max-height: 480px;
   background: var(--post-video-player-bg);
-}
-
-:global(.dark) .video-card {
-  --post-video-card-border: rgba(148, 163, 184, 0.16);
-  --post-video-card-bg: linear-gradient(180deg, rgba(20, 28, 28, 0.88), rgba(14, 18, 18, 0.94));
-}
-
-:global(.dark) .video-player {
-  --post-video-player-bg: #040908;
 }
 </style>

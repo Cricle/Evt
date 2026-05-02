@@ -36,14 +36,7 @@
                                 <router-link
                                     @click.stop
                                     class="following-link"
-                                    :to="{
-                                        name: 'following',
-                                        query: { 
-                                            s: user.username, 
-                                            n: user.nickname,
-                                            t: 'follows',
-                                        },
-                                    }"
+                                    :to="buildFollowingRoute(user.username, user.nickname, 'follows', currentSpaceSlug)"
                                 >
                                     关注&nbsp;&nbsp;{{ prettyQuoteNum(user.follows)}}
                                 </router-link>
@@ -52,14 +45,7 @@
                                 <router-link
                                     @click.stop
                                     class="following-link"
-                                    :to="{
-                                        name: 'following',
-                                        query: { 
-                                            s: user.username, 
-                                            n: user.nickname,
-                                            t: 'followings',
-                                        },
-                                    }"
+                                    :to="buildFollowingRoute(user.username, user.nickname, 'followings', currentSpaceSlug)"
                                 >
                                     粉丝&nbsp;&nbsp;{{ prettyQuoteNum(user.followings) }}
                                 </router-link>
@@ -155,6 +141,7 @@ import { storeToRefs } from 'pinia';
 import { Api } from '@/utils/request';
 import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
 import UserAction from '@/composables/useUserAction';
+import { buildFollowingRoute, buildSettingRoute } from '@/utils/tagRoute';
 
 type PageType = 'post' | 'comment' | 'highlight' | 'media' | 'star';
 
@@ -165,7 +152,7 @@ const storeUser = useStoreUser();
 const storeProfile = useStoreProfile();
 const { desktopModelShow } = storeToRefs(storeMain);
 const { userLogined, userInfo } = storeToRefs(storeUser);
-const { profile } = storeToRefs(storeProfile);
+const { profile, currentSpaceSlug } = storeToRefs(storeProfile);
 
 const route = useRoute();
 const router = useRouter();
@@ -358,9 +345,8 @@ const loadUser = () => {
       }
       loadPage();
     })
-    .catch((err) => {
+    .catch(() => {
       userLoading.value = false;
-      console.log(err);
     });
 };
 const updatePage = () => {
@@ -478,12 +464,7 @@ const handleUserAction = (
       banUser();
       break;
     case 'setting':
-      router.push({
-        name: 'setting',
-        query: {
-          t: new Date().getTime(),
-        },
-      });
+      router.push(buildSettingRoute(currentSpaceSlug.value));
       break;
     default:
       break;
@@ -495,7 +476,7 @@ const openDeleteFriend = () => {
     content:
       '将好友 “' +
       user.nickname +
-      '” 删除，将同时删除 点赞/收藏 列表中关于该朋友的 “好友可见” 推文',
+      '” 删除，将同时清理你与该好友相关的 “好友可见” 推文访问关系',
     positiveText: '确定',
     negativeText: '取消',
     onPositiveClick: () => {
@@ -508,9 +489,8 @@ const openDeleteFriend = () => {
           user.is_friend = false;
           loadPostsByStyle('post');
         })
-        .catch((err) => {
+        .catch(() => {
           userLoading.value = false;
-          console.log(err);
         });
     },
   });
@@ -521,9 +501,8 @@ const handleFollowUser = () => {
             userLoading.value = false;
             loadUser();
 		})
-		.catch(err => {
+		.catch(() => {
 			userLoading.value = false;
-			console.log(err);
 		});
 };
 const banUser = () => {
@@ -548,9 +527,8 @@ const banUser = () => {
           }
           loadUser();
         })
-        .catch((err) => {
+        .catch(() => {
           userLoading.value = false;
-          console.log(err);
         });
     },
   });

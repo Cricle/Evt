@@ -15,6 +15,7 @@ mod wallet;
 pub use attachments::AttachmentRepository;
 pub use comments::group_post_reactions;
 pub use comments::CommentRepository;
+pub(crate) use comments::PostReactionCommentRow;
 pub use follows::FollowRepository;
 pub use friendships::FriendshipRepository;
 pub use legacy_posts::LegacyPostRepository;

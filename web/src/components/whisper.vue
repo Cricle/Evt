@@ -72,6 +72,10 @@ const closeModal = () => {
   emit('success');
 };
 const sendWhisper = () => {
+  if (!content.value.trim()) {
+    window.$message.warning('请输入私信内容');
+    return;
+  }
   loading.value = true;
   Api.v1.user.post.whisper({
     user_id: props.user.id,
@@ -84,8 +88,9 @@ const sendWhisper = () => {
 
       closeModal();
     })
-    .catch((err: any) => {
+    .catch(() => {
       loading.value = false;
+      window.$message.error('私信发送失败');
     });
 };
 </script>

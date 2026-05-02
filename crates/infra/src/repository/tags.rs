@@ -199,6 +199,33 @@ impl TagRepository {
         Ok((hot, extra))
     }
 
+    pub async fn find_by_id(&self, tag_id: i64) -> Result<Option<TagSummary>, AppError> {
+        sqlx::query_as::<_, TagRow>(
+            r#"
+            SELECT
+              t.id,
+              t.space_id,
+              t.user_id,
+              u.username,
+              t.tag,
+              t.quote_num,
+              t.created_at,
+              FALSE AS is_following,
+              FALSE AS is_top,
+              FALSE AS is_pin
+            FROM tags t
+            INNER JOIN users u ON u.id = t.user_id
+            WHERE t.id = ?
+            LIMIT 1
+            "#,
+        )
+        .bind(tag_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map(|row| row.map(Into::into))
+        .map_err(map_db_error)
+    }
+
     pub async fn follow(&self, space_id: i64, user_id: i64, tag_id: i64) -> Result<(), AppError> {
         sqlx::query(
             r#"

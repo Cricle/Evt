@@ -5,6 +5,8 @@
 
 import { request } from '@/utils/request';
 
+export const buildPostReactionsPath = (postId: number) => `/v1/posts/${postId}/reactions`;
+
 /** 获取动态列表 */
 export const getPosts = (
   params: NetParams.PostGetPosts,
@@ -35,28 +37,6 @@ export const getPost = (
     method: 'get',
     url: '/v1/post',
     params,
-  });
-};
-
-/** 获取动态收藏状态 */
-export const getPostCollection = (
-  params: NetParams.PostGetPostCollection,
-): Promise<NetReq.PostGetPostCollection> => {
-  return request({
-    method: 'get',
-    url: '/v1/post/collection',
-    params,
-  });
-};
-
-/** 动态收藏 */
-export const postCollection = (
-  data: NetParams.PostPostCollection,
-): Promise<NetReq.PostPostCollection> => {
-  return request({
-    method: 'post',
-    url: '/v1/post/collection',
-    data,
   });
 };
 
@@ -200,6 +180,32 @@ export const deleteCommentReply = (
     method: 'delete',
     url: '/v1/post/comment/reply',
     data,
+  });
+};
+
+export const getPostReactions = (
+  postId: number,
+): Promise<Item.ReactionGroup[]> => {
+  return request({
+    method: 'get',
+    url: buildPostReactionsPath(postId),
+  });
+};
+
+export const togglePostReaction = (
+  postId: number,
+  emoji: string,
+): Promise<{
+  active: boolean;
+  reactions: Item.ReactionGroup[];
+  comment_count: number;
+}> => {
+  return request({
+    method: 'post',
+    url: buildPostReactionsPath(postId),
+    data: {
+      emoji,
+    },
   });
 };
 

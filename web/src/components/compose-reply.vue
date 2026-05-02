@@ -5,12 +5,6 @@
                 {{ formatPrettyTime(comment.created_on) }}
             </span>
             <div class="actions">
-                <n-popover trigger="click" placement="top" v-if="userLogined">
-                    <template #trigger>
-                        <span class="reply-btn show">表情回应</span>
-                    </template>
-                    <emoji-reaction-picker @select="handleReaction" />
-                </n-popover>
                 <span class="show reply-btn" v-if="userLogined && !showReply" @click="switchReply(true)">
                     回复
                 </span>
@@ -36,13 +30,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { nextTick, ref } from 'vue';
 import { useStoreUser } from '@/store/user';
 import { formatPrettyTime } from '@/utils/formatTime';
 import { createCommentReply } from '@/api/post';
 import { InputInst } from 'naive-ui';
 import { storeToRefs } from 'pinia';
-import EmojiReactionPicker from '@/components/emoji-reaction-picker.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -75,27 +68,14 @@ const switchReply = (status: boolean) => {
   showReply.value = status;
 
   if (status) {
-    setTimeout(() => {
+    void nextTick(() => {
       inputInstRef.value?.focus();
-    }, 10);
+    });
   } else {
     submitting.value = false;
     replyContent.value = '';
     emit('reset');
   }
-};
-const handleReaction = (emoji: string) => {
-  createCommentReply({
-    comment_id: props.comment.id,
-    at_user_id: props.comment.user_id,
-    content: emoji,
-  })
-    .then(() => {
-      emit('reload');
-    })
-    .catch((err) => {
-      console.log(err);
-    });
 };
 const submitReply = () => {
   if (!replyContent.value.trim()) {
@@ -113,8 +93,9 @@ const submitReply = () => {
       window.$message.success('评论成功');
       emit('reload');
     })
-    .catch((err) => {
+    .catch(() => {
       submitting.value = false;
+      window.$message.error('回复失败');
     });
 };
 defineExpose({ switchReply });
@@ -122,8 +103,8 @@ defineExpose({ switchReply });
 
 <style lang="less" scoped>
 .reply-compose-wrap {
-    --reply-action-accent: #18a058;
-    --reply-panel-bg: transparent;
+    --reply-action-accent: var(--accent-primary);
+    --reply-panel-bg: var(--surface-base);
     background-color: var(--reply-panel-bg);
 
     .reply-switch {
@@ -183,10 +164,5 @@ defineExpose({ switchReply });
             cursor: pointer;
         }
     }
-}
-
-:global(.dark) .reply-compose-wrap {
-    --reply-action-accent: #63e2b7;
-    --reply-panel-bg: rgba(16, 16, 20, 0.75);
 }
 </style>

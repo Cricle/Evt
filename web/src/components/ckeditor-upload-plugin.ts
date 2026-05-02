@@ -30,7 +30,11 @@ export const EVT_UPLOAD_PLUGIN_OPTIONS = 'evtUploadPluginOptions';
 
 const uploadEndpoint = buildApiUrl('/v1/attachment');
 
-const uploadFile = async (file: File, kind: UploadKind) => {
+export const resolveUploadAuthHeader = () => `Bearer ${localStorage.getItem(TOKEN_KEY) || ''}`;
+
+export const normalizeLinkInput = (value: string) => value.trim();
+
+export const uploadFile = async (file: File, kind: UploadKind) => {
   const form = new FormData();
   form.append('type', kind);
   form.append('file', file);
@@ -38,7 +42,7 @@ const uploadFile = async (file: File, kind: UploadKind) => {
   const response = await fetch(uploadEndpoint, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${localStorage.getItem(TOKEN_KEY) || ''}`,
+      Authorization: resolveUploadAuthHeader(),
     },
     body: form,
   });
@@ -60,13 +64,34 @@ const uploadFile = async (file: File, kind: UploadKind) => {
   } satisfies UploadedAsset;
 };
 
-class EvtImageUploadAdapter {
+export const uploadFilesSequentially = async (
+  files: File[],
+  kind: UploadKind,
+  options: UploadPluginOptions,
+  upload: typeof uploadFile = uploadFile,
+) => {
+  for (const file of files) {
+    options.onStart?.(file.name, kind);
+    try {
+      const asset = await upload(file, kind);
+      options.onUploaded?.(asset);
+    } catch (error) {
+      options.onError?.(error, file.name, kind);
+    } finally {
+      options.onFinish?.(file.name, kind);
+    }
+  }
+};
+
+export class EvtImageUploadAdapter {
   private readonly loader: any;
   private readonly options: UploadPluginOptions;
+  private readonly uploadRequest: typeof uploadFile;
 
-  constructor(loader: any, options: UploadPluginOptions) {
+  constructor(loader: any, options: UploadPluginOptions, uploadRequest: typeof uploadFile = uploadFile) {
     this.loader = loader;
     this.options = options;
+    this.uploadRequest = uploadRequest;
   }
 
   async upload() {
@@ -77,7 +102,7 @@ class EvtImageUploadAdapter {
 
     this.options.onStart?.(file.name, 'public/image');
     try {
-      const asset = await uploadFile(file, 'public/image');
+      const asset = await this.uploadRequest(file, 'public/image');
       this.options.onUploaded?.(asset);
       return { default: asset.content };
     } catch (error) {
@@ -122,7 +147,7 @@ export default class EvtUploadPlugin extends Plugin {
         tooltip: true,
       });
       view.on('done', (_evt, files: FileList) => {
-        void this.uploadFiles(Array.from(files || []), 'public/video', options);
+        void uploadFilesSequentially(Array.from(files || []), 'public/video', options);
       });
       return view;
     });
@@ -136,7 +161,7 @@ export default class EvtUploadPlugin extends Plugin {
         tooltip: true,
       });
       view.on('done', (_evt, files: FileList) => {
-        void this.uploadFiles(Array.from(files || []), 'attachment', options);
+        void uploadFilesSequentially(Array.from(files || []), 'attachment', options);
       });
       return view;
     });
@@ -153,23 +178,9 @@ export default class EvtUploadPlugin extends Plugin {
         if (!url) {
           return;
         }
-        options.onLinkCreate?.(url.trim());
+        options.onLinkCreate?.(normalizeLinkInput(url));
       });
       return button;
     });
-  }
-
-  private async uploadFiles(files: File[], kind: UploadKind, options: UploadPluginOptions) {
-    for (const file of files) {
-      options.onStart?.(file.name, kind);
-      try {
-        const asset = await uploadFile(file, kind);
-        options.onUploaded?.(asset);
-      } catch (error) {
-        options.onError?.(error, file.name, kind);
-      } finally {
-        options.onFinish?.(file.name, kind);
-      }
-    }
   }
 }

@@ -11,11 +11,19 @@ impl AppContext {
         normalize_space_slug(Some(slug.as_str()))
     }
 
+    pub(crate) fn normalized_default_space_slug(&self) -> String {
+        self.runtime_default_space_slug()
+    }
+
     pub async fn default_space(&self) -> Result<SpaceSummary, AppError> {
         for candidate in default_space_slug_candidates(&self.runtime_default_space_slug()) {
             if let Some(space) = self.spaces.find_by_slug(&candidate).await? {
                 return Ok(space);
             }
+        }
+
+        if let Some(space) = self.spaces.list_visible(None, 1).await?.into_iter().next() {
+            return Ok(space);
         }
 
         Err(AppError::NotFound("default space not found".into()))
@@ -60,9 +68,22 @@ impl AppContext {
         viewer: Option<&UserIdentity>,
         slug: Option<&str>,
     ) -> Result<SpaceSummary, AppError> {
+        let requested = slug.unwrap_or_default().trim();
         for candidate in requested_space_slug_candidates(slug, &self.runtime_default_space_slug()) {
             if let Some(space) = self.spaces.find_by_slug(&candidate).await? {
                 self.ensure_can_access_space(viewer, &space).await?;
+                return Ok(space);
+            }
+        }
+
+        if requested.is_empty() {
+            if let Some(space) = self
+                .spaces
+                .list_visible(viewer.map(|item| item.id), 1)
+                .await?
+                .into_iter()
+                .next()
+            {
                 return Ok(space);
             }
         }
@@ -339,5 +360,12 @@ mod tests {
                 "square".to_string(),
             ]
         );
+    }
+
+    #[test]
+    fn normalized_default_space_slug_always_maps_empty_and_legacy_alias_to_public() {
+        assert_eq!(normalize_space_slug(Some("")), "public");
+        assert_eq!(normalize_space_slug(Some("square")), "public");
+        assert_eq!(normalize_space_slug(Some("  square  ")), "public");
     }
 }

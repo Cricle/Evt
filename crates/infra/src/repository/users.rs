@@ -5,6 +5,16 @@ use uuid::Uuid;
 
 use super::map_db_error;
 
+const PROFILE_COMMENTS_COUNT_SUBQUERY: &str = r#"
+(
+    SELECT COUNT(*)
+    FROM comments c
+    LEFT JOIN legacy_comment_states lcs ON lcs.comment_id = c.id
+    WHERE c.user_id = u.id
+      AND COALESCE(lcs.is_reaction, FALSE) = FALSE
+)
+"#;
+
 #[derive(Clone)]
 pub struct UserRepository {
     pool: MySqlPool,
@@ -79,7 +89,7 @@ impl UserRepository {
         &self,
         username: &str,
     ) -> Result<Option<UserProfile>, AppError> {
-        sqlx::query_as::<_, UserProfileRow>(
+        let sql = format!(
             r#"
             SELECT
               u.id,
@@ -93,15 +103,17 @@ impl UserRepository {
               u.status,
               u.created_at,
               (SELECT COUNT(*) FROM posts p WHERE p.user_id = u.id) AS posts_count,
-              (SELECT COUNT(*) FROM comments c WHERE c.user_id = u.id) AS comments_count,
+              {PROFILE_COMMENTS_COUNT_SUBQUERY} AS comments_count,
               (SELECT COUNT(*) FROM follows f WHERE f.follower_id = u.id) AS followings_count,
               (SELECT COUNT(*) FROM follows f WHERE f.followee_id = u.id) AS followers_count
             FROM users u
             LEFT JOIN user_profiles up ON up.user_id = u.id
             WHERE u.username = ?
             LIMIT 1
-            "#,
-        )
+            "#
+        );
+
+        sqlx::query_as::<_, UserProfileRow>(&sql)
         .bind(username)
         .fetch_optional(&self.pool)
         .await
@@ -492,5 +504,16 @@ impl From<UserPreviewRow> for UserPreview {
             avatar: row.avatar,
             created_at: row.created_at,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::PROFILE_COMMENTS_COUNT_SUBQUERY;
+
+    #[test]
+    fn profile_comments_count_excludes_reaction_comments() {
+        assert!(PROFILE_COMMENTS_COUNT_SUBQUERY.contains("legacy_comment_states"));
+        assert!(PROFILE_COMMENTS_COUNT_SUBQUERY.contains("COALESCE(lcs.is_reaction, FALSE) = FALSE"));
     }
 }

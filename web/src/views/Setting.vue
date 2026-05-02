@@ -6,7 +6,7 @@
                 <n-avatar
                     class="avatar-img"
                     :size="80"
-                    :src="userInfo.avatar"
+                    :src="userInfo.avatar || DEFAULT_USER_AVATAR"
                 />
                 <n-upload
                     v-if="!profile.allowPhoneBind || (
@@ -357,6 +357,7 @@ import { storeToRefs } from 'pinia';
 import { Api } from '@/utils/request';
 import { buildApiUrl } from '@/utils/api';
 import { goToAuth } from '@/utils/authRoute';
+import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
 
 const uploadGateway = buildApiUrl('/v1/attachment');
 const uploadToken = 'Bearer ' + localStorage.getItem(TOKEN_KEY);
@@ -415,7 +416,7 @@ const beforeUpload = async (data: any) => {
     return false;
   }
 
-  if (uploadType.value === 'image' && data.file.file?.size > 1048576) {
+  if (uploadType.value === 'public/avatar' && data.file.file?.size > 1048576) {
     window.$message.warning('头像大小不能超过1MB');
     return false;
   }
@@ -429,9 +430,9 @@ const finishUpload = ({ file, event }: any): any => {
 
     if (data.code === 0) {
       if (uploadType.value === 'public/avatar') {
-        Api.v1.user.post.avatar({
-          avatar: data.data.content,
-        })
+          Api.v1.user.post.avatar({
+            avatar: data.data.content,
+          })
           .then((res) => {
             window.$message.success('头像更新成功');
             avatarRef.value?.clear();
@@ -441,8 +442,8 @@ const finishUpload = ({ file, event }: any): any => {
               avatar: data.data.content,
             });
           })
-          .catch((err) => {
-            console.log(err);
+          .catch(() => {
+            window.$message.error('头像更新失败');
           });
       }
     }
@@ -486,8 +487,8 @@ const handleValidateButtonClick = (e: MouseEvent) => {
           // 用户退出登录
           storeUser.userLogout();
           goToAuth(router, 'signin', router.currentRoute.value.fullPath);
-        })
-        .catch((err) => {
+      })
+        .catch(() => {
           passwordSetting.value = false;
         });
     }
@@ -518,8 +519,8 @@ const handlePhoneBind = (e: MouseEvent) => {
           modelData.imgCaptcha = '';
           modelData.phone = '';
           modelData.phone_captcha = '';
-        })
-        .catch((err) => {
+      })
+        .catch(() => {
           binding.value = false;
         });
     }
@@ -556,7 +557,7 @@ const handleActivation = (e: MouseEvent) => {
           activateData.imgCaptcha = '';
           activateData.activate_code = '';
         })
-        .catch((err) => {
+        .catch((err: any) => {
           activating.value = false;
           if (err.code === 20012) {
             loadCaptcha4Activate();
@@ -572,9 +573,7 @@ const loadCaptcha = () => {
       modelData.id = res.id;
       modelData.b64s = res.b64s;
     })
-    .catch((err) => {
-      console.log(err);
-    });
+    .catch(() => {});
 };
 
 const loadCaptcha4Activate = () => {
@@ -583,9 +582,7 @@ const loadCaptcha4Activate = () => {
       activateData.id = res.id;
       activateData.b64s = res.b64s;
     })
-    .catch((err) => {
-      console.log(err);
-    });
+    .catch(() => {});
 };
 
 const handleNicknameChange = () => {
@@ -596,7 +593,7 @@ const handleNicknameChange = () => {
       showNicknameEdit.value = false;
       window.$message.success('昵称修改成功');
     })
-    .catch((err) => {
+    .catch(() => {
       showNicknameEdit.value = true;
     });
 };
@@ -634,7 +631,6 @@ const sendPhoneCaptcha = () => {
       if (err.code === 20012) {
         loadCaptcha();
       }
-      console.log(err);
     });
 };
 
@@ -701,9 +697,9 @@ const passwordRules = {
 };
 const handleNicknameShow = () => {
   showNicknameEdit.value = true;
-  setTimeout(() => {
+  queueMicrotask(() => {
     inputInstRef.value?.focus();
-  }, 30);
+  });
 };
 onMounted(() => {
   if (userInfo.value.id === 0) {

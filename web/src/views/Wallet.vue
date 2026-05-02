@@ -249,13 +249,16 @@ const handleRecharge = (amount: any) => {
               loadWallet();
             }
           })
-          .catch((err) => {
-            console.log(err);
+          .catch(() => {
+            clearInterval(s);
+            recharging.value = false;
+            window.$message.error('充值状态查询失败');
           });
       }, 2000);
     })
-    .catch((err) => {
+    .catch(() => {
       recharging.value = false;
+      window.$message.error('充值发起失败');
     });
 };
 const doWithdraw = () => {
@@ -272,8 +275,8 @@ onMounted(() => {
 
 <style lang="less" scoped>
 .main-content-wrap {
-    --wallet-income: #18a058;
-    --wallet-surface-bg: transparent;
+    --wallet-income: var(--accent-primary);
+    --wallet-surface-bg: var(--surface-base);
 }
 
 .balance-wrap {
@@ -328,8 +331,6 @@ onMounted(() => {
 }
 
 :global(.dark) .main-content-wrap {
-    --wallet-income: #63e2b7;
-    --wallet-surface-bg: rgba(16, 16, 20, 0.75);
     background-color: var(--wallet-surface-bg);
 }
 </style>

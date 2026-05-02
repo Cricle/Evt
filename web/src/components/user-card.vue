@@ -2,7 +2,7 @@
     <div class="user-card">
         <n-thing content-indented>
             <template #avatar>
-                <n-avatar :size="54" :src="contact.avatar" />
+                <n-avatar :size="54" :src="contact.avatar || DEFAULT_USER_AVATAR" />
             </template>
             <template #header>
                 <span class="nickname-wrap">
@@ -63,6 +63,7 @@ import { formatDate } from '@/utils/formatTime';
 import { MoreHorizFilled } from '@vicons/material';
 import { PaperPlaneOutline, BodyOutline, WalkOutline } from '@vicons/ionicons5';
 import UserAction from '@/composables/useUserAction';
+import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
 
 const dialog = useDialog();
 
@@ -101,8 +102,8 @@ const handleFollowUser = () => {
         emit('unfollow-success');
       }
     })
-    .catch(err => {
-      console.log(err);
+    .catch(() => {
+      window.$message.error('关注状态更新失败');
     });
 };
 
@@ -143,7 +144,7 @@ const handleAction = (item: 'follow' | 'unfollow' | 'whisper') => {
     case 'whisper':
       const user: Item.UserInfo = {
         id: props.contact.user_id,
-        avatar: props.contact.avatar,
+        avatar: props.contact.avatar || DEFAULT_USER_AVATAR,
         username: props.contact.username,
         nickname: props.contact.nickname,
         is_admin: false,

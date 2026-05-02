@@ -5,6 +5,23 @@ use evt_domain::{AppError, CommentSummary, CurrentUser, UserIdentity, UserPrevie
 use crate::AppContext;
 
 impl AppContext {
+    async fn visible_profile_counts(
+        &self,
+        viewer: Option<&UserIdentity>,
+        username: &str,
+    ) -> Result<(i64, i64), AppError> {
+        let posts_count = self
+            .posts
+            .count_visible_posts_by_username(viewer.map(|item| item.id), username)
+            .await?;
+        let comments_count = self
+            .comments
+            .count_visible_by_username_for_viewer(viewer.map(|item| item.id), username)
+            .await?;
+
+        Ok((posts_count, comments_count))
+    }
+
     pub async fn get_user_preview_by_id(&self, user_id: i64) -> Result<UserPreview, AppError> {
         self.users
             .find_preview_by_id(user_id)
@@ -25,6 +42,18 @@ impl AppContext {
             .find_profile_by_username(username)
             .await?
             .ok_or_else(|| AppError::NotFound("user profile not found".into()))
+    }
+
+    pub async fn get_user_profile_for_viewer(
+        &self,
+        viewer: Option<&UserIdentity>,
+        username: &str,
+    ) -> Result<UserProfile, AppError> {
+        let mut profile = self.get_user_profile(username).await?;
+        let (posts_count, comments_count) = self.visible_profile_counts(viewer, username).await?;
+        profile.posts_count = posts_count;
+        profile.comments_count = comments_count;
+        Ok(profile)
     }
 
     pub async fn get_current_user(&self, actor: &UserIdentity) -> Result<CurrentUser, AppError> {

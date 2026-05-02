@@ -198,7 +198,6 @@ const editorConfig = {
       uploading.value = uploading.value.filter((item) => item !== fileName);
     },
     onError: (error: unknown) => {
-      console.error(error);
       window.$message.error('上传失败');
     },
     onLinkCreate: (url: string) => {
@@ -401,18 +400,18 @@ watch(editorHtml, () => {
 
 <style scoped lang="less">
 .compose-editor {
-  --compose-panel-bg: rgba(255, 255, 255, 0.9);
-  --compose-panel-border: rgba(18, 75, 51, 0.1);
-  --compose-panel-shadow: 0 24px 70px rgba(20, 70, 48, 0.08);
-  --compose-soft-bg: rgba(16, 136, 91, 0.06);
-  --compose-soft-bg-strong: rgba(16, 136, 91, 0.08);
-  --compose-text-main: rgba(15, 23, 42, 0.94);
-  --compose-text-subtle: rgba(15, 23, 42, 0.66);
-  --compose-editor-bg: rgba(255, 255, 255, 0.88);
-  --compose-editor-toolbar-bg: rgba(245, 250, 247, 0.92);
-  --compose-editor-border: rgba(18, 75, 51, 0.12);
-  --compose-accent: #18a058;
-  --compose-accent-ring: rgba(24, 160, 88, 0.24);
+  --compose-panel-bg: var(--panel-bg);
+  --compose-panel-border: var(--panel-border);
+  --compose-panel-shadow: var(--panel-shadow);
+  --compose-soft-bg: var(--accent-soft-muted);
+  --compose-soft-bg-strong: var(--accent-soft);
+  --compose-text-main: var(--editor-text-main);
+  --compose-text-subtle: var(--editor-text-subtle);
+  --compose-editor-bg: var(--editor-bg);
+  --compose-editor-toolbar-bg: var(--editor-toolbar-bg);
+  --compose-editor-border: var(--editor-border);
+  --compose-accent: var(--accent-primary);
+  --compose-accent-ring: var(--editor-accent-ring);
   width: 100%;
   color: var(--compose-text-main);
 }
@@ -578,6 +577,11 @@ watch(editorHtml, () => {
   color-scheme: light;
 }
 
+.compose-editor :deep(.ck.ck-toolbar .ck-button:hover),
+.compose-editor :deep(.ck.ck-toolbar .ck-button.ck-on) {
+  background: var(--accent-soft-hover);
+}
+
 .compose-editor :deep(.n-input-number) {
   --n-color: var(--compose-editor-bg);
   --n-color-focus: var(--compose-editor-bg);
@@ -597,26 +601,6 @@ watch(editorHtml, () => {
 .editor-expand-leave-to {
   opacity: 0;
   transform: translateY(-8px);
-}
-
-:global(.dark) .compose-editor {
-  --compose-panel-bg: rgba(18, 24, 24, 0.9);
-  --compose-panel-border: rgba(148, 163, 184, 0.12);
-  --compose-panel-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
-  --compose-soft-bg: rgba(99, 226, 183, 0.1);
-  --compose-soft-bg-strong: rgba(99, 226, 183, 0.12);
-  --compose-text-main: rgba(241, 245, 249, 0.94);
-  --compose-text-subtle: rgba(226, 232, 240, 0.72);
-  --compose-editor-bg: rgba(25, 33, 33, 0.92);
-  --compose-editor-toolbar-bg: rgba(22, 28, 28, 0.96);
-  --compose-editor-border: rgba(148, 163, 184, 0.16);
-  --compose-accent: #63e2b7;
-  --compose-accent-ring: rgba(99, 226, 183, 0.26);
-}
-
-:global(.dark) .compose-editor :deep(.ck.ck-toolbar .ck-button:hover),
-:global(.dark) .compose-editor :deep(.ck.ck-toolbar .ck-button.ck-on) {
-  background: rgba(99, 226, 183, 0.14);
 }
 
 :global(.dark) .compose-editor :deep(.ck.ck-editor__editable_inline) {

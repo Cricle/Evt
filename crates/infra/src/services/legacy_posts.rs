@@ -58,17 +58,47 @@ impl AppContext {
         self.legacy_posts.post_states_by_ids(post_ids).await
     }
 
-    pub async fn toggle_post_lock(&self, post_id: i64) -> Result<bool, AppError> {
+    pub async fn toggle_post_lock(
+        &self,
+        actor: &UserIdentity,
+        post_id: i64,
+    ) -> Result<bool, AppError> {
+        let post = self.get_post(post_id).await?;
+        let current = self.get_current_user(actor).await?;
+        if !current.is_admin {
+            self.ensure_can_access_space_id(Some(actor), post.space_id)
+                .await?;
+        }
         self.ensure_legacy_post_state(post_id).await?;
         self.legacy_posts.toggle_post_flag(post_id, "is_lock").await
     }
 
-    pub async fn toggle_post_top(&self, post_id: i64) -> Result<bool, AppError> {
+    pub async fn toggle_post_top(
+        &self,
+        actor: &UserIdentity,
+        post_id: i64,
+    ) -> Result<bool, AppError> {
+        let post = self.get_post(post_id).await?;
+        let current = self.get_current_user(actor).await?;
+        if !current.is_admin {
+            self.ensure_can_access_space_id(Some(actor), post.space_id)
+                .await?;
+        }
         self.ensure_legacy_post_state(post_id).await?;
         self.legacy_posts.toggle_post_flag(post_id, "is_top").await
     }
 
-    pub async fn toggle_post_essence(&self, post_id: i64) -> Result<bool, AppError> {
+    pub async fn toggle_post_essence(
+        &self,
+        actor: &UserIdentity,
+        post_id: i64,
+    ) -> Result<bool, AppError> {
+        let post = self.get_post(post_id).await?;
+        let current = self.get_current_user(actor).await?;
+        if !current.is_admin {
+            self.ensure_can_access_space_id(Some(actor), post.space_id)
+                .await?;
+        }
         self.ensure_legacy_post_state(post_id).await?;
         self.legacy_posts
             .toggle_post_flag(post_id, "is_essence")
@@ -77,10 +107,17 @@ impl AppContext {
 
     pub async fn set_post_visibility(
         &self,
+        actor: &UserIdentity,
         post_id: i64,
         visibility: i32,
     ) -> Result<i32, AppError> {
         self.validate_legacy_visibility(visibility)?;
+        let post = self.get_post(post_id).await?;
+        let current = self.get_current_user(actor).await?;
+        if !current.is_admin {
+            self.ensure_can_access_space_id(Some(actor), post.space_id)
+                .await?;
+        }
         self.ensure_legacy_post_state(post_id).await?;
         self.legacy_posts
             .set_post_visibility(post_id, visibility)
@@ -124,7 +161,19 @@ impl AppContext {
         self.legacy_posts.comment_states_by_ids(comment_ids).await
     }
 
-    pub async fn toggle_comment_essence(&self, comment_id: i64) -> Result<bool, AppError> {
+    pub async fn toggle_comment_essence(
+        &self,
+        actor: &UserIdentity,
+        comment_id: i64,
+    ) -> Result<bool, AppError> {
+        let comment = self
+            .comments
+            .find_by_id(comment_id)
+            .await?
+            .ok_or_else(|| AppError::NotFound("comment not found".into()))?;
+        let post = self.get_post(comment.post_id).await?;
+        self.ensure_can_access_space_id(Some(actor), post.space_id)
+            .await?;
         self.legacy_posts.ensure_comment_state(comment_id).await?;
         self.legacy_posts.toggle_comment_essence(comment_id).await
     }
@@ -145,11 +194,13 @@ impl AppContext {
             .find_by_id(comment_id)
             .await?
             .ok_or_else(|| AppError::NotFound("comment not found".into()))?;
+        let post = self.get_post(comment.post_id).await?;
+        self.ensure_can_access_space_id(Some(actor), post.space_id)
+            .await?;
         let reply = self
             .legacy_posts
             .create_reply(comment_id, actor.id, at_user_id, content)
             .await?;
-        let post = self.get_post(comment.post_id).await?;
 
         if comment.user_id != actor.id {
             let _ = self
@@ -252,6 +303,9 @@ impl AppContext {
                 "comment does not belong to the post".into(),
             ));
         }
+        let post = self.get_post(post_id).await?;
+        self.ensure_can_access_space_id(Some(actor), post.space_id)
+            .await?;
         self.legacy_posts
             .toggle_reaction(
                 actor.id,
@@ -292,6 +346,9 @@ impl AppContext {
                 "reply does not belong to the comment".into(),
             ));
         }
+        let post = self.get_post(post_id).await?;
+        self.ensure_can_access_space_id(Some(actor), post.space_id)
+            .await?;
         self.legacy_posts
             .toggle_reaction(
                 actor.id,

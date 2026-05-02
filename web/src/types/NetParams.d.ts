@@ -55,14 +55,6 @@ declare namespace NetParams {
     id: number;
   }
 
-  interface PostGetPostCollection {
-    id: number;
-  }
-
-  interface PostPostCollection {
-    id: number;
-  }
-
   interface PostGetTags {
     type: 'hot' | 'new' | 'follow' | 'pin' | 'hot_extral';
     num: number;

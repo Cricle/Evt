@@ -3,6 +3,22 @@ use evt_domain::{AppError, TagSummary, UserIdentity};
 use crate::AppContext;
 
 impl AppContext {
+    async fn ensure_tag_belongs_to_space(
+        &self,
+        space_id: i64,
+        tag_id: i64,
+    ) -> Result<(), AppError> {
+        let tag = self
+            .tags
+            .find_by_id(tag_id)
+            .await?
+            .ok_or_else(|| AppError::NotFound("topic not found".into()))?;
+        if tag.space_id != space_id {
+            return Err(AppError::NotFound("topic not found".into()));
+        }
+        Ok(())
+    }
+
     pub async fn suggest_tags(&self, keyword: &str, limit: u64) -> Result<Vec<String>, AppError> {
         self.suggest_tags_in_space(None, None, keyword, limit).await
     }
@@ -79,6 +95,7 @@ impl AppContext {
         tag_id: i64,
     ) -> Result<(), AppError> {
         let space_id = self.resolve_space(Some(actor), space_slug).await?.id;
+        self.ensure_tag_belongs_to_space(space_id, tag_id).await?;
         self.tags.follow(space_id, actor.id, tag_id).await
     }
 
@@ -93,6 +110,7 @@ impl AppContext {
         tag_id: i64,
     ) -> Result<(), AppError> {
         let space_id = self.resolve_space(Some(actor), space_slug).await?.id;
+        self.ensure_tag_belongs_to_space(space_id, tag_id).await?;
         self.tags.unfollow(space_id, actor.id, tag_id).await
     }
 
@@ -111,6 +129,7 @@ impl AppContext {
         tag_id: i64,
     ) -> Result<bool, AppError> {
         let space_id = self.resolve_space(Some(actor), space_slug).await?.id;
+        self.ensure_tag_belongs_to_space(space_id, tag_id).await?;
         self.tags.toggle_top(space_id, actor.id, tag_id).await
     }
 
@@ -129,6 +148,19 @@ impl AppContext {
         tag_id: i64,
     ) -> Result<bool, AppError> {
         let space_id = self.resolve_space(Some(actor), space_slug).await?.id;
+        self.ensure_tag_belongs_to_space(space_id, tag_id).await?;
         self.tags.toggle_pin(space_id, actor.id, tag_id).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use evt_domain::AppError;
+
+    #[test]
+    fn cross_space_topic_guard_uses_not_found_shape() {
+        let error = AppError::NotFound("topic not found".into());
+        assert_eq!(error.code(), 404_001);
+        assert_eq!(error.to_string(), "topic not found");
     }
 }

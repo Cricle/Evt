@@ -13,6 +13,21 @@
                     </div>
                 </n-spin>
             </n-list-item>
+            <div v-if="post.id > 0" class="comment-entry-wrap">
+                <div v-if="reactions.length > 0" class="reaction-overview">
+                    <div class="reaction-title">这条动态的表情回应</div>
+                    <post-reaction-bar
+                        :reactions="reactions"
+                        :count="post.upvote_count"
+                        :max-visible="16"
+                        :show-add-button="true"
+                        @select="handlePostReaction"
+                    />
+                </div>
+                <n-list-item>
+                    <compose-comment :lock="post.is_lock" :post-id="post.id" @post-success="reloadComments" />
+                </n-list-item>
+            </div>
             <div class="comment-opts-wrap" v-if="post.id > 0">
                 <n-tabs type="bar" justify-content="end" size="small" tab-style="margin-left: -24px;" animated @update:value="commentTab">
                     <template #prefix>
@@ -22,20 +37,6 @@
                     <n-tab-pane name="hots" tab="热门" />
                     <n-tab-pane name="newest" tab="最新" />
                 </n-tabs>
-            </div>
-            <n-list-item v-if="post.id > 0">
-                <compose-comment :lock="post.is_lock" :post-id="post.id" @post-success="reloadComments" />
-            </n-list-item>
-
-            <div v-if="post.id > 0 && reactions.length > 0" class="reaction-overview">
-                <div class="reaction-title">表情回应</div>
-                <post-reaction-bar
-                    :reactions="reactions"
-                    :count="post.upvote_count"
-                    :max-visible="16"
-                    :show-add-button="false"
-                    @select="handlePostReaction"
-                />
             </div>
 
             <div v-if="post.id > 0">
@@ -71,19 +72,22 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, computed } from 'vue';
 import { useRoute } from 'vue-router';
-import { getPost, getPostComments } from '@/api/post';
+import { getPost, getPostComments, togglePostReaction } from '@/api/post';
 import InfiniteLoading from 'v3-infinite-loading';
 import 'v3-infinite-loading/lib/style.css';
 import { splitCommentReactions } from '@/utils/reactions';
-import { mergeCommentPage, nextCommentPage } from '@/utils/comment-feed';
+import { applyCommentPageState, createCommentPageState } from '@/views/post-comment-state';
 import { useStoreUser } from '@/store/user';
+import { useStoreProfile } from '@/store/profile';
 import { storeToRefs } from 'pinia';
 import PostReactionBar from '@/components/post-reaction-bar.vue';
-import { Api } from '@/utils/request';
+import { resolveSpaceSlug } from '@/utils/spaces';
 
 const route = useRoute();
 const storeUser = useStoreUser();
+const storeProfile = useStoreProfile();
 const { userInfo } = storeToRefs(storeUser);
+const { currentSpaceSlug } = storeToRefs(storeProfile);
 const post = ref<Item.PostProps>({} as Item.PostProps);
 const loading = ref(false);
 const commentLoading = ref(false);
@@ -109,10 +113,22 @@ let stateHandler = {
   },
 };
 
+let defaultCommentsState = createCommentPageState<Item.CommentProps>();
+let hotsCommentsState = createCommentPageState<Item.CommentProps>();
+let newestCommentsState = createCommentPageState<Item.CommentProps>();
+
 const commentTab = (tab: 'default' | 'hots' | 'newest') => {
   sortStrategy.value = tab;
   defaultCommentsSort.value = tab === 'default';
   loadComments(stateHandler);
+};
+
+const syncSpaceFromRoute = () => {
+  const routeSpace = typeof route.query.space === 'string' ? route.query.space : '';
+  currentSpaceSlug.value = resolveSpaceSlug(
+    routeSpace || currentSpaceSlug.value,
+    storeProfile.profile.defaultSpaceSlug,
+  );
 };
 
 const reloadPost = (post_id: number) => {
@@ -146,15 +162,14 @@ const loadPost = () => {
     });
 };
 
-let defaultCommmentsPage = 1;
 const defaultNoMore = ref<boolean>(false);
 const defaultComments = ref<Item.CommentProps[]>([]);
 const loadDefaultComments = ($state: any) => {
-  if (defaultNoMore.value) {
+  if (defaultCommentsState.noMore) {
     $state?.complete?.();
     return;
   }
-  const requestedPage = defaultCommmentsPage;
+  const requestedPage = defaultCommentsState.page;
   getPostComments({
     id: post.value.id as number,
     style: 'default',
@@ -165,9 +180,9 @@ const loadDefaultComments = ($state: any) => {
       if ($state !== null) {
         stateHandler = $state;
       }
-      defaultNoMore.value = res.list.length < pageSize;
-      defaultComments.value = mergeCommentPage(defaultComments.value, res.list, requestedPage);
-      defaultCommmentsPage = nextCommentPage(requestedPage, res.list.length, pageSize);
+      defaultCommentsState = applyCommentPageState(defaultCommentsState, res.list, requestedPage, pageSize);
+      defaultNoMore.value = defaultCommentsState.noMore;
+      defaultComments.value = defaultCommentsState.items;
       const reactionView = splitCommentReactions(defaultComments.value);
       comments.value = reactionView.visibleComments;
       if (!post.value.reactions?.length) {
@@ -182,15 +197,14 @@ const loadDefaultComments = ($state: any) => {
     });
 };
 
-let hotsCommmentsPage = 1;
 let hotsNoMore = ref<boolean>(false);
 const hotsComments = ref<Item.CommentProps[]>([]);
 const loadHotsComments = ($state: any) => {
-  if (hotsNoMore.value) {
+  if (hotsCommentsState.noMore) {
     $state?.complete?.();
     return;
   }
-  const requestedPage = hotsCommmentsPage;
+  const requestedPage = hotsCommentsState.page;
   getPostComments({
     id: post.value.id as number,
     style: 'hots',
@@ -201,9 +215,9 @@ const loadHotsComments = ($state: any) => {
       if ($state !== null) {
         stateHandler = $state;
       }
-      hotsNoMore.value = res.list.length < pageSize;
-      hotsComments.value = mergeCommentPage(hotsComments.value, res.list, requestedPage);
-      hotsCommmentsPage = nextCommentPage(requestedPage, res.list.length, pageSize);
+      hotsCommentsState = applyCommentPageState(hotsCommentsState, res.list, requestedPage, pageSize);
+      hotsNoMore.value = hotsCommentsState.noMore;
+      hotsComments.value = hotsCommentsState.items;
       const reactionView = splitCommentReactions(hotsComments.value);
       comments.value = reactionView.visibleComments;
       if (!post.value.reactions?.length) {
@@ -218,15 +232,14 @@ const loadHotsComments = ($state: any) => {
     });
 };
 
-let newestCommmentsPage = 1;
 let newestNoMore = ref<boolean>(false);
 const newestComments = ref<Item.CommentProps[]>([]);
 const loadNewestComments = ($state: any) => {
-  if (newestNoMore.value) {
+  if (newestCommentsState.noMore) {
     $state?.complete?.();
     return;
   }
-  const requestedPage = newestCommmentsPage;
+  const requestedPage = newestCommentsState.page;
   getPostComments({
     id: post.value.id as number,
     style: 'newest',
@@ -237,9 +250,9 @@ const loadNewestComments = ($state: any) => {
       if ($state !== null) {
         stateHandler = $state;
       }
-      newestNoMore.value = res.list.length < pageSize;
-      newestComments.value = mergeCommentPage(newestComments.value, res.list, requestedPage);
-      newestCommmentsPage = nextCommentPage(requestedPage, res.list.length, pageSize);
+      newestCommentsState = applyCommentPageState(newestCommentsState, res.list, requestedPage, pageSize);
+      newestNoMore.value = newestCommentsState.noMore;
+      newestComments.value = newestCommentsState.items;
       const reactionView = splitCommentReactions(newestComments.value);
       comments.value = reactionView.visibleComments;
       if (!post.value.reactions?.length) {
@@ -274,12 +287,16 @@ const loadComments = ($state: any) => {
 };
 
 const reloadComments = () => {
-  defaultCommmentsPage = 1;
-  hotsCommmentsPage = 1;
-  newestCommmentsPage = 1;
-  defaultNoMore.value = false;
-  hotsNoMore.value = false;
-  newestNoMore.value = false;
+  defaultCommentsState = createCommentPageState();
+  hotsCommentsState = createCommentPageState();
+  newestCommentsState = createCommentPageState();
+  defaultComments.value = [];
+  hotsComments.value = [];
+  newestComments.value = [];
+  comments.value = [];
+  defaultNoMore.value = defaultCommentsState.noMore;
+  hotsNoMore.value = hotsCommentsState.noMore;
+  newestNoMore.value = newestCommentsState.noMore;
   loadComments(stateHandler);
 };
 
@@ -297,18 +314,20 @@ const handlePostReaction = (emoji: string) => {
   if (userInfo.value.id < 1) {
     return;
   }
-  Api.v1.posts.post.reactions({
-    post_id: post.value.id,
-    emoji,
-  }).then((res) => {
-    appendPostReaction({
-      reactions: res.reactions || [],
-      commentCount: res.comment_count,
+  togglePostReaction(post.value.id, emoji)
+    .then((res) => {
+      appendPostReaction({
+        reactions: res.reactions || [],
+        commentCount: res.comment_count,
+      });
+    })
+    .catch(() => {
+      window.$message.error('表情回复失败');
     });
-  });
 };
 
 onMounted(() => {
+  syncSpaceFromRoute();
   loadPost();
 });
 
@@ -317,6 +336,13 @@ watch(postId, () => {
     loadPost();
   }
 });
+
+watch(
+  () => route.query.space,
+  () => {
+    syncSpaceFromRoute();
+  },
+);
 </script>
 
 <style lang="less" scoped>
@@ -325,7 +351,7 @@ watch(postId, () => {
 }
 
 .comment-opts-wrap {
-    padding-top: 6px;
+    padding-top: 2px;
     padding-left: 16px;
     padding-right: 16px;
     opacity: 0.75;
@@ -337,15 +363,19 @@ watch(postId, () => {
     }
 }
 
+.comment-entry-wrap {
+    padding: 10px 16px 0;
+}
+
 .reaction-overview {
-    padding: 0 16px 12px;
+    padding: 0 0 12px;
 }
 
 .reaction-title {
     margin-bottom: 8px;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
-    opacity: 0.72;
+    opacity: 0.68;
 }
 
 .main-content-wrap {

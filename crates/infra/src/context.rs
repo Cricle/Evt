@@ -135,7 +135,7 @@ impl AppContext {
         }
 
         if let Some(owner) = app.users.find_first_summary().await.ok().flatten() {
-            let default_space_slug = app.site_profile_snapshot().default_space_slug;
+            let default_space_slug = app.normalized_default_space_slug();
             let _ = app
                 .spaces
                 .ensure_default_space(&default_space_slug, owner.id)

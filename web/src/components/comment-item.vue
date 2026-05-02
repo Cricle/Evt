@@ -101,18 +101,6 @@
                 <post-image
                     v-if="comment.imgs.length > 0"
                     :imgs="comment.imgs" />
-                <div v-if="replyReactions.length > 0" class="reaction-strip">
-                    <button
-                        v-for="reaction in replyReactions"
-                        :key="reaction.emoji"
-                        type="button"
-                        class="reaction-chip"
-                        :title="reaction.users.map((user) => user.nickname || user.username).join('、')"
-                    >
-                        <span>{{ reaction.emoji }}</span>
-                        <span>{{ reaction.count }}</span>
-                    </button>
-                </div>
                   <!-- 回复编辑器 -->
                   <compose-reply
                     ref="replyComposeRef"
@@ -141,6 +129,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useStoreMain } from '@/store/main';
+import { useStoreProfile } from '@/store/profile';
 import { useStoreUser } from '@/store/user';
 import { useRouter } from 'vue-router';
 import { parsePostTag } from '@/utils/content';
@@ -150,6 +139,7 @@ import { YesNoEnum } from '@/utils/IEnum';
 import { storeToRefs } from 'pinia';
 import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
 import { splitReplyReactions } from '@/utils/reactions';
+import { buildTagSearchRoute } from '@/utils/tagRoute';
 
 const router = useRouter();
 const replyAtUserID = ref(0);
@@ -157,7 +147,9 @@ const replyAtUsername = ref('');
 const replyComposeRef = ref();
 
 const storeMain = useStoreMain();
+const storeProfile = useStoreProfile();
 const storeUser = useStoreUser();
+const { currentSpaceSlug } = storeToRefs(storeProfile);
 const { userInfo } = storeToRefs(storeUser);
 
 const emit = defineEmits<(e: 'reload') => void>();
@@ -188,9 +180,7 @@ const comment = computed(() => {
   return comment;
 });
 
-const replyReactionView = computed(() => splitReplyReactions(props.comment.replies || []));
-const visibleReplies = computed(() => replyReactionView.value.visibleReplies);
-const replyReactions = computed(() => replyReactionView.value.reactions);
+const visibleReplies = computed(() => splitReplyReactions(props.comment.replies || []).visibleReplies);
 
 const doClickText = (e: MouseEvent, id: number | string) => {
   const target = e.target as HTMLElement | null;
@@ -201,7 +191,7 @@ const doClickText = (e: MouseEvent, id: number | string) => {
   if (d.length === 2) {
     storeMain.doRefresh();
     if (d[0] === 'tag') {
-      window.$message.warning('评论内的无效话题');
+      router.push(buildTagSearchRoute(d[1], currentSpaceSlug.value));
     } else {
       router.push({
         name: 'user',
@@ -232,11 +222,11 @@ const execDelAction = () => {
   })
     .then((_res) => {
       window.$message.success('删除成功');
-      setTimeout(() => {
-        reload();
-      }, 50);
+      reload();
     })
-    .catch((_err) => {});
+    .catch((_err) => {
+      window.$message.error('删除评论失败');
+    });
 };
 
 const execHightlightAction = () => {
@@ -246,16 +236,17 @@ const execHightlightAction = () => {
     .then((res) => {
       comment.value.is_essence = res.highlight_status;
       window.$message.success('操作成功');
-      setTimeout(() => {
-        reload();
-      }, 50);
+      reload();
     })
-    .catch((_err) => {});
+    .catch((_err) => {
+      window.$message.error('更新评论亮点状态失败');
+    });
 };
 </script>
 
 <style lang="less" scoped>
 .comment-item {
+    background-color: var(--surface-base);
     width: 100%;
     padding: 16px;
     box-sizing: border-box;
@@ -299,28 +290,6 @@ const execHightlightAction = () => {
     }
 }
 
-.reaction-strip {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 12px;
-}
-
-.reaction-chip {
-    --comment-reaction-chip-bg: rgba(16, 136, 91, 0.08);
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    height: 32px;
-    padding: 0 12px;
-    border: 0;
-    border-radius: 999px;
-    background: var(--comment-reaction-chip-bg);
-    color: inherit;
-    cursor: default;
-    animation: reaction-pop 0.2s ease;
-}
-
 .reply-wrap {
     --comment-reply-bg: var(--surface-muted);
     margin-top: 10px;
@@ -334,22 +303,4 @@ const execHightlightAction = () => {
     }
 }
 
-@keyframes reaction-pop {
-    from {
-        opacity: 0;
-        transform: scale(0.92);
-    }
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
-}
-
-:global(.dark) .reaction-chip {
-    --comment-reaction-chip-bg: rgba(99, 226, 183, 0.12);
-}
-
-:global(.dark) .comment-item {
-    background-color: var(--surface-base);
-}
 </style>

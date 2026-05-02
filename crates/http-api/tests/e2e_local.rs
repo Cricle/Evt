@@ -3,7 +3,7 @@ use std::{
     net::TcpListener as StdTcpListener,
     path::PathBuf,
     process::{Child, Command, Stdio},
-    sync::OnceLock,
+    sync::{Mutex, OnceLock},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -137,6 +137,11 @@ fn ensure_evt_binary_built() {
             .expect("build evt-app binary");
         assert!(status.success(), "cargo build -p evt-app failed");
     });
+}
+
+fn e2e_guard() -> &'static Mutex<()> {
+    static E2E_GUARD: OnceLock<Mutex<()>> = OnceLock::new();
+    E2E_GUARD.get_or_init(|| Mutex::new(()))
 }
 
 async fn write_test_web_dist(dir: &PathBuf) {
@@ -381,6 +386,7 @@ impl LocalServer {
 
 #[tokio::test]
 async fn local_http_e2e_covers_web_and_legacy_post_comment_flow() {
+    let _guard = e2e_guard().lock().expect("lock e2e guard");
     let mut server = LocalServer::start().await;
     let client = reqwest::Client::new();
     let username = format!("evt_e2e_{}", unique_suffix());
@@ -751,6 +757,51 @@ async fn local_http_e2e_covers_web_and_legacy_post_comment_flow() {
         StatusCode::UNAUTHORIZED
     );
 
+    let second_profile_before_invite = client
+        .get(format!(
+            "{}/v1/users/{}/profile",
+            server.base_url, username
+        ))
+        .send()
+        .await
+        .expect("second profile before invite");
+    assert_eq!(second_profile_before_invite.status(), StatusCode::OK);
+    let second_profile_before_invite_body: Value = second_profile_before_invite
+        .json()
+        .await
+        .expect("second profile before invite json");
+    assert_eq!(second_profile_before_invite_body["data"]["posts_count"], 2);
+    assert_eq!(second_profile_before_invite_body["data"]["comments_count"], 0);
+
+    let second_legacy_profile_before_invite = client
+        .get(format!(
+            "{}/v1/user/profile?username={}",
+            server.base_url, username
+        ))
+        .send()
+        .await
+        .expect("second legacy profile before invite");
+    assert_eq!(second_legacy_profile_before_invite.status(), StatusCode::OK);
+    let second_legacy_profile_before_invite_body: Value = second_legacy_profile_before_invite
+        .json()
+        .await
+        .expect("second legacy profile before invite json");
+    assert_eq!(
+        second_legacy_profile_before_invite_body["data"]["tweets_count"],
+        2
+    );
+
+    let second_post_star_before_invite = client
+        .post(format!("{}/v1/post/star", server.base_url))
+        .bearer_auth(&second_token)
+        .json(&serde_json::json!({
+            "id": post_id
+        }))
+        .send()
+        .await
+        .expect("second post star before invite");
+    assert_eq!(second_post_star_before_invite.status(), StatusCode::UNAUTHORIZED);
+
     let add_member = client
         .post(format!("{}/v1/spaces/members", server.base_url))
         .bearer_auth(&token)
@@ -838,6 +889,23 @@ async fn local_http_e2e_covers_web_and_legacy_post_comment_flow() {
         .expect("second rest comments after invite");
     assert_eq!(second_rest_comments_after_invite.status(), StatusCode::OK);
 
+    let second_profile_after_invite = client
+        .get(format!(
+            "{}/v1/users/{}/profile",
+            server.base_url, username
+        ))
+        .bearer_auth(&second_token)
+        .send()
+        .await
+        .expect("second profile after invite");
+    assert_eq!(second_profile_after_invite.status(), StatusCode::OK);
+    let second_profile_after_invite_body: Value = second_profile_after_invite
+        .json()
+        .await
+        .expect("second profile after invite json");
+    assert_eq!(second_profile_after_invite_body["data"]["posts_count"], 3);
+    assert_eq!(second_profile_after_invite_body["data"]["comments_count"], 0);
+
     let second_new_user_posts_after_invite = client
         .get(format!(
             "{}/v1/users/{}/posts?page=1&page_size=20",
@@ -912,36 +980,6 @@ async fn local_http_e2e_covers_web_and_legacy_post_comment_flow() {
         .expect("toggle post star json");
     assert_eq!(toggle_post_star_body["data"]["status"], true);
 
-    let get_post_collection_before = client
-        .get(format!(
-            "{}/v1/post/collection?id={post_id}",
-            server.base_url
-        ))
-        .bearer_auth(&second_token)
-        .send()
-        .await
-        .expect("get post collection before toggle");
-    assert_eq!(get_post_collection_before.status(), StatusCode::OK);
-    let get_post_collection_before_body: Value = get_post_collection_before
-        .json()
-        .await
-        .expect("post collection before json");
-    assert_eq!(get_post_collection_before_body["data"]["status"], false);
-
-    let toggle_post_collection = client
-        .post(format!("{}/v1/post/collection", server.base_url))
-        .bearer_auth(&second_token)
-        .json(&serde_json::json!({ "id": post_id }))
-        .send()
-        .await
-        .expect("toggle post collection");
-    assert_eq!(toggle_post_collection.status(), StatusCode::OK);
-    let toggle_post_collection_body: Value = toggle_post_collection
-        .json()
-        .await
-        .expect("toggle post collection json");
-    assert_eq!(toggle_post_collection_body["data"]["status"], true);
-
     let third_username = format!("evt_observer_{}", unique_suffix());
     let third_password = "Passw0rd_654";
 
@@ -989,28 +1027,6 @@ async fn local_http_e2e_covers_web_and_legacy_post_comment_flow() {
             .expect("third user id"),
     );
 
-    let user_collections = client
-        .get(format!(
-            "{}/v1/user/collections?page=1&page_size=20",
-            server.base_url
-        ))
-        .bearer_auth(&second_token)
-        .send()
-        .await
-        .expect("user collections response");
-    assert_eq!(user_collections.status(), StatusCode::OK);
-    let user_collections_body: Value = user_collections
-        .json()
-        .await
-        .expect("user collections json");
-    assert!(
-        user_collections_body["data"]["list"]
-            .as_array()
-            .expect("user collections list")
-            .iter()
-            .any(|item| item["id"].as_i64() == Some(post_id))
-    );
-
     let add_third_member = client
         .post(format!("{}/v1/spaces/members", server.base_url))
         .bearer_auth(&token)
@@ -1032,20 +1048,6 @@ async fn local_http_e2e_covers_web_and_legacy_post_comment_flow() {
         .expect("third get post after invite");
     assert_eq!(third_get_post_after_invite.status(), StatusCode::OK);
 
-    let third_toggle_post_collection = client
-        .post(format!("{}/v1/post/collection", server.base_url))
-        .bearer_auth(&third_token)
-        .json(&serde_json::json!({ "id": post_id }))
-        .send()
-        .await
-        .expect("third toggle post collection");
-    assert_eq!(third_toggle_post_collection.status(), StatusCode::OK);
-    let third_toggle_post_collection_body: Value = third_toggle_post_collection
-        .json()
-        .await
-        .expect("third toggle post collection json");
-    assert_eq!(third_toggle_post_collection_body["data"]["status"], true);
-
     let remove_third_member = client
         .delete(format!("{}/v1/spaces/members", server.base_url))
         .bearer_auth(&token)
@@ -1057,32 +1059,6 @@ async fn local_http_e2e_covers_web_and_legacy_post_comment_flow() {
         .await
         .expect("remove third space member response");
     assert_eq!(remove_third_member.status(), StatusCode::OK);
-
-    let third_collections_after_removal = client
-        .get(format!(
-            "{}/v1/user/collections?page=1&page_size=20",
-            server.base_url
-        ))
-        .bearer_auth(&third_token)
-        .send()
-        .await
-        .expect("third user collections after removal response");
-    assert_eq!(third_collections_after_removal.status(), StatusCode::OK);
-    let third_collections_after_removal_body: Value = third_collections_after_removal
-        .json()
-        .await
-        .expect("third user collections after removal json");
-    assert!(
-        third_collections_after_removal_body["data"]["list"]
-            .as_array()
-            .expect("third user collections after removal list")
-            .iter()
-            .all(|item| item["id"].as_i64() != Some(post_id))
-    );
-    assert_eq!(
-        third_collections_after_removal_body["data"]["pager"]["total_rows"].as_i64(),
-        Some(0)
-    );
 
     let get_post = client
         .get(format!("{}/v1/post?id={post_id}", server.base_url))
@@ -1118,6 +1094,71 @@ async fn local_http_e2e_covers_web_and_legacy_post_comment_flow() {
         .as_i64()
         .expect("comment id");
 
+    let second_owned_post = client
+        .post(format!("{}/v1/post", server.base_url))
+        .bearer_auth(&second_token)
+        .json(&serde_json::json!({
+            "space_slug": private_space_slug,
+            "contents": [
+                { "content": "member-owned private post", "type": 2, "sort": 100 }
+            ],
+            "tags": [],
+            "users": [],
+            "attachment_price": 0,
+            "visibility": 0
+        }))
+        .send()
+        .await
+        .expect("create second owned private post response");
+    assert_eq!(second_owned_post.status(), StatusCode::OK);
+    let second_owned_post_body: Value = second_owned_post
+        .json()
+        .await
+        .expect("create second owned private post json");
+    let second_owned_post_id = second_owned_post_body["data"]["id"]
+        .as_i64()
+        .expect("second owned post id");
+
+    let owner_comment_on_second_post = client
+        .post(format!("{}/v1/post/comment", server.base_url))
+        .bearer_auth(&token)
+        .json(&serde_json::json!({
+            "post_id": second_owned_post_id,
+            "contents": [
+                { "content": "owner comment on member post", "type": 2, "sort": 100 }
+            ],
+            "users": []
+        }))
+        .send()
+        .await
+        .expect("owner comment on second post response");
+    assert_eq!(owner_comment_on_second_post.status(), StatusCode::OK);
+    let owner_comment_on_second_post_body: Value = owner_comment_on_second_post
+        .json()
+        .await
+        .expect("owner comment on second post json");
+    let owner_comment_on_second_post_id = owner_comment_on_second_post_body["data"]["id"]
+        .as_i64()
+        .expect("owner comment on second post id");
+
+    let third_legacy_reply_before_invite = client
+        .post(format!("{}/v1/post/comment/reply", server.base_url))
+        .bearer_auth(&third_token)
+        .json(&serde_json::json!({
+            "comment_id": comment_id,
+            "content": "should be blocked before invite",
+            "at_user_id": 0
+        }))
+        .send()
+        .await
+        .expect("third legacy reply before invite");
+    assert_eq!(third_legacy_reply_before_invite.status(), StatusCode::BAD_REQUEST);
+    let third_legacy_reply_before_invite_body: Value = third_legacy_reply_before_invite
+        .json()
+        .await
+        .expect("third legacy reply before invite json");
+    assert_eq!(third_legacy_reply_before_invite_body["code"], 20007);
+
     let second_create_reply = client
         .post(format!("{}/v1/post/comment/reply", server.base_url))
         .bearer_auth(&second_token)
@@ -1149,6 +1190,55 @@ async fn local_http_e2e_covers_web_and_legacy_post_comment_flow() {
         .await
         .expect("remove second space member response");
     assert_eq!(remove_second_member.status(), StatusCode::OK);
+
+    let second_comment_highlight_after_removal = client
+        .post(format!("{}/v1/post/comment/highlight", server.base_url))
+        .bearer_auth(&second_token)
+        .json(&serde_json::json!({
+            "id": owner_comment_on_second_post_id
+        }))
+        .send()
+        .await
+        .expect("second comment highlight after removal response");
+    assert_eq!(
+        second_comment_highlight_after_removal.status(),
+        StatusCode::BAD_REQUEST
+    );
+    let second_comment_highlight_after_removal_body: Value =
+        second_comment_highlight_after_removal
+            .json()
+            .await
+            .expect("second comment highlight after removal json");
+    assert_eq!(second_comment_highlight_after_removal_body["code"], 20007);
+
+    for (path, body) in [
+        (
+            "/v1/post/lock",
+            serde_json::json!({ "id": second_owned_post_id }),
+        ),
+        (
+            "/v1/post/highlight",
+            serde_json::json!({ "id": second_owned_post_id }),
+        ),
+        (
+            "/v1/post/visibility",
+            serde_json::json!({ "id": second_owned_post_id, "visibility": 0 }),
+        ),
+    ] {
+        let response = client
+            .post(format!("{}{}", server.base_url, path))
+            .bearer_auth(&second_token)
+            .json(&body)
+            .send()
+            .await
+            .expect("legacy moderation after removal response");
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "path={path}");
+        let response_body: Value = response
+            .json()
+            .await
+            .expect("legacy moderation after removal json");
+        assert_eq!(response_body["code"], 20007, "path={path}");
+    }
 
     let second_delete_reply_after_removal = client
         .delete(format!("{}/v1/post/comment/reply", server.base_url))
@@ -1562,6 +1652,21 @@ async fn local_http_e2e_covers_web_and_legacy_post_comment_flow() {
     );
     assert_eq!(updated_site_profile_body["data"]["copyright_top"], "Evt QA");
 
+    let unread_before_whisper = client
+        .get(format!("{}/v1/user/msgcount/unread", server.base_url))
+        .bearer_auth(&second_token)
+        .send()
+        .await
+        .expect("unread before whisper response");
+    assert_eq!(unread_before_whisper.status(), StatusCode::OK);
+    let unread_before_whisper_body: Value = unread_before_whisper
+        .json()
+        .await
+        .expect("unread before whisper json");
+    let unread_before_whisper_count = unread_before_whisper_body["data"]["count"]
+        .as_i64()
+        .expect("unread before whisper count");
+
     let whisper = client
         .post(format!("{}/v1/user/whisper", server.base_url))
         .bearer_auth(&token)
@@ -1585,7 +1690,10 @@ async fn local_http_e2e_covers_web_and_legacy_post_comment_flow() {
         .json()
         .await
         .expect("unread after whisper json");
-    assert_eq!(unread_after_whisper_body["data"]["count"], 1);
+    assert_eq!(
+        unread_after_whisper_body["data"]["count"].as_i64(),
+        Some(unread_before_whisper_count + 1)
+    );
 
     let whisper_messages = client
         .get(format!(
@@ -1633,7 +1741,13 @@ async fn local_http_e2e_covers_web_and_legacy_post_comment_flow() {
         .json()
         .await
         .expect("unread after read json");
-    assert_eq!(unread_after_read_body["data"]["count"], 0);
+    let unread_after_read_count = unread_after_read_body["data"]["count"]
+        .as_i64()
+        .expect("unread after read count");
+    assert_eq!(
+        unread_after_read_count,
+        unread_before_whisper_count
+    );
 
     let friend_request = client
         .post(format!("{}/v1/friend/requesting", server.base_url))
@@ -1658,7 +1772,10 @@ async fn local_http_e2e_covers_web_and_legacy_post_comment_flow() {
         .json()
         .await
         .expect("unread after friend request json");
-    assert_eq!(unread_after_friend_request_body["data"]["count"], 1);
+    assert_eq!(
+        unread_after_friend_request_body["data"]["count"].as_i64(),
+        Some(unread_after_read_count + 1)
+    );
 
     let requesting_messages = client
         .get(format!(
@@ -1849,4 +1966,136 @@ async fn local_http_e2e_covers_web_and_legacy_post_comment_flow() {
         .await
         .expect("list posts with legacy space alias json");
     assert_eq!(list_posts_with_legacy_space_alias_body["code"], 0);
+}
+
+#[tokio::test]
+async fn local_http_e2e_falls_back_when_runtime_default_space_slug_is_missing() {
+    let _guard = e2e_guard().lock().expect("lock e2e guard");
+    let mut server = LocalServer::start().await;
+    let client = reqwest::Client::new();
+    let username = format!("evt_space_fallback_{}", unique_suffix());
+    let password = "Passw0rd_123";
+
+    let register = client
+        .post(format!("{}/v1/auth/register", server.base_url))
+        .json(&serde_json::json!({
+            "username": username,
+            "password": password,
+        }))
+        .send()
+        .await
+        .expect("register fallback user response");
+    assert_eq!(register.status(), StatusCode::OK);
+
+    let login = client
+        .post(format!("{}/v1/auth/login", server.base_url))
+        .json(&serde_json::json!({
+            "username": username,
+            "password": password,
+        }))
+        .send()
+        .await
+        .expect("login fallback user response");
+    assert_eq!(login.status(), StatusCode::OK);
+    let login_body: Value = login.json().await.expect("login fallback user json");
+    let token = login_body["data"]["token"]
+        .as_str()
+        .expect("fallback login token")
+        .to_string();
+
+    let current_user = client
+        .get(format!("{}/v1/users/me", server.base_url))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .expect("fallback current user response");
+    assert_eq!(current_user.status(), StatusCode::OK);
+    let current_user_body: Value = current_user
+        .json()
+        .await
+        .expect("fallback current user json");
+    let user_id = current_user_body["data"]["id"]
+        .as_i64()
+        .expect("fallback user id");
+    server.register_test_user(user_id);
+
+    server.promote_user_to_admin(user_id);
+
+    let save_settings = client
+        .post(format!("{}/v1/admin/settings/save", server.base_url))
+        .bearer_auth(&token)
+        .json(&serde_json::json!({
+            "items": [
+                { "key": "web_profile.default_space_slug", "value": "ghost-space" }
+            ]
+        }))
+        .send()
+        .await
+        .expect("save fallback default space response");
+    assert_eq!(save_settings.status(), StatusCode::OK);
+
+    let site_profile = client
+        .get(format!("{}/v1/site/profile", server.base_url))
+        .send()
+        .await
+        .expect("fallback site profile response");
+    assert_eq!(site_profile.status(), StatusCode::OK);
+    let site_profile_body: Value = site_profile
+        .json()
+        .await
+        .expect("fallback site profile json");
+    assert_eq!(site_profile_body["data"]["default_space_slug"], "ghost-space");
+
+    let create_post_without_space = client
+        .post(format!("{}/v1/post", server.base_url))
+        .bearer_auth(&token)
+        .json(&serde_json::json!({
+            "contents": [
+                { "content": "fallback default space post", "type": 2, "sort": 100 }
+            ],
+            "tags": [],
+            "users": [],
+            "attachment_price": 0,
+            "visibility": 0
+        }))
+        .send()
+        .await
+        .expect("create fallback default space post response");
+    assert_eq!(create_post_without_space.status(), StatusCode::OK);
+    let create_post_without_space_body: Value = create_post_without_space
+        .json()
+        .await
+        .expect("create fallback default space post json");
+    let fallback_post_id = create_post_without_space_body["data"]["id"]
+        .as_i64()
+        .expect("fallback post id");
+
+    let get_post = client
+        .get(format!("{}/v1/post?id={fallback_post_id}", server.base_url))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .expect("get fallback post response");
+    assert_eq!(get_post.status(), StatusCode::OK);
+    let get_post_body: Value = get_post.json().await.expect("get fallback post json");
+    assert_eq!(get_post_body["data"]["id"].as_i64(), Some(fallback_post_id));
+
+    let list_posts = client
+        .get(format!("{}/v1/posts?page=1&page_size=20", server.base_url))
+        .send()
+        .await
+        .expect("list fallback posts response");
+    assert_eq!(list_posts.status(), StatusCode::OK);
+    let list_posts_body: Value = list_posts
+        .json()
+        .await
+        .expect("list fallback posts json");
+    assert!(
+        list_posts_body["data"]["list"]
+            .as_array()
+            .expect("fallback posts list")
+            .iter()
+            .any(|item| item["id"].as_i64() == Some(fallback_post_id)),
+        "body={list_posts_body}"
+    );
 }

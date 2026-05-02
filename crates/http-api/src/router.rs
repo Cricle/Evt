@@ -58,10 +58,6 @@ pub fn router(state: HttpState) -> Router {
             get(handlers::legacy_friendships::user_contacts),
         )
         .route(
-            "/v1/user/collections",
-            get(handlers::legacy_posts::user_collections),
-        )
-        .route(
             "/v1/suggest/users",
             get(handlers::legacy_users::suggest_users),
         )
@@ -227,11 +223,6 @@ pub fn router(state: HttpState) -> Router {
         .route(
             "/v1/post/star",
             get(handlers::legacy_posts::get_post_star).post(handlers::legacy_posts::post_star),
-        )
-        .route(
-            "/v1/post/collection",
-            get(handlers::legacy_posts::get_post_collection)
-                .post(handlers::legacy_posts::post_collection),
         )
         .route("/v1/topic/follow", post(handlers::legacy_tags::follow_tag))
         .route(

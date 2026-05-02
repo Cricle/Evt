@@ -1,3 +1,5 @@
+name: evt
+
 services:
   db:
     image: mysql:8.0
@@ -24,6 +26,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      network: host
       args:
         NODE_VERSION: ${NODE_VERSION}
         RUST_VERSION: ${RUST_VERSION}
@@ -32,6 +35,10 @@ services:
         ALPINE_MIRROR: ${ALPINE_MIRROR}
         CARGO_REGISTRY_INDEX: ${CARGO_REGISTRY_INDEX}
         VITE_HOST: ${VITE_HOST}
+        HTTP_PROXY: ${HTTP_PROXY}
+        HTTPS_PROXY: ${HTTPS_PROXY}
+        NO_PROXY: ${NO_PROXY}
+        ALL_PROXY: ${ALL_PROXY}
     restart: always
     depends_on:
       db:

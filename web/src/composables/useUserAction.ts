@@ -32,6 +32,7 @@ export default class UserAction {
                             resolve(false);
                         })
                         .catch((_err) => {
+                            window.$message.error('取消关注失败');
                             reject(_err);
                         });
                     } else {
@@ -43,6 +44,7 @@ export default class UserAction {
                             resolve(true);
                         })
                         .catch((_err) => {
+                            window.$message.error('关注失败');
                             reject(_err);
                         });
                     }

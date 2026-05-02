@@ -10,13 +10,7 @@
                     >
                         <router-link
                             class="hash-link"
-                            :to="{
-                                name: 'home',
-                                query: {
-                                    q: tag.tag,
-                                    t: 'tag',
-                                },
-                            }"
+                            :to="buildTagSearchRoute(tag.tag, currentSpaceSlug)"
                         >
                             #{{ tag.tag }}
                         </router-link>
@@ -56,10 +50,15 @@
 import { ref, onMounted, computed } from 'vue';
 import { MoreVertOutlined } from '@vicons/material';
 import type { DropdownOption } from 'naive-ui';
+import { storeToRefs } from 'pinia';
 import { pinTopic, stickTopic, followTopic, unfollowTopic } from '@/api/post';
-import defaultUserAvatar from '@/assets/img/logo.png';
+import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
+import { useStoreProfile } from '@/store/profile';
+import { buildTagSearchRoute } from '@/utils/tagRoute';
 
 const hasFollowing = ref(false);
+const storeProfile = useStoreProfile();
+const { currentSpaceSlug } = storeToRefs(storeProfile);
 const props = withDefaults(
   defineProps<{
     tag: Item.TagProps;
@@ -72,9 +71,9 @@ const props = withDefaults(
 
 const tagUserAvatar = computed(() => {
   if (props.tag.user) {
-    return props.tag.user.avatar;
+    return props.tag.user.avatar || DEFAULT_USER_AVATAR;
   } else {
-    return defaultUserAvatar;
+    return DEFAULT_USER_AVATAR;
   }
 });
 
@@ -123,73 +122,79 @@ const handleTagAction = (
     case 'follow':
       followTopic({
         topic_id: props.tag.id,
+        space_slug: currentSpaceSlug.value,
       })
         .then((_res) => {
           props.tag.is_following = 1;
           window.$message.success(`关注成功`);
         })
-        .catch((err) => {
-          console.log(err);
+        .catch(() => {
+          window.$message.error('关注话题失败');
         });
       break;
     case 'unfollow':
       unfollowTopic({
         topic_id: props.tag.id,
+        space_slug: currentSpaceSlug.value,
       })
         .then((_res) => {
           props.tag.is_following = 0;
           window.$message.success(`取消关注`);
         })
-        .catch((err) => {
-          console.log(err);
+        .catch(() => {
+          window.$message.error('取消关注话题失败');
         });
       break;
     case 'pin':
       pinTopic({
         topic_id: props.tag.id,
+        space_slug: currentSpaceSlug.value,
       })
         .then((_res) => {
           props.tag.is_pin = 1;
           window.$message.success(`钉住成功`);
         })
-        .catch((err) => {
-          console.log(err);
+        .catch(() => {
+          window.$message.error('钉住话题失败');
         });
       break;
     case 'unpin':
       pinTopic({
         topic_id: props.tag.id,
+        space_slug: currentSpaceSlug.value,
       })
         .then((_res) => {
           props.tag.is_pin = 0;
           window.$message.success(`取消钉住`);
         })
-        .catch((err) => {
-          console.log(err);
+        .catch(() => {
+          window.$message.error('取消钉住话题失败');
         });
       break;
     case 'stick':
       stickTopic({
         topic_id: props.tag.id,
+        space_slug: currentSpaceSlug.value,
       })
         .then((res) => {
           props.tag.is_top = res.top_status;
           window.$message.success(`置顶成功`);
         })
-        .catch((err) => {
-          console.log(err);
+        .catch(() => {
+          window.$message.error('置顶话题失败');
         });
       break;
     case 'unstick':
       stickTopic({
         topic_id: props.tag.id,
+        space_slug: currentSpaceSlug.value,
       })
         .then((res) => {
           props.tag.is_top = res.top_status;
           window.$message.success(`取消置顶`);
         })
-        .catch((err) => {
-          console.log(err);
+        .catch(() => {
+          window.$message.error('取消置顶话题失败');
         });
       break;
     default:

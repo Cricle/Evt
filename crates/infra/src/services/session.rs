@@ -50,7 +50,7 @@ impl AppContext {
             .await?;
         if user_count_before == 0 {
             self.profiles.update_admin(user.id, true).await?;
-            let default_space_slug = self.site_profile_snapshot().default_space_slug;
+            let default_space_slug = self.normalized_default_space_slug();
             self.spaces
                 .ensure_default_space(&default_space_slug, user.id)
                 .await?;
@@ -103,7 +103,7 @@ impl AppContext {
             .await?;
         if self.users.count_all().await? == 1 {
             self.profiles.update_admin(user.id, true).await?;
-            let default_space_slug = self.site_profile_snapshot().default_space_slug;
+            let default_space_slug = self.normalized_default_space_slug();
             self.spaces
                 .ensure_default_space(&default_space_slug, user.id)
                 .await?;

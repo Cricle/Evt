@@ -4,6 +4,18 @@ use sqlx::{FromRow, MySql, MySqlPool, QueryBuilder, Transaction};
 
 use super::map_db_error;
 
+const NON_REACTION_COMMENT_EXISTS_SQL: &str = r#"
+EXISTS (
+    SELECT 1
+    FROM comments c
+    INNER JOIN users cu ON cu.id = c.user_id
+    LEFT JOIN legacy_comment_states lcs ON lcs.comment_id = c.id
+    WHERE c.post_id = p.id
+      AND cu.username = ?
+      AND COALESCE(lcs.is_reaction, FALSE) = FALSE
+)
+"#;
+
 const POST_SUMMARY_SELECT: &str = r#"
     SELECT
       p.id,
@@ -14,7 +26,7 @@ const POST_SUMMARY_SELECT: &str = r#"
       p.tags,
       COALESCE(comment_stats.comments_count, 0) AS comments_count,
       COALESCE(star_stats.upvote_count, 0) AS upvote_count,
-      COALESCE(collection_stats.collection_count, 0) AS collection_count,
+      0 AS collection_count,
       p.created_at
 "#;
 
@@ -33,11 +45,6 @@ const POST_SUMMARY_FROM: &str = r#"
         FROM post_stars
         GROUP BY post_id
     ) star_stats ON star_stats.post_id = p.id
-    LEFT JOIN (
-        SELECT post_id, COUNT(*) AS collection_count
-        FROM post_collections
-        GROUP BY post_id
-    ) collection_stats ON collection_stats.post_id = p.id
 "#;
 
 fn post_summary_query(suffix: &str) -> String {
@@ -243,7 +250,7 @@ impl PostRepository {
             .map_err(map_db_error)?;
 
         let items = sqlx::query_as::<_, PostRow>(&post_summary_query(
-            " WHERE p.space_id = ? ORDER BY upvote_count DESC, comments_count DESC, collection_count DESC, p.id DESC LIMIT ? OFFSET ?",
+            " WHERE p.space_id = ? ORDER BY upvote_count DESC, comments_count DESC, p.id DESC LIMIT ? OFFSET ?",
         ))
         .bind(space_id)
         .bind(page_size_i64)
@@ -497,25 +504,22 @@ impl PostRepository {
         let page_size_i64 = page_size as i64;
 
         let total = sqlx::query_scalar::<_, i64>(
-            r#"
+            &format!(
+                r#"
             SELECT COUNT(*)
             FROM posts p
-            WHERE EXISTS (
-                SELECT 1
-                FROM comments c
-                INNER JOIN users cu ON cu.id = c.user_id
-                WHERE c.post_id = p.id AND cu.username = ?
-            )
-            "#,
+            WHERE {NON_REACTION_COMMENT_EXISTS_SQL}
+            "#
+            ),
         )
         .bind(username)
         .fetch_one(&self.pool)
         .await
         .map_err(map_db_error)?;
 
-        let items = sqlx::query_as::<_, PostRow>(&post_summary_query(
-            " WHERE EXISTS (SELECT 1 FROM comments c INNER JOIN users cu ON cu.id = c.user_id WHERE c.post_id = p.id AND cu.username = ?) ORDER BY p.id DESC LIMIT ? OFFSET ?",
-        ))
+        let items = sqlx::query_as::<_, PostRow>(&post_summary_query(&format!(
+            " WHERE {NON_REACTION_COMMENT_EXISTS_SQL} ORDER BY p.id DESC LIMIT ? OFFSET ?",
+        )))
         .bind(username)
         .bind(page_size_i64)
         .bind(offset)
@@ -532,6 +536,54 @@ impl PostRepository {
             page,
             page_size,
         })
+    }
+
+    pub async fn count_visible_posts_by_username(
+        &self,
+        viewer_user_id: Option<i64>,
+        username: &str,
+    ) -> Result<i64, AppError> {
+        let viewer_user_id = viewer_user_id.unwrap_or(-1);
+        sqlx::query_scalar::<_, i64>(
+            r#"
+            SELECT COUNT(*)
+            FROM posts p
+            INNER JOIN users u ON u.id = p.user_id
+            LEFT JOIN legacy_post_states lps ON lps.post_id = p.id
+            LEFT JOIN spaces s ON s.id = p.space_id
+            LEFT JOIN space_members sm
+              ON sm.space_id = p.space_id
+             AND sm.user_id = ?
+            LEFT JOIN friendships fr
+              ON fr.user_id = p.user_id
+             AND fr.friend_id = ?
+             AND fr.status = 2
+            LEFT JOIN follows fl
+              ON fl.follower_id = ?
+             AND fl.followee_id = p.user_id
+            WHERE u.username = ?
+              AND (
+                   s.visibility = 0
+                OR s.owner_user_id = ?
+                OR sm.user_id IS NOT NULL
+              )
+              AND (
+                   p.user_id = ?
+                OR COALESCE(lps.visibility, 0) = 0
+                OR (COALESCE(lps.visibility, 0) = 2 AND fr.user_id IS NOT NULL)
+                OR (COALESCE(lps.visibility, 0) = 3 AND fl.followee_id IS NOT NULL)
+              )
+            "#,
+        )
+        .bind(viewer_user_id)
+        .bind(viewer_user_id)
+        .bind(viewer_user_id)
+        .bind(username)
+        .bind(viewer_user_id)
+        .bind(viewer_user_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_db_error)
     }
 
     pub async fn list_feed(
@@ -684,94 +736,6 @@ impl PostRepository {
         .await
         .map(|_| ())
         .map_err(map_db_error)
-    }
-
-    pub async fn has_collection(&self, post_id: i64, user_id: i64) -> Result<bool, AppError> {
-        sqlx::query_scalar::<_, i64>(
-            r#"
-            SELECT COUNT(*)
-            FROM post_collections
-            WHERE post_id = ? AND user_id = ?
-            "#,
-        )
-        .bind(post_id)
-        .bind(user_id)
-        .fetch_one(&self.pool)
-        .await
-        .map(|count| count > 0)
-        .map_err(map_db_error)
-    }
-
-    pub async fn create_collection(&self, post_id: i64, user_id: i64) -> Result<(), AppError> {
-        sqlx::query(
-            r#"
-            INSERT INTO post_collections (post_id, user_id)
-            VALUES (?, ?)
-            "#,
-        )
-        .bind(post_id)
-        .bind(user_id)
-        .execute(&self.pool)
-        .await
-        .map(|_| ())
-        .map_err(map_db_error)
-    }
-
-    pub async fn delete_collection(&self, post_id: i64, user_id: i64) -> Result<(), AppError> {
-        sqlx::query(
-            r#"
-            DELETE FROM post_collections
-            WHERE post_id = ? AND user_id = ?
-            "#,
-        )
-        .bind(post_id)
-        .bind(user_id)
-        .execute(&self.pool)
-        .await
-        .map(|_| ())
-        .map_err(map_db_error)
-    }
-
-    pub async fn list_collections_by_user_id(
-        &self,
-        user_id: i64,
-        page: u64,
-        page_size: u64,
-    ) -> Result<PagedResponse<PostSummary>, AppError> {
-        let offset = ((page.saturating_sub(1)) * page_size) as i64;
-        let page_size_i64 = page_size as i64;
-
-        let total = sqlx::query_scalar::<_, i64>(
-            r#"
-            SELECT COUNT(*)
-            FROM post_collections
-            WHERE user_id = ?
-            "#,
-        )
-        .bind(user_id)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(map_db_error)?;
-
-        let items = sqlx::query_as::<_, PostRow>(&post_summary_query(
-            " INNER JOIN post_collections current_collection ON current_collection.post_id = p.id WHERE current_collection.user_id = ? ORDER BY current_collection.id DESC LIMIT ? OFFSET ?",
-        ))
-        .bind(user_id)
-        .bind(page_size_i64)
-        .bind(offset)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(map_db_error)?
-        .into_iter()
-        .map(Into::into)
-        .collect();
-
-        Ok(PagedResponse {
-            items,
-            total,
-            page,
-            page_size,
-        })
     }
 
     pub async fn list_stars_by_username(
@@ -974,5 +938,16 @@ impl From<PostContentRow> for PostContentItem {
             sort: row.sort_order,
             created_at: row.created_at,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::NON_REACTION_COMMENT_EXISTS_SQL;
+
+    #[test]
+    fn commented_posts_filter_excludes_reaction_comments() {
+        assert!(NON_REACTION_COMMENT_EXISTS_SQL.contains("legacy_comment_states"));
+        assert!(NON_REACTION_COMMENT_EXISTS_SQL.contains("COALESCE(lcs.is_reaction, FALSE) = FALSE"));
     }
 }

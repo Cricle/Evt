@@ -45,7 +45,11 @@
                 </div>
                 <div v-else>
                     <n-list-item v-for="m in list" :key="m.id">
-                        <message-item :message="m" @send-whisper="onSendWhisper" @reload="reloadMessages" />
+                        <message-item
+                            :message="m"
+                            @send-whisper="onSendWhisper"
+                            @sync-follow-state="syncFollowState"
+                        />
                      </n-list-item>
                 </div>
             </div>
@@ -295,8 +299,8 @@ const handleReadAll = () => {
         }
         storeMain.updateUnreadMsgCount(0);
       })
-      .catch((err) => {
-        console.log(err);
+      .catch(() => {
+        window.$message.error('全部标记已读失败');
       });
   }
 };
@@ -310,9 +314,15 @@ const whisperSuccess = () => {
   showWhisper.value = false;
 };
 
-const reloadMessages = () => {
-  reset();
-  loadMessages();
+const syncFollowState = (payload: { userId: number; isFollowing: boolean }) => {
+  list.value.forEach((message) => {
+    if (message.sender_user?.id === payload.userId) {
+      message.sender_user.is_following = payload.isFollowing;
+    }
+    if (message.receiver_user?.id === payload.userId) {
+      message.receiver_user.is_following = payload.isFollowing;
+    }
+  });
 };
 
 const loadMessages = () => {

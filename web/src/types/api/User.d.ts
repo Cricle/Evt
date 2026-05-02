@@ -16,8 +16,6 @@ declare namespace Api {
                 };
                 /** 获取消息列表 */
                 messages: (params: NetParams.UserGetMessages) => Promise<NetReq.UserGetMessages>;
-                /** 获取收藏列表 */
-                collections: (params: NetParams.UserGetCollections) => Promise<NetReq.UserGetCollections>;
                 /** 获取联系人列表 */
                 contacts: (params: NetParams.GetContacts) => Promise<NetReq.GetContacts>;
                 /** 获取用户帖子列表 */
@@ -130,11 +128,6 @@ declare namespace Api {
                 id: number;
             }
 
-            interface UserGetCollections {
-                page: number;
-                page_size: number;
-            }
-
             interface UserGetUserPosts {
                 username: string;
                 style: string;
@@ -188,13 +181,6 @@ declare namespace Api {
 
             interface ReadMessageResp { }
             interface ReadAllMessageResp { }
-
-            interface UserGetCollections {
-                /** 帖子列表 */
-                list: Item.PostProps[];
-                /** 页码信息 */
-                pager: Item.PagerProps;
-            }
 
             interface UserGetUserPosts {
                 /** 帖子列表 */

@@ -2,12 +2,7 @@
   <div class="message-item" :class="{ unread: isNotWhisperSender && message.is_read === 0 }" @click="handleReadMessage(message)">
     <n-thing content-indented>
       <template #avatar>
-        <n-avatar round :size="30" :src="message.type == 4 && message.sender_user_id == userInfo.id
-            ? message.receiver_user.avatar
-            : (message.sender_user.id > 0
-              ? message.sender_user.avatar
-              : defaultUserAvatar
-            )
+        <n-avatar round :size="30" :src="messageAvatar
           " />
       </template>
       <template #header>
@@ -133,17 +128,21 @@ import {
 } from '@vicons/ionicons5';
 import { formatRelativeTime } from '@/utils/formatTime';
 import { MoreHorizFilled } from '@vicons/material';
-import defaultUserAvatar from '@/assets/img/logo.png';
 import { storeToRefs } from 'pinia';
 import { Api } from '@/utils/request';
 import UserAction from '@/composables/useUserAction';
+import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
+import { useStoreProfile } from '@/store/profile';
+import { buildPostRoute } from '@/utils/tagRoute';
 
 const router = useRouter();
 
 const storeMain = useStoreMain();
 const storeUser = useStoreUser();
+const storeProfile = useStoreProfile();
 const { desktopModelShow } = storeToRefs(storeMain);
 const { userInfo } = storeToRefs(storeUser);
+const { currentSpaceSlug } = storeToRefs(storeProfile);
 
 const dialog = useDialog();
 const props = withDefaults(
@@ -194,8 +193,20 @@ const actionOpts = computed(() => {
 
 const emit = defineEmits<{
   (e: 'send-whisper', user: Item.UserInfo): void;
-  (e: 'reload'): void;
+  (e: 'sync-follow-state', payload: { userId: number; isFollowing: boolean }): void;
 }>();
+
+const messageAvatar = computed(() => {
+  if (props.message.type === 4 && props.message.sender_user_id === userInfo.value.id) {
+    return props.message.receiver_user.avatar || DEFAULT_USER_AVATAR;
+  }
+
+  if (props.message.sender_user.id > 0) {
+    return props.message.sender_user.avatar || DEFAULT_USER_AVATAR;
+  }
+
+  return DEFAULT_USER_AVATAR;
+});
 
 const onHandleFollowAction = (message: Item.MessageProps) => {
   let user =
@@ -205,14 +216,12 @@ const onHandleFollowAction = (message: Item.MessageProps) => {
   UserAction.followAction(dialog, user.id, user.username, user.is_following)
     .then(_action => {
       user.is_following = _action;
-      // TODO: 这里暴力处理，简单重新加载，更好的做法是遍历所有message，如果是对应user就更新到新状态
-      setTimeout(() => {
-        emit('reload');
-      }, 50);
+      emit('sync-follow-state', {
+        userId: user.id,
+        isFollowing: _action,
+      });
     })
-    .catch(err => {
-      console.log(err);
-    });
+    .catch(() => {});
 };
 
 const handleAction = (item: 'whisper' | 'follow' | 'unfollow') => {
@@ -261,12 +270,7 @@ const viewDetail = (message: Item.MessageProps) => {
   handleReadMessage(message);
   if (message.type === 1 || message.type === 2 || message.type === 3) {
     if (message.post && message.post.id > 0) {
-      router.push({
-        name: 'post',
-        query: {
-          id: message.post_id,
-        },
-      });
+      router.push(buildPostRoute(message.post_id, currentSpaceSlug.value));
     } else {
       window.$message.error('该动态已被删除');
     }
@@ -282,8 +286,8 @@ const agreeAddFriend = (message: Item.MessageProps) => {
       message.reply_id = 2;
       window.$message.success('已同意添加好友');
     })
-    .catch((err) => {
-      console.log(err);
+    .catch(() => {
+      window.$message.error('同意好友申请失败');
     });
 };
 
@@ -296,8 +300,8 @@ const rejectAddFriend = (message: Item.MessageProps) => {
       message.reply_id = 3;
       window.$message.success('已拒绝添加好友');
     })
-    .catch((err) => {
-      console.log(err);
+    .catch(() => {
+      window.$message.error('拒绝好友申请失败');
     });
 };
 
@@ -312,9 +316,7 @@ const handleReadMessage = (message: Item.MessageProps) => {
       .then((_res) => {
         message.is_read = 1;
       })
-      .catch((err) => {
-        console.log(err);
-      });
+      .catch(() => {});
   }
 };
 </script>

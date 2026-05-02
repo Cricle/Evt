@@ -7,7 +7,7 @@ use axum::{
 };
 use evt_domain::{
     AppError, AttachmentSummary, CommentContentItem, CommentSummary, CreateContentInput,
-    CurrentUser, PostContentItem, PostSummary, UserProfile,
+    CurrentUser, PostContentItem, PostReactionSummary, PostSummary, UserProfile,
 };
 use serde::{Deserialize, Serialize};
 
@@ -79,6 +79,7 @@ pub struct LegacyPost {
     share_count: i64,
     contents: Vec<LegacyPostContentItem>,
     tags: String,
+    reactions: Vec<PostReactionSummary>,
     visibility: i32,
     is_lock: i32,
     is_top: i32,
@@ -184,7 +185,10 @@ pub async fn user_info(
 ) -> Result<Json<ApiEnvelope<LegacyUserInfo>>, HttpApiError> {
     let actor = authenticate_request(state.app(), &headers).await?;
     let current = state.app().get_current_user(&actor).await?;
-    let profile = state.app().get_user_profile(&actor.username).await?;
+    let profile = state
+        .app()
+        .get_user_profile_for_viewer(Some(&actor), &actor.username)
+        .await?;
     Ok(Json(success(to_legacy_user_info(&current, Some(&profile)))))
 }
 
@@ -243,6 +247,10 @@ pub async fn list_posts(
         .collect::<Vec<_>>();
     let grouped_contents = group_post_contents(state.app().list_post_contents(&post_ids).await?);
     let post_states = state.app().legacy_post_states_by_ids(&post_ids).await?;
+    let post_reactions = state
+        .app()
+        .list_post_reactions_by_post_ids(viewer.as_ref(), &post_ids)
+        .await?;
     let users = state.app().batch_user_previews_by_ids(&author_ids).await?;
     let (following_status, friend_status) =
         batch_relation_maps(state.app(), viewer.as_ref(), &author_ids).await?;
@@ -273,6 +281,7 @@ pub async fn list_posts(
                         .unwrap_or(false),
                     false,
                     users.get(&post.user_id),
+                    post_reactions.get(&post.id).cloned().unwrap_or_default(),
                 );
                 apply_post_state(&mut item, post_states.get(&post.id));
                 item
@@ -296,6 +305,10 @@ pub async fn get_post(
     ensure_can_view_post(state.app(), viewer.as_ref(), &post).await?;
     let grouped_contents = group_post_contents(state.app().list_post_contents(&[post.id]).await?);
     let states = state.app().legacy_post_states_by_ids(&[post.id]).await?;
+    let reactions = state
+        .app()
+        .list_post_reactions(viewer.as_ref(), post.id)
+        .await?;
     let users = state
         .app()
         .batch_user_previews_by_ids(&[post.user_id])
@@ -308,6 +321,7 @@ pub async fn get_post(
         is_following,
         is_friend,
         users.get(&post.user_id),
+        reactions,
     );
     apply_post_state(&mut item, states.get(&post.id));
     Ok(Json(success(item)))
@@ -348,6 +362,7 @@ pub async fn create_post(
         false,
         false,
         users.get(&post.user_id),
+        Vec::new(),
     );
     apply_post_state(&mut item, states.get(&post.id));
     Ok(Json(success(item)))
@@ -591,6 +606,7 @@ fn to_legacy_post(
     is_following: bool,
     is_friend: bool,
     user: Option<&evt_domain::UserPreview>,
+    reactions: Vec<PostReactionSummary>,
 ) -> LegacyPost {
     let user = fallback_user(
         user,
@@ -615,6 +631,7 @@ fn to_legacy_post(
         share_count: 0,
         contents: to_legacy_post_contents(post.id, created_on, &post.content, contents),
         tags: post.tags.clone(),
+        reactions,
         visibility: 0,
         is_lock: 0,
         is_top: 0,

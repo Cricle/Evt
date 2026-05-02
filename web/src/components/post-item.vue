@@ -133,7 +133,7 @@ import type { Component } from 'vue';
 import type { DropdownOption } from 'naive-ui';
 import { formatPrettyDate } from '@/utils/formatTime';
 import { preparePost } from '@/utils/content';
-import { createComment } from '@/api/post';
+import { createComment, togglePostReaction } from '@/api/post';
 import {
   PaperPlaneOutline,
   ShareSocialOutline,
@@ -146,12 +146,12 @@ import { MoreHorizFilled } from '@vicons/material';
 import copy from 'copy-to-clipboard';
 import { useStoreProfile } from '@/store/profile';
 import { storeToRefs } from 'pinia';
-import { Api } from '@/utils/request';
 import UserAction from '@/composables/useUserAction';
 import { usePostContent } from '@/composables/usePostContent';
 import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
 import { useStoreUser } from '@/store/user';
 import { goToAuth } from '@/utils/authRoute';
+import { buildPostRoute, buildTagSearchRoute } from '@/utils/tagRoute';
 import PostReactionBar from '@/components/post-reaction-bar.vue';
 import type { ReactionGroup } from '@/utils/reactions';
 import { splitCommentReactions } from '@/utils/reactions';
@@ -161,7 +161,7 @@ const router = useRouter();
 const storeMain = useStoreMain();
 const storeUser = useStoreUser();
 const storeProfile = useStoreProfile();
-const { profile } = storeToRefs(storeProfile);
+const { profile, currentSpaceSlug } = storeToRefs(storeProfile);
 const { userInfo } = storeToRefs(storeUser);
 
 const dialog = useDialog();
@@ -296,10 +296,7 @@ const handlePostReaction = (emoji: string) => {
     return;
   }
 
-  Api.v1.posts.post.reactions({
-    post_id: post.value.id,
-    emoji,
-  })
+  togglePostReaction(post.value.id, emoji)
     .then((res) => {
       postReactions.value = res.reactions || [];
       post.value = {
@@ -309,17 +306,12 @@ const handlePostReaction = (emoji: string) => {
         comment_count: res.comment_count,
       };
     })
-    .catch((err) => {
-      console.log(err);
+    .catch(() => {
+      window.$message.error('表情回复失败');
     });
 };
 const goPostDetail = (id: number) => {
-  router.push({
-    name: 'post',
-    query: {
-      id,
-    },
-  });
+  router.push(buildPostRoute(id, currentSpaceSlug.value));
 };
 const doClickText = (e: MouseEvent, id: number) => {
   const detail = (e.target as any).dataset.detail;
@@ -328,13 +320,7 @@ const doClickText = (e: MouseEvent, id: number) => {
     if (d.length === 2) {
       storeMain.doRefresh();
       if (d[0] === 'tag') {
-        router.push({
-          name: 'home',
-          query: {
-            q: d[1],
-            t: 'tag',
-          },
-        });
+        router.push(buildTagSearchRoute(d[1], currentSpaceSlug.value));
       } else {
         router.push({
           name: 'user',

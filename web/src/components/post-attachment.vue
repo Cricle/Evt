@@ -92,10 +92,10 @@ const execDownloadAction = () => {
     id: attachmentID.value,
   })
     .then((res) => {
-      window.open(res.signed_url.replace('http://', 'https://'), '_blank');
+      window.open(res.signed_url, '_blank', 'noopener,noreferrer');
     })
-    .catch((err) => {
-      console.log(err);
+    .catch(() => {
+      window.$message.error('附件下载失败');
     });
 };
 </script>

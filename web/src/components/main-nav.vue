@@ -101,9 +101,13 @@ import {
   DehazeRound,
 } from '@vicons/material';
 import { storeToRefs } from 'pinia';
+import { useStoreProfile } from '@/store/profile';
+import { buildHomeRouteWithSpace } from '@/utils/tagRoute';
 
 const storeMain = useStoreMain();
+const storeProfile = useStoreProfile();
 const { desktopModelShow, drawerModelShow, theme } = storeToRefs(storeMain);
+const { currentSpaceSlug } = storeToRefs(storeProfile);
 
 const route = useRoute();
 const router = useRouter();
@@ -153,9 +157,7 @@ const switchTheme = (theme: boolean) => {
 };
 const goBack = () => {
   if (window.history.length <= 1) {
-    router.push({
-      path: '/',
-    });
+    router.push(buildHomeRouteWithSpace({}, currentSpaceSlug.value));
   } else {
     router.go(-1);
   }

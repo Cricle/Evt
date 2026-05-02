@@ -1,10 +1,12 @@
+use std::collections::HashMap;
+
 use evt_domain::{
     AppError, CommentContentItem, CommentSummary, CreateContentInput, LegacyPostState,
     PagedResponse, PostContentItem, PostSummary, TogglePostReactionResult, UserIdentity,
 };
 
 use crate::AppContext;
-use crate::repository::group_post_reactions;
+use crate::repository::{PostReactionCommentRow, group_post_reactions};
 
 const LEGACY_CONTENT_PREFIX: &str = "__EVT_LEGACY_CONTENT__:";
 const USER_POST_FILTER_FETCH_LIMIT: u64 = 10_000;
@@ -202,6 +204,17 @@ impl AppContext {
             .ok_or_else(|| AppError::NotFound("post not found".into()))
     }
 
+    async fn get_accessible_post(
+        &self,
+        actor: &UserIdentity,
+        post_id: i64,
+    ) -> Result<PostSummary, AppError> {
+        let post = self.get_post(post_id).await?;
+        self.ensure_can_access_space_id(Some(actor), post.space_id)
+            .await?;
+        Ok(post)
+    }
+
     pub async fn list_post_contents(
         &self,
         post_ids: &[i64],
@@ -387,48 +400,12 @@ impl AppContext {
             .await
     }
 
-    pub async fn list_user_collections(
-        &self,
-        actor: &UserIdentity,
-        page: u64,
-        page_size: u64,
-    ) -> Result<PagedResponse<PostSummary>, AppError> {
-        self.list_user_collections_for_viewer(actor, actor, page, page_size)
-            .await
-    }
-
-    pub async fn list_user_collections_for_viewer(
-        &self,
-        owner: &UserIdentity,
-        viewer: &UserIdentity,
-        page: u64,
-        page_size: u64,
-    ) -> Result<PagedResponse<PostSummary>, AppError> {
-        let candidates = self
-            .posts
-            .list_collections_by_user_id(owner.id, 1, USER_POST_FILTER_FETCH_LIMIT)
-            .await?;
-        self.filter_user_post_page(Some(viewer), candidates.items, page, page_size)
-            .await
-    }
-
-    pub async fn list_viewer_collections(
-        &self,
-        actor: &UserIdentity,
-        page: u64,
-        page_size: u64,
-    ) -> Result<PagedResponse<PostSummary>, AppError> {
-        self.posts
-            .list_collections_by_user_id(actor.id, page, page_size)
-            .await
-    }
-
     pub async fn has_starred_post(
         &self,
         actor: &UserIdentity,
         post_id: i64,
     ) -> Result<bool, AppError> {
-        self.get_post(post_id).await?;
+        self.get_accessible_post(actor, post_id).await?;
         self.posts.has_star(post_id, actor.id).await
     }
 
@@ -437,36 +414,12 @@ impl AppContext {
         actor: &UserIdentity,
         post_id: i64,
     ) -> Result<bool, AppError> {
-        self.get_post(post_id).await?;
+        self.get_accessible_post(actor, post_id).await?;
         if self.posts.has_star(post_id, actor.id).await? {
             self.posts.delete_star(post_id, actor.id).await?;
             Ok(false)
         } else {
             self.posts.create_star(post_id, actor.id).await?;
-            Ok(true)
-        }
-    }
-
-    pub async fn has_collected_post(
-        &self,
-        actor: &UserIdentity,
-        post_id: i64,
-    ) -> Result<bool, AppError> {
-        self.get_post(post_id).await?;
-        self.posts.has_collection(post_id, actor.id).await
-    }
-
-    pub async fn toggle_post_collection(
-        &self,
-        actor: &UserIdentity,
-        post_id: i64,
-    ) -> Result<bool, AppError> {
-        self.get_post(post_id).await?;
-        if self.posts.has_collection(post_id, actor.id).await? {
-            self.posts.delete_collection(post_id, actor.id).await?;
-            Ok(false)
-        } else {
-            self.posts.create_collection(post_id, actor.id).await?;
             Ok(true)
         }
     }
@@ -483,7 +436,9 @@ impl AppContext {
                 "comment content cannot be empty".into(),
             ));
         }
-        self.get_post(post_id).await?;
+        let post = self.get_post(post_id).await?;
+        self.ensure_can_access_space_id(Some(actor), post.space_id)
+            .await?;
         self.comments.create(post_id, actor.id, content).await
     }
 
@@ -499,7 +454,9 @@ impl AppContext {
             ));
         }
 
-        self.get_post(post_id).await?;
+        let post = self.get_post(post_id).await?;
+        self.ensure_can_access_space_id(Some(actor), post.space_id)
+            .await?;
         let comment = self
             .comments
             .create(post_id, actor.id, &summary_text(contents))
@@ -585,6 +542,22 @@ impl AppContext {
         Ok(group_post_reactions(rows, viewer.map(|item| item.id)))
     }
 
+    pub async fn list_post_reactions_by_post_ids(
+        &self,
+        viewer: Option<&UserIdentity>,
+        post_ids: &[i64],
+    ) -> Result<HashMap<i64, Vec<evt_domain::PostReactionSummary>>, AppError> {
+        if post_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let rows = self
+            .comments
+            .list_post_reaction_comments_by_post_ids(post_ids)
+            .await?;
+        Ok(group_post_reactions_by_post_id(rows, viewer.map(|item| item.id)))
+    }
+
     pub async fn toggle_post_reaction(
         &self,
         actor: &UserIdentity,
@@ -606,7 +579,8 @@ impl AppContext {
                 .await?;
             false
         } else {
-            self.create_comment_with_contents(
+            let reaction_comment = self
+                .create_comment_with_contents(
                 actor,
                 post_id,
                 &[CreateContentInput {
@@ -616,17 +590,8 @@ impl AppContext {
                 }],
             )
             .await?;
-            let latest_comment_id = self
-                .comments
-                .list_post_reaction_comments(post_id)
-                .await?
-                .into_iter()
-                .filter(|row| row.user_id == actor.id && row.emoji == emoji)
-                .map(|row| row.comment_id)
-                .max()
-                .ok_or_else(|| AppError::Internal("created reaction comment cannot be loaded".into()))?;
             self.legacy_posts
-                .set_comment_reaction(latest_comment_id, true)
+                .set_comment_reaction(reaction_comment.id, true)
                 .await?;
             true
         };
@@ -641,7 +606,7 @@ impl AppContext {
         })
     }
 
-    async fn filter_user_post_page(
+    pub(crate) async fn filter_user_post_page(
         &self,
         viewer: Option<&UserIdentity>,
         posts: Vec<PostSummary>,
@@ -751,6 +716,80 @@ impl AppContext {
             3 => is_following,
             _ => false,
         })
+    }
+}
+
+fn group_post_reactions_by_post_id(
+    rows: Vec<PostReactionCommentRow>,
+    viewer_id: Option<i64>,
+) -> HashMap<i64, Vec<evt_domain::PostReactionSummary>> {
+    let mut grouped = HashMap::<i64, Vec<PostReactionCommentRow>>::new();
+    for row in rows {
+        grouped.entry(row.post_id).or_default().push(row);
+    }
+
+    grouped
+        .into_iter()
+        .map(|(post_id, rows)| (post_id, group_post_reactions(rows, viewer_id)))
+        .collect()
+}
+
+#[cfg(test)]
+mod reaction_tests {
+    use chrono::{TimeZone, Utc};
+
+    use super::group_post_reactions_by_post_id;
+    use crate::repository::PostReactionCommentRow;
+
+    #[test]
+    fn group_post_reactions_by_post_id_keeps_posts_isolated() {
+        let created_at = Utc.with_ymd_and_hms(2026, 5, 2, 8, 0, 0).unwrap();
+        let grouped = group_post_reactions_by_post_id(
+            vec![
+                PostReactionCommentRow {
+                    post_id: 1,
+                    comment_id: 11,
+                    user_id: 3,
+                    emoji: "🔥".into(),
+                    nickname: Some("alice".into()),
+                    avatar: Some("a.png".into()),
+                    username: "alice".into(),
+                    created_at,
+                },
+                PostReactionCommentRow {
+                    post_id: 2,
+                    comment_id: 12,
+                    user_id: 4,
+                    emoji: "👍".into(),
+                    nickname: Some("bob".into()),
+                    avatar: Some("b.png".into()),
+                    username: "bob".into(),
+                    created_at,
+                },
+                PostReactionCommentRow {
+                    post_id: 1,
+                    comment_id: 13,
+                    user_id: 5,
+                    emoji: "🔥".into(),
+                    nickname: Some("carol".into()),
+                    avatar: Some("c.png".into()),
+                    username: "carol".into(),
+                    created_at,
+                },
+            ],
+            Some(4),
+        );
+
+        assert_eq!(grouped.len(), 2);
+        assert_eq!(grouped.get(&1).unwrap().len(), 1);
+        assert_eq!(grouped.get(&1).unwrap()[0].emoji, "🔥");
+        assert_eq!(grouped.get(&1).unwrap()[0].count, 2);
+        assert!(!grouped.get(&1).unwrap()[0].active);
+
+        assert_eq!(grouped.get(&2).unwrap().len(), 1);
+        assert_eq!(grouped.get(&2).unwrap()[0].emoji, "👍");
+        assert_eq!(grouped.get(&2).unwrap()[0].count, 1);
+        assert!(grouped.get(&2).unwrap()[0].active);
     }
 }
 

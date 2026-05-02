@@ -45,7 +45,7 @@
                                 class="friend-search-item"
                             >
                                 <div class="friend-search-user">
-                                    <n-avatar round :size="44" :src="item.avatar" />
+                                    <n-avatar round :size="44" :src="item.avatar || DEFAULT_USER_AVATAR" />
                                     <div class="friend-search-meta">
                                         <div class="friend-search-name">
                                             {{ item.nickname }}
@@ -115,7 +115,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { Api } from '@/utils/request';
 import { usePagination } from '@/composables/usePagination';
@@ -272,9 +272,9 @@ const loadContacts = (scrollToBottom: boolean = false) => {
       } else {
         list.value = res.list;
         if (scrollToBottom) {
-          setTimeout(() => {
-            window.scrollTo(0, 99999);
-          }, 50);
+          void nextTick(() => {
+            window.scrollTo(0, document.body.scrollHeight);
+          });
         }
       }
       totalPage.value = Math.ceil(res.pager.total_rows / pageSize.value);

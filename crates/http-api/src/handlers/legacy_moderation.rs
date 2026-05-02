@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use axum::{Json, extract::State, http::HeaderMap};
+use evt_domain::AppError;
 use evt_domain::UserPreview;
 use serde::{Deserialize, Serialize};
 
@@ -62,6 +63,13 @@ pub struct VisibilityResponse {
     visibility_status: i32,
 }
 
+fn map_legacy_permission_error(error: HttpApiError) -> HttpApiError {
+    match error {
+        HttpApiError::App(AppError::Unauthorized(_)) => legacy_no_permission(),
+        other => other,
+    }
+}
+
 pub async fn post_lock(
     State(state): State<HttpState>,
     headers: HeaderMap,
@@ -73,7 +81,11 @@ pub async fn post_lock(
     if post.user_id != actor.id && !current.is_admin {
         return Err(legacy_no_permission());
     }
-    let status = state.app().toggle_post_lock(payload.id).await?;
+    let status = match state.app().toggle_post_lock(&actor, payload.id).await {
+        Ok(status) => status,
+        Err(AppError::Unauthorized(_)) => return Err(legacy_no_permission()),
+        Err(other) => return Err(other.into()),
+    };
     Ok(Json(success(LockResponse {
         lock_status: if status { 1 } else { 0 },
     })))
@@ -90,7 +102,11 @@ pub async fn post_stick(
     if post.user_id != actor.id && !current.is_admin {
         return Err(legacy_no_permission());
     }
-    let status = state.app().toggle_post_top(payload.id).await?;
+    let status = match state.app().toggle_post_top(&actor, payload.id).await {
+        Ok(status) => status,
+        Err(AppError::Unauthorized(_)) => return Err(legacy_no_permission()),
+        Err(other) => return Err(other.into()),
+    };
     Ok(Json(success(TopResponse {
         top_status: if status { 1 } else { 0 },
     })))
@@ -107,7 +123,11 @@ pub async fn post_highlight(
     if post.user_id != actor.id && !current.is_admin {
         return Err(legacy_no_permission());
     }
-    let status = state.app().toggle_post_essence(payload.id).await?;
+    let status = match state.app().toggle_post_essence(&actor, payload.id).await {
+        Ok(status) => status,
+        Err(AppError::Unauthorized(_)) => return Err(legacy_no_permission()),
+        Err(other) => return Err(other.into()),
+    };
     Ok(Json(success(HighlightResponse {
         highlight_status: if status { 1 } else { 0 },
     })))
@@ -124,10 +144,15 @@ pub async fn post_visibility(
     if post.user_id != actor.id && !current.is_admin {
         return Err(legacy_no_permission());
     }
-    let visibility = state
+    let visibility = match state
         .app()
-        .set_post_visibility(payload.id, payload.visibility)
-        .await?;
+        .set_post_visibility(&actor, payload.id, payload.visibility)
+        .await
+    {
+        Ok(visibility) => visibility,
+        Err(AppError::Unauthorized(_)) => return Err(legacy_no_permission()),
+        Err(other) => return Err(other.into()),
+    };
     Ok(Json(success(VisibilityResponse {
         visibility_status: visibility,
     })))
@@ -144,7 +169,11 @@ pub async fn comment_highlight(
     if post.user_id != actor.id {
         return Err(legacy_no_permission());
     }
-    let status = state.app().toggle_comment_essence(payload.id).await?;
+    let status = match state.app().toggle_comment_essence(&actor, payload.id).await {
+        Ok(status) => status,
+        Err(AppError::Unauthorized(_)) => return Err(legacy_no_permission()),
+        Err(other) => return Err(other.into()),
+    };
     Ok(Json(success(HighlightResponse {
         highlight_status: if status { 1 } else { 0 },
     })))
@@ -158,8 +187,10 @@ pub async fn comment_reply(
     let actor = authenticate_request(state.app(), &headers).await?;
     let comment = state.app().get_comment(payload.comment_id).await?;
     let post = state.app().get_post(comment.post_id).await?;
-    ensure_can_view_post(state.app(), Some(&actor), &post).await?;
-    let reply = state
+    if let Err(err) = ensure_can_view_post(state.app(), Some(&actor), &post).await {
+        return Err(map_legacy_permission_error(err));
+    }
+    let reply = match state
         .app()
         .create_comment_reply(
             &actor,
@@ -167,7 +198,12 @@ pub async fn comment_reply(
             payload.at_user_id,
             &payload.content,
         )
-        .await?;
+        .await
+    {
+        Ok(reply) => reply,
+        Err(AppError::Unauthorized(_)) => return Err(legacy_no_permission()),
+        Err(other) => return Err(other.into()),
+    };
     let users = state
         .app()
         .batch_user_previews_by_ids(&[reply.user_id, reply.at_user_id])
@@ -197,11 +233,19 @@ pub async fn comment_thumbsup(
 ) -> Result<Json<ApiEnvelope<serde_json::Value>>, HttpApiError> {
     let actor = authenticate_request(state.app(), &headers).await?;
     let post = state.app().get_post(payload.tweet_id).await?;
-    ensure_can_view_post(state.app(), Some(&actor), &post).await?;
-    state
+    if let Err(err) = ensure_can_view_post(state.app(), Some(&actor), &post).await {
+        return Err(map_legacy_permission_error(err));
+    }
+    if let Err(err) = state
         .app()
         .toggle_comment_thumb(&actor, payload.tweet_id, payload.comment_id, true)
-        .await?;
+        .await
+    {
+        return match err {
+            AppError::Unauthorized(_) => Err(legacy_no_permission()),
+            other => Err(other.into()),
+        };
+    }
     Ok(Json(success(serde_json::json!({}))))
 }
 
@@ -276,11 +320,19 @@ pub async fn comment_thumbsdown(
 ) -> Result<Json<ApiEnvelope<serde_json::Value>>, HttpApiError> {
     let actor = authenticate_request(state.app(), &headers).await?;
     let post = state.app().get_post(payload.tweet_id).await?;
-    ensure_can_view_post(state.app(), Some(&actor), &post).await?;
-    state
+    if let Err(err) = ensure_can_view_post(state.app(), Some(&actor), &post).await {
+        return Err(map_legacy_permission_error(err));
+    }
+    if let Err(err) = state
         .app()
         .toggle_comment_thumb(&actor, payload.tweet_id, payload.comment_id, false)
-        .await?;
+        .await
+    {
+        return match err {
+            AppError::Unauthorized(_) => Err(legacy_no_permission()),
+            other => Err(other.into()),
+        };
+    }
     Ok(Json(success(serde_json::json!({}))))
 }
 
@@ -291,8 +343,10 @@ pub async fn reply_thumbsup(
 ) -> Result<Json<ApiEnvelope<serde_json::Value>>, HttpApiError> {
     let actor = authenticate_request(state.app(), &headers).await?;
     let post = state.app().get_post(payload.tweet_id).await?;
-    ensure_can_view_post(state.app(), Some(&actor), &post).await?;
-    state
+    if let Err(err) = ensure_can_view_post(state.app(), Some(&actor), &post).await {
+        return Err(map_legacy_permission_error(err));
+    }
+    if let Err(err) = state
         .app()
         .toggle_reply_thumb(
             &actor,
@@ -301,7 +355,13 @@ pub async fn reply_thumbsup(
             payload.reply_id,
             true,
         )
-        .await?;
+        .await
+    {
+        return match err {
+            AppError::Unauthorized(_) => Err(legacy_no_permission()),
+            other => Err(other.into()),
+        };
+    }
     Ok(Json(success(serde_json::json!({}))))
 }
 
@@ -312,8 +372,10 @@ pub async fn reply_thumbsdown(
 ) -> Result<Json<ApiEnvelope<serde_json::Value>>, HttpApiError> {
     let actor = authenticate_request(state.app(), &headers).await?;
     let post = state.app().get_post(payload.tweet_id).await?;
-    ensure_can_view_post(state.app(), Some(&actor), &post).await?;
-    state
+    if let Err(err) = ensure_can_view_post(state.app(), Some(&actor), &post).await {
+        return Err(map_legacy_permission_error(err));
+    }
+    if let Err(err) = state
         .app()
         .toggle_reply_thumb(
             &actor,
@@ -322,6 +384,12 @@ pub async fn reply_thumbsdown(
             payload.reply_id,
             false,
         )
-        .await?;
+        .await
+    {
+        return match err {
+            AppError::Unauthorized(_) => Err(legacy_no_permission()),
+            other => Err(other.into()),
+        };
+    }
     Ok(Json(success(serde_json::json!({}))))
 }

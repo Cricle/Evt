@@ -51,12 +51,6 @@
                 </span>
 
                 <div class="actions">
-                    <n-popover trigger="click" placement="top" v-if="userLogined">
-                        <template #trigger>
-                            <span class="show opacity-item reply-btn"> 表情回应 </span>
-                        </template>
-                        <emoji-reaction-picker @select="handleReaction" />
-                    </n-popover>
                     <span v-if="userLogined" class="show opacity-item reply-btn" @click="focusReply"> 回复 </span>
                 </div>
             </div>
@@ -67,10 +61,9 @@
 <script setup lang="ts">
 import { Trash } from '@vicons/tabler';
 import { formatPrettyTime } from '@/utils/formatTime';
-import { createCommentReply, deleteCommentReply } from '@/api/post';
+import { deleteCommentReply } from '@/api/post';
 import { useStoreUser } from '@/store/user';
 import { storeToRefs } from 'pinia';
-import EmojiReactionPicker from '@/components/emoji-reaction-picker.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -91,32 +84,16 @@ const emit = defineEmits<{
 const focusReply = () => {
   emit('focusReply', props.reply);
 };
-const handleReaction = (emoji: string) => {
-  createCommentReply({
-    comment_id: props.reply.comment_id,
-    at_user_id: props.reply.user_id,
-    content: emoji,
-  })
-    .then(() => {
-      emit('reload');
-    })
-    .catch((err) => {
-      console.log(err);
-    });
-};
 const execDelAction = () => {
   deleteCommentReply({
     id: props.reply.id,
   })
-    .then((res) => {
+    .then(() => {
       window.$message.success('删除成功');
-
-      setTimeout(() => {
-        emit('reload');
-      }, 50);
+      emit('reload');
     })
-    .catch((err) => {
-      console.log(err);
+    .catch(() => {
+      window.$message.error('删除回复失败');
     });
 };
 </script>
@@ -124,9 +101,9 @@ const execDelAction = () => {
 
 <style lang="less" scoped>
 .reply-item {
-    --reply-item-border: #f3f3f3;
-    --reply-item-bg: transparent;
-    --reply-item-accent: #18a058;
+    --reply-item-border: var(--border-subtle);
+    --reply-item-bg: var(--surface-base);
+    --reply-item-accent: var(--accent-primary);
     display: flex;
     flex-direction: column;
     font-size: 12px;
@@ -231,11 +208,5 @@ const execDelAction = () => {
             }
         }
     }
-}
-
-:global(.dark) .reply-item {
-    --reply-item-border: #262628;
-    --reply-item-bg: rgba(16, 16, 20, 0.75);
-    --reply-item-accent: #63e2b7;
 }
 </style>
