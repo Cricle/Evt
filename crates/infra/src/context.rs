@@ -1,6 +1,5 @@
 use std::{
     collections::HashMap,
-    path::Path,
     sync::{Arc, Mutex, RwLock},
     time::{Duration, Instant},
 };
@@ -56,13 +55,6 @@ impl AppContext {
             .connect(&settings.database.url)
             .await
             .with_context(|| "connect mysql")?;
-
-        sqlx::migrate::Migrator::new(Path::new("./migrations"))
-            .await
-            .with_context(|| "load migrations from ./migrations")?
-            .run(&pool)
-            .await
-            .with_context(|| "run migrations")?;
 
         Self::build(settings, pool).await
     }
