@@ -1,8 +1,8 @@
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
-import router from './router';
 import App from './App.vue';
 import '@/assets/css/main.less';
+import { normalizeInitialHashRoute } from '@/utils/navigation';
 
 import type { MessageApiInjection } from 'naive-ui/lib/message/src/MessageProvider';
 
@@ -13,7 +13,14 @@ import 'vfonts/FiraCode.css';
 
 const pinia = createPinia();
 
-createApp(App).use(router).use(pinia).mount('#app');
+const shouldDeferMount =
+  typeof window !== 'undefined' && normalizeInitialHashRoute(window.location);
+
+if (!shouldDeferMount) {
+  import('./router').then(({ default: router }) => {
+    createApp(App).use(pinia).use(router).mount('#app');
+  });
+}
 
 declare global {
   interface Window {

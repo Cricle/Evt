@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   backWithFallback,
   canUseHistoryBack,
+  normalizeInitialHashRoute,
   normalizeResolvedHref,
   pushWithFallback,
 } from '@/utils/navigation';
@@ -61,21 +62,63 @@ describe('navigation helpers', () => {
     expect(canUseHistoryBack(null)).toBe(false);
   });
 
+  it('rewrites direct spa routes into hash routes before app mount', () => {
+    const replace = vi.fn();
+    const redirected = normalizeInitialHashRoute({
+      origin: 'http://127.0.0.1:5173',
+      pathname: '/compose',
+      hash: '',
+      search: '?space=public',
+      replace,
+    } as never);
+
+    expect(redirected).toBe(true);
+    expect(replace).toHaveBeenCalledWith('http://127.0.0.1:5173/#/compose?space=public');
+  });
+
+  it('rewrites direct space routes into hash routes before app mount', () => {
+    const replace = vi.fn();
+    const redirected = normalizeInitialHashRoute({
+      origin: 'http://127.0.0.1:5173',
+      pathname: '/space',
+      hash: '',
+      search: '?space=public',
+      replace,
+    } as never);
+
+    expect(redirected).toBe(true);
+    expect(replace).toHaveBeenCalledWith('http://127.0.0.1:5173/#/space?space=public');
+  });
+
+  it('leaves already-hashed urls unchanged during startup normalization', () => {
+    const replace = vi.fn();
+    const redirected = normalizeInitialHashRoute({
+      origin: 'http://127.0.0.1:5173',
+      pathname: '/',
+      hash: '#/compose?space=public',
+      search: '',
+      replace,
+    } as never);
+
+    expect(redirected).toBe(false);
+    expect(replace).not.toHaveBeenCalled();
+  });
+
   it('uses router.back when history state points to a previous route', async () => {
     const assign = vi.fn();
     const router = {
       back: vi.fn(),
       currentRoute: ref({ fullPath: '/post?id=1&space=public' }),
       resolve: () => ({
-        href: '/#/home?space=public',
-        fullPath: '/?space=public',
+        href: '/#/space?space=public',
+        fullPath: '/space?space=public',
       }),
       push: vi.fn().mockResolvedValue(undefined),
     };
 
     await backWithFallback(
       router as never,
-      { name: 'home', query: { space: 'public' } },
+      { name: 'space', query: { space: 'public' } },
       { assign },
       { back: '/compose?space=public' },
     );
@@ -91,21 +134,21 @@ describe('navigation helpers', () => {
       back: vi.fn(),
       currentRoute: ref({ fullPath: '/post?id=1&space=public' }),
       resolve: () => ({
-        href: '/#/home?space=public',
-        fullPath: '/?space=public',
+        href: '/#/space?space=public',
+        fullPath: '/space?space=public',
       }),
       push: vi.fn().mockResolvedValue(undefined),
     };
 
     await backWithFallback(
       router as never,
-      { name: 'home', query: { space: 'public' } },
+      { name: 'space', query: { space: 'public' } },
       { assign },
       null,
     );
 
     expect(router.back).not.toHaveBeenCalled();
     expect(router.push).toHaveBeenCalledOnce();
-    expect(assign).toHaveBeenCalledWith('/#/home?space=public');
+    expect(assign).toHaveBeenCalledWith('/#/space?space=public');
   });
 });

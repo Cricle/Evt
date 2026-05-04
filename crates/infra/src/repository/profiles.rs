@@ -135,6 +135,19 @@ impl UserProfileRepository {
         .map(|_| ())
         .map_err(map_db_error)
     }
+
+    pub async fn count_admins(&self) -> Result<i64, AppError> {
+        sqlx::query_scalar::<_, i64>(
+            r#"
+            SELECT COUNT(*)
+            FROM user_profiles
+            WHERE is_admin = TRUE
+            "#,
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_db_error)
+    }
 }
 
 #[derive(Debug, FromRow)]

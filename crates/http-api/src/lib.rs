@@ -4,6 +4,7 @@ mod pagination;
 mod response;
 mod router;
 mod state;
+mod web_assets;
 
 #[cfg(test)]
 mod tests;

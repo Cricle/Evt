@@ -1,919 +1,802 @@
 <template>
-    <div>
-        <main-nav
-            title="广场"
-            :space-value="selectedSpaceSlug"
-            :space-options="spaceOptions"
-            :action-label="userInfo.id > 0 ? '新建广场' : ''"
-            action-icon="add"
-            action-icon-only
-            @update:space-value="selectedSpaceSlug = $event"
-            @action="openCreateSpaceDialog"
-        />
+  <div class="landing-page">
+    <main-nav :title="t('route_landing')" />
 
-        <n-list class="main-content-wrap" bordered>
-            <n-list-item v-if="showTrendsBar" >
-            <SlideBar :key="slideBarKey" v-model="slideBarList" :wheel-blocks="wheelBlocks" :init-blocks="initBlocks" @click="handleBarClick" tag="div" sub-tag="div">
-                <template #default="data">
-                    <div class="slide-bar-item">
-                        <n-badge value="1" :offset="[-4, 48]" dot :show="data.slotData.show">
-                            <n-avatar
-                                round
-                                :size="48"
-                                :src="data.slotData.avatar || DEFAULT_USER_AVATAR"
-                                class="slide-bar-item-avatar"
-                            />
-                        </n-badge>
-                        <div class="slide-bar-item-title slide-bar-user-link">
-                            <n-ellipsis :line-clamp="2">
-                                {{ data.slotData.title }}
-                            </n-ellipsis>
-                        </div>
-                    </div>
-                </template>
-            </SlideBar>
-            </n-list-item>
-            <div  class="style-wrap" v-else-if="showTrendsTag">
-            <n-space >
-                <n-button
-                    v-for="btn in filterButtons"
-                    :key="btn.key"
-                    size="small"
-                    :type="newestTweetsStyle === btn.key ? 'success' : undefined"
-                    :bordered="false"
-                    @click="onFilterClick(btn.key, btn.index)"
-                    class="style-item"
-                    secondary
-                    round
-                >
-                    {{ btn.label }}
-                </n-button>
+    <section class="landing-shell">
+      <div class="hero-grid">
+        <div class="hero-copy">
+          <n-space vertical size="large">
+            <n-space align="center" :size="10">
+              <n-tag round :bordered="false" type="success" size="small">Evt</n-tag>
+              <span class="eyebrow">{{ t('landing_eyebrow') }}</span>
             </n-space>
-            </div>
-            <div v-if="loading && list.length === 0" class="skeleton-wrap">
-                <post-skeleton :num="pageSize" />
+
+            <div class="hero-text">
+              <h1>{{ t('landing_title') }}</h1>
+              <p>{{ t('landing_desc') }}</p>
             </div>
 
-            <div>
-                <div class="empty-wrap" v-if="list.length === 0">
-                    <n-empty size="large" description="暂无数据" />
-                </div>
-                <n-list-item v-for="post in list" :key="post.id">
-                    <post-item :post="post"
-                        :isOwner="userInfo.id == post.user_id"
-                        :isMobile="!desktopModelShow"
-                        addFollowAction
-                        @send-whisper="onSendWhisper"
-                        @post-follow-action="postFollowAction"
-                        @handle-friend-action="onHandleFriendAction" />
-                </n-list-item>
-            </div>
-            <!-- 私信组件 -->
-            <whisper :show="showWhisper" :user="whisperReceiver" @success="whisperSuccess" />
-            <!-- 加好友组件 -->
-            <whisper-add-friend :show="showAddFriendWhisper" :user="user" @success="addFriendWhisperSuccess" />
-        </n-list>
+            <n-space wrap class="hero-actions">
+              <n-button type="primary" size="large" @click="goSpace">
+                {{ t('landing_cta_space') }}
+              </n-button>
+              <n-button v-if="userLogined" secondary size="large" @click="goCompose">
+                {{ t('landing_cta_compose') }}
+              </n-button>
+              <n-button v-else quaternary size="large" @click="goAuth('signup')">
+                {{ t('landing_cta_signup') }}
+              </n-button>
+            </n-space>
 
-        <n-space v-if="totalPage > 0" justify="center">
-            <InfiniteLoading class="load-more" :slots="{ complete: '没有更多动态了', error: '加载出错' }" @infinite="handleNextPage">
-                <template #spinner>
-                    <div class="load-more-wrap">
-                        <n-spin :size="14" v-if="!noMore" />
-                        <span class="load-more-spinner">{{ noMore ? '没有更多动态了' : '加载更多' }}</span>
+          <n-space wrap size="small">
+              <n-tag round :bordered="false">{{ t('landing_chip_spaces') }}</n-tag>
+              <n-tag round :bordered="false">{{ t('landing_chip_emoji') }}</n-tag>
+              <n-tag round :bordered="false">{{ t('landing_chip_realtime') }}</n-tag>
+              <n-tag round :bordered="false">{{ t('landing_chip_rust') }}</n-tag>
+            </n-space>
+
+            <div class="hero-lower">
+              <div class="hero-summary">
+                <div class="hero-summary-title">{{ t('landing_summary_title') }}</div>
+                <div class="hero-summary-grid">
+                  <div class="summary-item">
+                    <span class="summary-badge">01</span>
+                    <div>
+                      <div class="summary-title">{{ t('landing_summary_one_title') }}</div>
+                      <div class="summary-desc">{{ t('landing_summary_one_desc') }}</div>
                     </div>
-                </template>
-            </InfiniteLoading>
-        </n-space>
-    </div>
+                  </div>
+                  <div class="summary-item">
+                    <span class="summary-badge">02</span>
+                    <div>
+                      <div class="summary-title">{{ t('landing_summary_two_title') }}</div>
+                      <div class="summary-desc">{{ t('landing_summary_two_desc') }}</div>
+                    </div>
+                  </div>
+                  <div class="summary-item">
+                    <span class="summary-badge">03</span>
+                    <div>
+                      <div class="summary-title">{{ t('landing_summary_three_title') }}</div>
+                      <div class="summary-desc">{{ t('landing_summary_three_desc') }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="landing-metrics">
+                <div
+                  v-for="(item, index) in landingMetrics"
+                  :key="item.label"
+                  class="landing-metric-card"
+                  :class="{ 'landing-metric-card-primary': index === 0 }"
+                >
+                  <div class="landing-metric-kicker">{{ item.label }}</div>
+                  <div class="landing-metric-value">{{ item.value }}</div>
+                  <div v-if="index === 0 && publicSpace" class="landing-metric-note">
+                    {{ publicSpace.name }}
+                  </div>
+                  <div v-else class="landing-metric-label">{{ item.label }}</div>
+                </div>
+              </div>
+            </div>
+          </n-space>
+        </div>
+
+        <n-card class="hero-panel" :bordered="false">
+          <n-space vertical size="large">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title">{{ t('landing_panel_title') }}</div>
+                <div class="panel-subtitle">{{ t('landing_panel_desc') }}</div>
+              </div>
+              <n-tag round type="success" :bordered="false">{{ t('landing_panel_badge') }}</n-tag>
+            </div>
+
+            <div class="entry-flow">
+              <div class="flow-step">
+                <div class="flow-step-index">1</div>
+                <div>
+                  <div class="flow-step-title">{{ t('landing_flow_one_title') }}</div>
+                  <div class="flow-step-desc">{{ t('landing_flow_one_desc') }}</div>
+                </div>
+              </div>
+              <div class="flow-step">
+                <div class="flow-step-index">2</div>
+                <div>
+                  <div class="flow-step-title">{{ t('landing_flow_two_title') }}</div>
+                  <div class="flow-step-desc">{{ t('landing_flow_two_desc') }}</div>
+                </div>
+              </div>
+              <div class="flow-step">
+                <div class="flow-step-index">3</div>
+                <div>
+                  <div class="flow-step-title">{{ t('landing_flow_three_title') }}</div>
+                  <div class="flow-step-desc">{{ t('landing_flow_three_desc') }}</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="reaction-preview">
+              <div class="reaction-preview-title">{{ t('landing_reaction_preview') }}</div>
+              <div class="reaction-preview-desc">{{ t('landing_reaction_preview_desc') }}</div>
+              <div class="reaction-preview-row">
+                <span class="reaction-pill">😀</span>
+                <span class="reaction-pill">🔥</span>
+                <span class="reaction-pill">👏</span>
+                <span class="reaction-pill">🤝</span>
+                <span class="reaction-pill">🎉</span>
+                <span class="reaction-pill">💡</span>
+              </div>
+            </div>
+
+            <div class="default-space-panel" v-if="publicSpace">
+              <div class="default-space-head">
+                <div>
+                  <div class="default-space-kicker">{{ t('landing_default_space_kicker') }}</div>
+                  <div class="default-space-name">{{ publicSpace.name }}</div>
+                </div>
+                <n-tag round size="small" :bordered="false" type="success">
+                  {{ publicSpace.visibility === 'private' ? t('landing_space_private') : t('landing_space_public') }}
+                </n-tag>
+              </div>
+              <div class="default-space-desc">
+                {{ publicSpace.description || t('landing_default_space_desc_fallback') }}
+              </div>
+              <div class="default-space-meta">
+                <span>{{ t('landing_default_space_members') }} {{ publicSpace.members_count }}</span>
+                <span>·</span>
+                <span>{{ t('landing_default_space_slug') }} {{ publicSpace.slug }}</span>
+              </div>
+            </div>
+          </n-space>
+        </n-card>
+      </div>
+
+      <div class="spotlight-grid">
+        <n-card :bordered="false" class="spotlight-card spotlight-card-wide">
+          <div class="spotlight-head">
+            <div>
+              <div class="section-kicker">{{ t('landing_spotlight_spaces') }}</div>
+              <div class="section-title">{{ t('landing_spotlight_spaces_desc') }}</div>
+            </div>
+            <n-button tertiary round @click="goSpace">
+              {{ t('landing_cta_space') }}
+            </n-button>
+          </div>
+
+          <div class="spotlight-space-shell" v-if="publicSpace">
+            <div class="spotlight-space-main">
+              <div class="spotlight-space-kicker">{{ t('landing_spotlight_default_space') }}</div>
+              <div class="spotlight-space-name">{{ publicSpace.name }}</div>
+              <div class="spotlight-space-desc">
+                {{ publicSpace.description || t('landing_default_space_desc_fallback') }}
+              </div>
+            </div>
+
+            <div class="spotlight-space-stats">
+              <div class="spotlight-stat">
+                <span>{{ t('landing_spotlight_members') }}</span>
+                <strong>{{ publicSpace.members_count }}</strong>
+              </div>
+              <div class="spotlight-stat">
+                <span>{{ t('landing_spotlight_visibility') }}</span>
+                <strong>{{ publicSpace.visibility === 'private' ? t('landing_space_private') : t('landing_space_public') }}</strong>
+              </div>
+              <div class="spotlight-stat">
+                <span>{{ t('landing_spotlight_mode') }}</span>
+                <strong>{{ profile.enableSpaces ? t('landing_metric_enabled') : t('landing_metric_disabled') }}</strong>
+              </div>
+            </div>
+          </div>
+        </n-card>
+
+        <n-card :bordered="false" class="spotlight-card">
+          <div class="section-kicker">{{ t('landing_spotlight_presence') }}</div>
+          <div class="spotlight-mini-title">{{ t('landing_spotlight_presence_desc') }}</div>
+          <div class="spotlight-rule-list">
+            <div class="spotlight-rule-item">
+              <span class="spotlight-rule-dot">😀</span>
+              <div>{{ t('landing_spotlight_rule_one') }}</div>
+            </div>
+            <div class="spotlight-rule-item">
+              <span class="spotlight-rule-dot">💬</span>
+              <div>{{ t('landing_spotlight_rule_two') }}</div>
+            </div>
+            <div class="spotlight-rule-item">
+              <span class="spotlight-rule-dot">🏷️</span>
+              <div>{{ t('landing_spotlight_rule_three') }}</div>
+            </div>
+          </div>
+        </n-card>
+
+        <n-card :bordered="false" class="spotlight-card">
+          <div class="section-kicker">{{ t('landing_spotlight_runtime') }}</div>
+          <div class="spotlight-mini-title">{{ t('landing_spotlight_runtime_desc') }}</div>
+          <div class="spotlight-runtime-list">
+            <div class="spotlight-runtime-item">{{ t('landing_spotlight_runtime_one') }}</div>
+            <div class="spotlight-runtime-item">{{ t('landing_spotlight_runtime_two') }}</div>
+            <div class="spotlight-runtime-item">{{ t('landing_spotlight_runtime_three') }}</div>
+          </div>
+        </n-card>
+      </div>
+
+      <div class="feature-section">
+        <div class="section-head">
+          <div class="section-kicker">{{ t('landing_section_capability') }}</div>
+          <div class="section-title">{{ t('landing_section_capability_title') }}</div>
+          <div class="section-desc">{{ t('landing_section_capability_desc') }}</div>
+        </div>
+
+        <div class="feature-grid">
+          <n-card :bordered="false" class="feature-card feature-card-wide">
+            <div class="feature-icon">🏠</div>
+            <div class="feature-card-title">{{ t('landing_feature_space_title') }}</div>
+            <div class="feature-card-desc">{{ t('landing_feature_space_desc') }}</div>
+            <ul class="feature-points">
+              <li>{{ t('landing_feature_space_point_one') }}</li>
+              <li>{{ t('landing_feature_space_point_two') }}</li>
+              <li>{{ t('landing_feature_space_point_three') }}</li>
+            </ul>
+          </n-card>
+
+          <n-card :bordered="false" class="feature-card">
+            <div class="feature-icon">😀</div>
+            <div class="feature-card-title">{{ t('landing_feature_emoji_title') }}</div>
+            <div class="feature-card-desc">{{ t('landing_feature_emoji_desc') }}</div>
+            <ul class="feature-points">
+              <li>{{ t('landing_feature_emoji_point_one') }}</li>
+              <li>{{ t('landing_feature_emoji_point_two') }}</li>
+            </ul>
+          </n-card>
+
+          <n-card :bordered="false" class="feature-card">
+            <div class="feature-icon">💬</div>
+            <div class="feature-card-title">{{ t('landing_feature_discussion_title') }}</div>
+            <div class="feature-card-desc">{{ t('landing_feature_discussion_desc') }}</div>
+            <ul class="feature-points">
+              <li>{{ t('landing_feature_discussion_point_one') }}</li>
+              <li>{{ t('landing_feature_discussion_point_two') }}</li>
+            </ul>
+          </n-card>
+
+          <n-card :bordered="false" class="feature-card">
+            <div class="feature-icon">🛠️</div>
+            <div class="feature-card-title">{{ t('landing_feature_admin_title') }}</div>
+            <div class="feature-card-desc">{{ t('landing_feature_admin_desc') }}</div>
+            <ul class="feature-points">
+              <li>{{ t('landing_feature_admin_point_one') }}</li>
+              <li>{{ t('landing_feature_admin_point_two') }}</li>
+            </ul>
+          </n-card>
+
+          <n-card :bordered="false" class="feature-card">
+            <div class="feature-icon">🗂️</div>
+            <div class="feature-card-title">{{ t('landing_feature_storage_title') }}</div>
+            <div class="feature-card-desc">{{ t('landing_feature_storage_desc') }}</div>
+            <ul class="feature-points">
+              <li>{{ t('landing_feature_storage_point_one') }}</li>
+              <li>{{ t('landing_feature_storage_point_two') }}</li>
+            </ul>
+          </n-card>
+
+          <n-card :bordered="false" class="feature-card feature-card-wide">
+            <div class="feature-icon">⚙️</div>
+            <div class="feature-card-title">{{ t('landing_feature_arch_title') }}</div>
+            <div class="feature-card-desc">{{ t('landing_feature_arch_desc') }}</div>
+            <ul class="feature-points">
+              <li>{{ t('landing_feature_arch_point_one') }}</li>
+              <li>{{ t('landing_feature_arch_point_two') }}</li>
+              <li>{{ t('landing_feature_arch_point_three') }}</li>
+            </ul>
+          </n-card>
+        </div>
+      </div>
+
+      <div class="usecase-grid">
+        <n-card :bordered="false" class="usecase-panel">
+          <div class="section-kicker">{{ t('landing_section_scenario') }}</div>
+          <div class="section-title">{{ t('landing_section_scenario_title') }}</div>
+          <div class="section-desc">{{ t('landing_section_scenario_desc') }}</div>
+
+          <div class="scenario-list">
+            <div class="scenario-item">
+              <div class="scenario-name">{{ t('landing_scenario_one_title') }}</div>
+              <div class="scenario-desc">{{ t('landing_scenario_one_desc') }}</div>
+            </div>
+            <div class="scenario-item">
+              <div class="scenario-name">{{ t('landing_scenario_two_title') }}</div>
+              <div class="scenario-desc">{{ t('landing_scenario_two_desc') }}</div>
+            </div>
+            <div class="scenario-item">
+              <div class="scenario-name">{{ t('landing_scenario_three_title') }}</div>
+              <div class="scenario-desc">{{ t('landing_scenario_three_desc') }}</div>
+            </div>
+          </div>
+        </n-card>
+
+        <n-card :bordered="false" class="usecase-panel">
+          <div class="section-kicker">{{ t('landing_section_deploy') }}</div>
+          <div class="section-title">{{ t('landing_section_deploy_title') }}</div>
+          <div class="section-desc">{{ t('landing_section_deploy_desc') }}</div>
+
+          <div class="deploy-list">
+            <div class="deploy-item">{{ t('landing_deploy_one') }}</div>
+            <div class="deploy-item">{{ t('landing_deploy_two') }}</div>
+            <div class="deploy-item">{{ t('landing_deploy_three') }}</div>
+            <div class="deploy-item">{{ t('landing_deploy_four') }}</div>
+          </div>
+        </n-card>
+      </div>
+
+      <n-card :bordered="false" class="cta-panel">
+        <div class="cta-copy">
+          <div>
+            <div class="section-kicker">{{ t('landing_section_ready') }}</div>
+            <div class="cta-title">{{ t('landing_cta_title') }}</div>
+            <div class="cta-desc">{{ t('landing_cta_desc') }}</div>
+          </div>
+          <n-space wrap>
+            <n-button type="primary" size="large" @click="goSpace">
+              {{ t('landing_cta_space') }}
+            </n-button>
+            <n-button v-if="!userLogined" secondary size="large" @click="goAuth('signup')">
+              {{ t('landing_cta_signup') }}
+            </n-button>
+          </n-space>
+        </div>
+      </n-card>
+    </section>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, computed, watch } from 'vue';
-import { useStoreMain } from '@/store/main';
-import { useRoute, useRouter } from 'vue-router';
-import { h } from 'vue';
-import { NInput, NSelect, useDialog } from 'naive-ui';
-import InfiniteLoading from 'v3-infinite-loading';
-import { getPosts, getIndexTrends } from '@/api/post';
-import SlideBar from '@opentiny/vue-slide-bar';
-import allTweets from '@/assets/img/fresh-tweets.png';
-import discoverTweets from '@/assets/img/discover-tweets.jpeg';
-import followingTweets from '@/assets/img/following-tweets.jpeg';
-import { useStoreUser } from '@/store/user';
-import { useStoreProfile } from '@/store/profile';
+import { computed } from 'vue';
+import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
-import { Api } from '@/utils/request';
-import { resolveSpaceSlug } from '@/utils/spaces';
-import { usePagination } from '@/composables/usePagination';
-import UserAction from '@/composables/useUserAction';
-import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
-import { buildCreateSpaceRoute, buildPostRoute } from '@/utils/tagRoute';
+import { useStoreProfile } from '@/store/profile';
+import { useStoreUser } from '@/store/user';
+import { buildComposeRoute, buildHomeRouteWithSpace } from '@/utils/tagRoute';
+import { goToAuth, type AuthMode } from '@/utils/authRoute';
+import { useI18n } from '@/i18n';
 
-const storeMain = useStoreMain();
-const storeUser = useStoreUser();
-const storeProfile = useStoreProfile();
-const { desktopModelShow, refresh } = storeToRefs(storeMain);
-const { userInfo } = storeToRefs(storeUser);
-const { profile, currentSpaceSlug, spaces, activeSpaceMembers } = storeToRefs(storeProfile);
-
-const route = useRoute();
 const router = useRouter();
-const dialog = useDialog();
+const storeProfile = useStoreProfile();
+const storeUser = useStoreUser();
+const { currentSpaceSlug, profile, spaces } = storeToRefs(storeProfile);
+const { userLogined, userInfo } = storeToRefs(storeUser);
+const { t } = useI18n();
 
-const newestTweetsStyle = ref<'newest' | 'hots' | 'following'>('newest');
-
-// 筛选按钮配置
-const filterButtons = [
-  { key: 'newest' as const, label: '全部', index: 0 },
-  { key: 'hots' as const, label: '热门推荐', index: 1 },
-  { key: 'following' as const, label: '正在关注', index: 2 },
-];
-
-const onFilterClick = (key: 'newest' | 'hots' | 'following', index: number) => {
-  newestTweetsStyle.value = key;
-  handleBarClick(slideBarList.value[index], index);
-};
-
-// 保留原有的方法以确保兼容性
-const onNewestTweets = () => {
-  newestTweetsStyle.value = 'newest';
-  handleBarClick(slideBarList.value[0], 0);
-};
-const onHotTweets = () => {
-  newestTweetsStyle.value = 'hots';
-  handleBarClick(slideBarList.value[1], 1);
-};
-const onFollowingTweets = () => {
-  newestTweetsStyle.value = 'following';
-  handleBarClick(slideBarList.value[2], 2);
-};
-
-const initBlocks = ref(9);
-const wheelBlocks = ref(8);
-const slideBarKey = ref(0);
-const slideBarList = ref<Item.SlideBarItem[]>([
-  { title: '最新动态', style: 1, username: '', avatar: allTweets, show: true },
-  {
-    title: '热门推荐',
-    style: 2,
-    username: '',
-    avatar: discoverTweets,
-    show: false,
-  },
-  {
-    title: '正在关注',
-    style: 3,
-    username: '',
-    avatar: followingTweets,
-    show: false,
-  },
-]);
-const user = reactive<Item.UserInfo>({
-  id: 0,
-  avatar: '',
-  username: '',
-  nickname: '',
-  is_admin: false,
-  is_friend: false,
-  is_following: false,
-  created_on: 0,
-  follows: 0,
-  followings: 0,
-  status: 1,
-});
-const inActionPost = ref<Item.PostProps | null>(null);
-
-const targetStyle = ref<number>(1);
-const targetUsername = ref<string>('');
-const list = ref<any[]>([]);
-const showAddFriendWhisper = ref(false);
-const selectedSpaceSlug = ref('');
-
-// 使用 usePagination composable
-const { loading, noMore, page, pageSize, totalPage, reset, nextPage } = usePagination(20);
-
-// 使用 UserAction.useWhisper()
-const { showWhisper, whisperReceiver, onSendWhisper, whisperSuccess } = UserAction.useWhisper();
-
-const spaceOptions = computed(() =>
-  spaces.value.map((item) => ({
-    label: `${item.name}${item.visibility === 'private' ? ' · 私密' : ''}`,
-    value: item.slug,
-  })),
-);
-
-const activeSpace = computed(() => {
+const publicSpace = computed(() => {
   return (
-    spaces.value.find((item) => item.slug === selectedSpaceSlug.value) ||
+    spaces.value.find((item) => item.slug === profile.value.defaultSpaceSlug) ||
     spaces.value.find((item) => item.slug === currentSpaceSlug.value) ||
     spaces.value[0] ||
     null
   );
 });
 
-const canManageActiveSpace = computed(() => {
-  const space = activeSpace.value;
-  if (!space || userInfo.value.id <= 0) {
-    return false;
-  }
-  return (
-    space.owner_user_id === userInfo.value.id ||
-    space.current_user_role === 'owner' ||
-    space.current_user_role === 'admin'
-  );
-});
-const memberRoleOptions = [
-  { label: '普通成员', value: 'member' },
-  { label: '广场管理员', value: 'admin' },
-];
-
-const openAddFriendWhisper = () => {
-  showAddFriendWhisper.value = true;
-};
-
-const openDeleteFriend = (post: Item.PostProps) => {
-  dialog.warning({
-    title: '删除好友',
-    content:
-      '将好友 “' +
-      post.user.nickname +
-      '” 删除，将同时清理你与该好友相关的 “好友可见” 推文访问关系',
-    positiveText: '确定',
-    negativeText: '取消',
-    onPositiveClick: () => {
-      Api.v1.friend.post.delete({
-        user_id: user.id,
-      })
-        .then((res) => {
-          window.$message.success('操作成功');
-          post.user.is_friend = false;
-        })
-        .catch((_err) => {});
-    },
-  });
-};
-
-const addFriendWhisperSuccess = () => {
-  showAddFriendWhisper.value = false;
-  inActionPost.value = null;
-};
-
-const onHandleFriendAction = (post: Item.PostProps) => {
-  inActionPost.value = post;
-  user.id = post.user.id;
-  user.username = post.user.username;
-  user.nickname = post.user.nickname;
-  if (post.user.is_friend) {
-    openDeleteFriend(post);
-  } else {
-    openAddFriendWhisper();
-  }
-};
-
-function postFollowAction(userId: number, isFollowing: boolean) {
-  for (let index in list.value) {
-    if (list.value[index].user_id == userId) {
-      list.value[index].user.is_following = isFollowing;
-    }
-  }
-
-  // 如果是在【正在关注】tab，且是取消关注操作（isFollowing 为 false），则刷新列表
-  if (targetStyle.value === 3 && !isFollowing) {
-    resetAll();
-    loadPosts('following');
-  }
-}
-
-const showTrendsTag = computed(() => {
-  return (
-    userInfo.value.id > 0 &&
-    !profile.value.enableTrendsBar &&
-    desktopModelShow.value
-  );
-});
-const showTrendsBar = computed(() => {
-  return (
-    profile.value.useFriendship &&
-    profile.value.enableTrendsBar &&
-    desktopModelShow.value &&
-    userInfo.value.id > 0
-  );
-});
-
-// 重写 reset 方法以包含 list 的重置
-const resetAll = () => {
-  reset();
-  list.value = [];
-};
-
-const handleBarClick = (data: Item.SlideBarItem, index: number) => {
-  resetAll();
-  targetStyle.value = data.style;
-  if (route.query.q) {
-    route.query.q = null;
-    updateTitle();
-  }
-  switch (data.style) {
-    case 1:
-      loadPosts('newest');
-      break;
-    case 2:
-      loadPosts('hots');
-      break;
-    case 3:
-      route.query.q = null;
-      loadPosts('following');
-      break;
-    case 21:
-      targetUsername.value = data.username;
-      loadUserPosts();
-      break;
-    default:
-      break;
-  }
-  slideBarList.value[index].show = false;
-};
-
-const loadContacts = () => {
-  slideBarList.value = slideBarList.value.slice(0, 3);
-  if (
-    !profile.value.useFriendship ||
-    !profile.value.enableTrendsBar ||
-    userInfo.value.id === 0
-  ) {
-    return;
-  }
-  getIndexTrends({
-    page: 1,
-    page_size: 50,
-  })
-    .then((res) => {
-      var i = 0;
-      const list = res.list || [];
-      let barItems: Item.SlideBarItem[] = [];
-      for (; i < list.length; i++) {
-        let item: Item.IndexTrendsItem = list[i];
-        barItems.push({
-          title: item.nickname,
-          style: 21,
-          username: item.username,
-          avatar: item.avatar || DEFAULT_USER_AVATAR,
-          show: item.is_fresh,
-        });
-      }
-      if (barItems.length > 0) {
-        slideBarList.value = slideBarList.value.concat(barItems);
-        slideBarKey.value++;
-      }
-    })
-    .catch(() => {});
-};
-
-const loadPosts = (style: 'newest' | 'hots' | 'following' | 'search') => {
-  loading.value = true;
-  getPosts({
-    query: route.query.q ? decodeURIComponent(route.query.q as string) : null,
-    type: route.query.t as string,
-    space_slug: selectedSpaceSlug.value || currentSpaceSlug.value,
-    style: style,
-    page: page.value,
-    page_size: pageSize.value,
-  })
-    .then((rsp) => {
-      loading.value = false;
-      if (rsp.list.length === 0) {
-        noMore.value = true;
-      }
-
-      if (page.value > 1) {
-        list.value = list.value.concat(rsp.list);
-      } else {
-        list.value = rsp.list;
-        window.scrollTo(0, 0);
-      }
-
-      totalPage.value = Math.ceil(rsp.pager.total_rows / pageSize.value);
-    })
-    .catch((err) => {
-      loading.value = false;
-      if (page.value > 1) {
-        page.value--;
-      }
-    });
-};
-
-const syncSpaceFromRoute = () => {
-  const routeSpace = typeof route.query.space === 'string' ? route.query.space : '';
-  selectedSpaceSlug.value = resolveSpaceSlug(
-    routeSpace || currentSpaceSlug.value,
-    profile.value.defaultSpaceSlug,
-  );
-  currentSpaceSlug.value = selectedSpaceSlug.value;
-};
-
-const loadSpaces = () => {
-  if (!profile.value.enableSpaces) {
-    return Promise.resolve();
-  }
-  return Api.v1.spaces.get
-    ._self({
-      limit: 100,
-    })
-    .then((res) => {
-      spaces.value = res || [];
-      if (!spaces.value.length) {
-        selectedSpaceSlug.value = profile.value.defaultSpaceSlug;
-        currentSpaceSlug.value = selectedSpaceSlug.value;
-        return;
-      }
-      const candidate =
-        selectedSpaceSlug.value || currentSpaceSlug.value || profile.value.defaultSpaceSlug;
-      selectedSpaceSlug.value =
-        spaces.value.find((item) => item.slug === candidate)?.slug || spaces.value[0].slug;
-      currentSpaceSlug.value = selectedSpaceSlug.value;
-    })
-    .catch(() => {
-      spaces.value = [];
-    });
-};
-
-const loadActiveSpaceMembers = async () => {
-  const space = activeSpace.value;
-  if (!space || !canManageActiveSpace.value) {
-    activeSpaceMembers.value = [];
-    return;
-  }
-  activeSpaceMembers.value = await Api.v1.spaces.get.members({
-    space_id: space.id,
-  });
-};
-
-const openCreateSpaceDialog = () => {
-  router.push(buildCreateSpaceRoute(selectedSpaceSlug.value || currentSpaceSlug.value));
-};
-
-const openAddMemberDialog = () => {
-  const space = activeSpace.value;
-  if (!space) {
-    return;
-  }
-
-  let username = '';
-  let role: 'member' | 'admin' = 'member';
-
-  dialog.create({
-    title: `添加成员到 ${space.name}`,
-    content: () =>
-      h('div', { class: 'space-dialog-form' }, [
-        h(NInput, {
-          placeholder: '用户名',
-          onUpdateValue: (value: string) => {
-            username = value;
-          },
-        }),
-        h(NSelect, {
-          style: 'margin-top: 12px;',
-          value: role,
-          options: [
-            { label: '普通成员', value: 'member' },
-            { label: '广场管理员', value: 'admin' },
-          ],
-          'onUpdate:value': (value: 'member' | 'admin') => {
-            role = value;
-          },
-        }),
-      ]),
-    positiveText: '添加',
-    negativeText: '取消',
-    onPositiveClick: async () => {
-      await Api.v1.spaces.post.members({
-        space_id: space.id,
-        username,
-        role,
-      });
-      window.$message.success('成员添加成功');
-      await loadSpaces();
-      await loadActiveSpaceMembers();
-    },
-  });
-};
-
-const openManageMembersDialog = async () => {
-  const space = activeSpace.value;
-  if (!space) {
-    return;
-  }
-
-  await loadActiveSpaceMembers();
-
-  dialog.create({
-    title: `${space.name} 成员管理`,
-    content: () =>
-      activeSpaceMembers.value.length === 0
-        ? h('div', { class: 'space-member-empty' }, '当前广场还没有可管理的成员')
-        : h('div', { class: 'space-member-list' }, [
-            ...activeSpaceMembers.value.map((member) =>
-              h('div', { class: 'space-member-row', key: `${member.space_id}-${member.user_id}` }, [
-                h('div', { class: 'space-member-copy' }, [
-                  h('img', {
-                    class: 'space-member-avatar',
-                    src: member.avatar || DEFAULT_USER_AVATAR,
-                    alt: member.nickname || member.username,
-                  }),
-                  h('div', { class: 'space-member-meta' }, [
-                    h(
-                      'strong',
-                      {},
-                      member.user_id === space.owner_user_id
-                        ? `${member.nickname || member.username} · 创建者`
-                        : member.nickname || member.username,
-                    ),
-                    h(
-                      'span',
-                      {},
-                      `@${member.username} · ${
-                        member.role === 'owner'
-                          ? '拥有者'
-                          : member.role === 'admin'
-                            ? '管理员'
-                            : '成员'
-                      }`,
-                    ),
-                  ]),
-                ]),
-                member.user_id === space.owner_user_id
-                  ? h('div', { class: 'space-member-owner' }, '不可修改')
-                  : h('div', { class: 'space-member-actions' }, [
-                      h(NSelect, {
-                        value: member.role === 'owner' ? 'admin' : member.role,
-                        options: memberRoleOptions,
-                        style: 'width: 140px;',
-                        'onUpdate:value': async (value: 'member' | 'admin') => {
-                          await Api.v1.spaces.patch.members({
-                            space_id: space.id,
-                            user_id: member.user_id,
-                            role: value,
-                          });
-                          window.$message.success('角色更新成功');
-                          await loadActiveSpaceMembers();
-                        },
-                      }),
-                      h(
-                        'button',
-                        {
-                          class: 'space-member-remove',
-                          type: 'button',
-                          onClick: async () => {
-                            dialog.warning({
-                              title: '移除成员',
-                              content: `确认将 @${member.username} 从 ${space.name} 中移除吗？`,
-                              positiveText: '移除',
-                              negativeText: '取消',
-                              onPositiveClick: async () => {
-                                await Api.v1.spaces.delete.members({
-                                  space_id: space.id,
-                                  user_id: member.user_id,
-                                });
-                                window.$message.success('成员已移除');
-                                await loadSpaces();
-                                await loadActiveSpaceMembers();
-                              },
-                            });
-                          },
-                        },
-                        '移除',
-                      ),
-                    ]),
-              ]),
-            ),
-          ]),
-    positiveText: '关闭',
-    showIcon: false,
-    negativeText: undefined,
-    onPositiveClick: () => {
-      activeSpaceMembers.value = [];
-    },
-  });
-};
-
-const loadUserPosts = () => {
-  loading.value = true;
-  Api.v1.user.get.posts({
-    username: targetUsername.value,
-    style: 'post',
-    page: page.value,
-    page_size: pageSize.value,
-  })
-    .then((rsp) => {
-      loading.value = false;
-      if (rsp.list.length === 0) {
-        noMore.value = true;
-      }
-      if (page.value > 1) {
-        list.value = list.value.concat(rsp.list);
-      } else {
-        list.value = rsp.list || [];
-        window.scrollTo(0, 0);
-      }
-      totalPage.value = Math.ceil(rsp.pager.total_rows / pageSize.value);
-    })
-    .catch((err) => {
-      list.value = [];
-      if (page.value > 1) {
-        page.value--;
-      }
-      loading.value = false;
-    });
-};
-
-const onPostSuccess = (post: Item.PostProps) => {
-  // 暂时统统跳到详情页面，后续再精细化分场景优化
-  router.push(buildPostRoute(post.id, selectedSpaceSlug.value || currentSpaceSlug.value));
-  // // 如果不在第一页，需要跳转到详情页面
-  // if (targetStyle.value != 1) {
-  //     router.push({
-  //         name: 'post',
-  //         query: {
-  //             id: post.id,
-  //         },
-  //     });
-  //     return;
-  // }
-
-  // // 如果是在第一页，就地插入新推文到文章列表中
-  // let items = [];
-  // let length = list.value.length;
-  // if (length == pageSize.value) {
-  //     length--;
-  // }
-  // var i = 0;
-  // for (; i < length; i++) {
-  //     let item: Item.PostProps = list.value[i];
-  //     if (!item.is_top) {
-  //         break;
-  //     }
-  //     items.push(item);
-  // }
-  // items.push(post);
-  // for (; i < length; i++) {
-  //     items.push(list.value[i]);
-  // }
-  // list.value = items;
-};
-
-const loadMorePosts = () => {
-  switch (targetStyle.value) {
-    case 1:
-      loadPosts('newest');
-      break;
-    case 2:
-      loadPosts('hots');
-      break;
-    case 3:
-      loadPosts('following');
-      break;
-    case 21:
-      if (route.query.q) {
-        loadPosts('search');
-      } else {
-        loadUserPosts();
-      }
-      break;
-    default:
-      break;
-  }
-};
-
-const handleNextPage = () => {
-  nextPage(loadMorePosts);
-};
-
-onMounted(() => {
-  syncSpaceFromRoute();
-  resetAll();
-  loadSpaces().finally(() => {
-    loadContacts();
-    loadPosts('newest');
-  });
-});
-
-watch(
-  () => ({
-    path: route.path,
-    query: route.query,
-    refresh: refresh.value,
-  }),
-  (to, from) => {
-    syncSpaceFromRoute();
-    if (to.refresh !== from.refresh) {
-      resetAll();
-      loadSpaces();
-      loadContacts();
-      loadMorePosts();
-      return;
-    }
-    if (from.path !== '/post' && to.path === '/') {
-      resetAll();
-      loadSpaces();
-      loadContacts();
-      loadMorePosts();
-    }
+const landingMetrics = computed(() => [
+  {
+    value: spaces.value.length || 1,
+    label: t('landing_metric_spaces'),
   },
-);
-
-watch(selectedSpaceSlug, (value, oldValue) => {
-  if (!value || value === oldValue) {
-    return;
-  }
-  currentSpaceSlug.value = value;
-  router.replace({
-    name: 'home',
-    query: {
-      ...route.query,
-      space: value,
-    },
-  });
-  resetAll();
-  loadContacts();
-  loadPosts('newest');
-});
-
-watch(
-  () => [activeSpace.value?.id, canManageActiveSpace.value],
-  ([spaceId, canManage]) => {
-    if (!spaceId || !canManage) {
-      activeSpaceMembers.value = [];
-      return;
-    }
-    loadActiveSpaceMembers();
+  {
+    value: profile.value.enableSpaces ? t('landing_metric_enabled') : t('landing_metric_disabled'),
+    label: t('landing_metric_space_mode'),
   },
-  { immediate: true },
-);
+  {
+    value: userLogined.value ? userInfo.value.nickname || userInfo.value.username : t('landing_metric_guest'),
+    label: t('landing_metric_status'),
+  },
+]);
+
+const goSpace = () => {
+  router.push(buildHomeRouteWithSpace({}, currentSpaceSlug.value));
+};
+
+const goCompose = () => {
+  router.push(buildComposeRoute(currentSpaceSlug.value));
+};
+
+const goAuth = (mode: AuthMode) => {
+  goToAuth(router, mode, router.currentRoute.value.fullPath);
+};
 </script>
 
-<style lang="less" scoped>
-.style-wrap,
-:deep(.space-member-list) {
-  --space-accent: var(--accent-primary);
-  --space-danger-bg: rgba(210, 64, 53, 0.12);
-  --space-danger-text: #b42318;
-  --space-member-border: rgba(18, 75, 51, 0.08);
+<style scoped lang="less">
+.landing-page {
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--page-hero-bg-glow) 100%, transparent), transparent 24%),
+    radial-gradient(circle at 100% 12%, color-mix(in srgb, var(--page-hero-bg-accent) 100%, transparent), transparent 26%),
+    radial-gradient(circle at 50% 100%, color-mix(in srgb, var(--accent-soft-muted) 70%, transparent), transparent 28%),
+    linear-gradient(180deg, var(--page-hero-bg-base) 0%, var(--page-hero-bg-bottom) 100%);
 }
 
-:deep(.space-member-list) {
+.landing-shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 20px 18px 64px;
+  display: grid;
+  gap: 18px;
+}
+
+.hero-grid,
+.usecase-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(320px, 0.88fr);
+  gap: 20px;
+}
+
+.hero-copy,
+.hero-panel,
+.feature-card,
+.usecase-panel,
+.cta-panel {
+  background: color-mix(in srgb, var(--panel-bg) 90%, transparent);
+  border: var(--glass-panel-border);
+  box-shadow:
+    0 16px 40px color-mix(in srgb, var(--shadow-color, #0f172a) 8%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #ffffff 18%, transparent);
+  backdrop-filter: blur(18px) saturate(128%);
+}
+
+.hero-copy {
+  padding: 18px 8px 10px;
+  position: relative;
+}
+
+.eyebrow,
+.section-kicker {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.62;
+}
+
+.hero-text {
+  display: grid;
+  gap: 14px;
+}
+
+.hero-text h1 {
+  margin: 0;
+  max-width: 760px;
+  font-size: clamp(36px, 5.8vw, 64px);
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+}
+
+.hero-text p {
+  margin: 0;
+  max-width: 680px;
+  font-size: 15px;
+  line-height: 1.9;
+  opacity: 0.78;
+}
+
+.hero-lower {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(250px, 0.9fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.hero-summary {
+  padding: 16px;
+  border-radius: 20px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent-soft) 32%, transparent), transparent 70%),
+    color-mix(in srgb, var(--accent-soft-muted) 84%, transparent);
+  border: 1px solid color-mix(in srgb, var(--panel-border) 80%, transparent);
+}
+
+.landing-metrics {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.landing-metric-card {
+  padding: 14px 16px 15px;
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent-soft) 12%, transparent), transparent 88%),
+    color-mix(in srgb, var(--panel-bg) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--panel-border) 70%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.landing-metric-card-primary {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent-soft) 42%, transparent), transparent 80%),
+    color-mix(in srgb, var(--panel-bg) 82%, transparent);
+}
+
+.landing-metric-kicker {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.56;
+}
+
+.landing-metric-value {
+  margin-top: 8px;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.landing-metric-note,
+.landing-metric-label {
+  margin-top: 6px;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.hero-summary-title,
+.reaction-preview-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.hero-summary-grid,
+.entry-flow,
+.scenario-list,
+.deploy-list {
+  margin-top: 12px;
   display: grid;
   gap: 12px;
-  min-width: 420px;
 }
 
-:deep(.space-member-row) {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--space-member-border);
-}
-
-:deep(.space-member-copy) {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-:deep(.space-member-meta) {
+.summary-item,
+.flow-step,
+.scenario-item {
   display: grid;
-  gap: 4px;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
 }
 
-:deep(.space-member-avatar) {
-  width: 38px;
-  height: 38px;
-  border-radius: 999px;
-  object-fit: cover;
-  flex: 0 0 auto;
-}
-
-:deep(.space-member-copy span),
-:deep(.space-member-owner) {
+.summary-badge,
+.flow-step-index {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
   font-size: 13px;
+  font-weight: 700;
+}
+
+.summary-title,
+.flow-step-title,
+.feature-card-title,
+.scenario-name,
+.panel-title,
+.section-title,
+.cta-title {
+  font-weight: 700;
+}
+
+.summary-desc,
+.flow-step-desc,
+.panel-subtitle,
+.feature-card-desc,
+.section-desc,
+.scenario-desc,
+.cta-desc,
+.reaction-preview-desc {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.72;
   opacity: 0.72;
 }
 
-:deep(.space-member-actions) {
+.reaction-preview {
+  padding: 14px;
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent-soft) 24%, transparent), transparent 72%),
+    color-mix(in srgb, var(--accent-soft-muted) 92%, transparent);
+}
+
+.default-space-panel {
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 80%, transparent);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent-soft) 48%, transparent), transparent 74%),
+    color-mix(in srgb, var(--panel-bg) 84%, transparent);
+}
+
+.default-space-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.default-space-kicker {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.64;
+}
+
+.default-space-name {
+  margin-top: 6px;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.default-space-desc,
+.default-space-meta {
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 1.72;
+  opacity: 0.76;
+}
+
+.default-space-meta {
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
-:deep(.space-member-empty) {
-  min-width: 320px;
-  padding: 20px 0;
-  text-align: center;
-  font-size: 14px;
-  opacity: 0.72;
+.reaction-preview-row {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-:deep(.space-member-remove) {
-  border: 0;
+.reaction-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 10px;
   border-radius: 999px;
-  background: var(--space-danger-bg);
-  color: var(--space-danger-text);
-  cursor: pointer;
-  padding: 8px 12px;
+  background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+  font-size: 15px;
+  font-family: var(--emoji-font-stack);
 }
 
-@media (max-width: 768px) {
-  .style-wrap {
-    margin-left: 12px;
-    margin-right: 12px;
+.feature-section {
+  display: grid;
+  gap: 18px;
+}
+
+.section-head {
+  max-width: 760px;
+  display: grid;
+  gap: 8px;
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.feature-card {
+  min-height: 100%;
+  border-radius: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.feature-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 72px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent-soft) 24%, transparent), transparent);
+  pointer-events: none;
+}
+
+.feature-card-wide {
+  grid-column: span 2;
+}
+
+.feature-icon {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+  font-size: 21px;
+}
+
+.feature-card-desc {
+  margin-bottom: 10px;
+}
+
+.feature-points {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.72;
+  opacity: 0.84;
+}
+
+.section-title,
+.cta-title {
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.deploy-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.deploy-item {
+  padding: 12px;
+  border-radius: 16px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent-soft) 18%, transparent), transparent 82%),
+    color-mix(in srgb, var(--accent-soft-muted) 90%, transparent);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.cta-copy {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 22px;
+  padding: 20px 22px;
+  border-radius: 22px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent-soft) 92%, transparent), transparent 60%),
+    color-mix(in srgb, var(--panel-bg) 92%, transparent);
+}
+
+@media screen and (max-width: 980px) {
+  .hero-grid,
+  .usecase-grid,
+  .feature-grid,
+  .hero-lower {
+    grid-template-columns: 1fr;
+  }
+
+  .feature-card-wide {
+    grid-column: span 1;
   }
 }
 
-.tiny-slide-bar .tiny-slide-bar__list > 
-div.tiny-slide-bar__select .slide-bar-item .slide-bar-item-title {
-    color: var(--space-accent);
-    opacity: 0.8;
-}
-
-.tiny-slide-bar .tiny-slide-bar__list > 
-div:hover .slide-bar-item {
-    cursor: pointer;
-    .slide-bar-item-avatar {
-        color: var(--space-accent);
-        opacity: 0.8;
-    }
-    .slide-bar-item-title {
-        color: var(--space-accent);
-        opacity: 0.8;
-    }
-}
-.style-wrap {
-    margin-top: 10px;
-    margin-left: 16px;
-    margin-bottom: 4px;
-    opacity: 0.80;  
-    .style-item {
-        &.hover {
-                cursor: pointer;
-        }
-    }
-}
-.tiny-slide-bar {
-    margin-top: -30px;
-    margin-bottom: -30px;
-    .slide-bar-item {
-        min-height: 170px;
-        width: 64px;
-        display: flex;
-        flex-direction:column;
-        justify-content: center;
-        align-items: center;
-        margin-top: 8px;
-        .slide-bar-item-title {
-            justify-content: center;
-            font-size: 12px;
-            margin-top: 4px;
-            height: 40px;
-        }
-    }
-}
-
-.load-more {
-    margin: 20px;
-
-    .load-more-wrap {
-        display: flex;
-        flex-direction: row;
-        justify-content: center;
-        align-items: center;
-        gap: 14px;
-
-        .load-more-spinner {
-            font-size: 14px;
-            opacity: 0.65;
-        }
-    }
-}
-
-:global(.dark) {
-  .style-wrap,
-  :deep(.space-member-list) {
-    --space-danger-bg: rgba(244, 114, 114, 0.18);
-    --space-danger-text: #fca5a5;
-    --space-member-border: rgba(148, 163, 184, 0.14);
+@media screen and (max-width: 821px) {
+  .landing-shell {
+    padding: 16px 10px 56px;
+    gap: 14px;
   }
 
-  .main-content-wrap,
-  .pagination-wrap,
-  .empty-wrap,
-  .skeleton-wrap {
-    background-color: rgba(16, 16, 20, 0.75);
+  .hero-text h1 {
+    font-size: 34px;
+    line-height: 1.02;
   }
 
-  .tiny-slide-bar {
-    --ti-slider-progress-box-arrow-hover-text-color: #f2f2f2;
-    --ti-slider-progress-box-arrow-normal-text-color: #808080;
+  .hero-text p {
+    font-size: 14px;
+  }
+
+  .deploy-list {
+    grid-template-columns: 1fr;
+  }
+
+  .cta-copy {
+    flex-direction: column;
   }
 }
 </style>

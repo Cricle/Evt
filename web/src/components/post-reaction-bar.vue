@@ -1,42 +1,61 @@
 <template>
   <n-popover trigger="click" placement="top-start" :disabled="readonly">
     <template #trigger>
-      <div class="reaction-bar" :class="{ 'reaction-bar-readonly': readonly }" @click.stop>
+      <n-flex class="reaction-bar" :class="{ 'reaction-bar-readonly': readonly }" :size="[6, 6]" @click.stop>
         <template v-if="visibleReactions.length > 0">
-          <button
+          <n-button
             v-for="reaction in visibleReactions"
             :key="reaction.emoji"
             class="reaction-chip"
             :class="{ 'reaction-chip-active': reaction.active }"
             :title="reaction.users.map((user) => user.nickname || user.username).join('、')"
-            type="button"
+            quaternary
+            round
+            size="tiny"
             @click.stop="emit('select', reaction.emoji)"
           >
-            <span class="reaction-chip-emoji">{{ reaction.emoji }}</span>
-            <span class="reaction-chip-count">{{ reaction.count }}</span>
-          </button>
-          <div v-if="hiddenReactionsCount > 0" class="reaction-chip reaction-chip-more">
+            <span class="reaction-chip-body">
+              <span class="reaction-chip-emoji">{{ reaction.emoji }}</span>
+              <span class="reaction-chip-count">{{ reaction.count }}</span>
+            </span>
+          </n-button>
+          <n-button
+            v-if="hiddenReactionsCount > 0"
+            class="reaction-chip reaction-chip-more"
+            quaternary
+            round
+            size="tiny"
+          >
             +{{ hiddenReactionsCount }}
-          </div>
-          <div v-if="showAddButton" class="reaction-chip reaction-chip-add">+</div>
+          </n-button>
+          <n-button
+            v-if="showAddButton"
+            class="reaction-chip reaction-chip-add"
+            quaternary
+            round
+            size="tiny"
+          >
+            +
+          </n-button>
         </template>
         <template v-else>
-          <div class="reaction-chip reaction-chip-empty">
-            <span class="reaction-chip-emoji">😀</span>
-            <span class="reaction-chip-label">表情回复</span>
-            <span v-if="count > 0" class="reaction-chip-count">{{ count }}</span>
-          </div>
+          <n-button class="reaction-chip reaction-chip-empty" quaternary round size="tiny">
+            <span class="reaction-chip-body">
+              <span class="reaction-chip-emoji">😀</span>
+              <span v-if="count > 0" class="reaction-chip-count">{{ count }}</span>
+            </span>
+          </n-button>
         </template>
-      </div>
+      </n-flex>
     </template>
     <emoji-reaction-picker @select="emit('select', $event)" />
   </n-popover>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import type { ReactionGroup } from '@/utils/reactions';
 import EmojiReactionPicker from '@/components/emoji-reaction-picker.vue';
+import type { ReactionGroup } from '@/utils/reactions';
+import { computed } from 'vue';
 
 const props = withDefaults(
   defineProps<{
@@ -55,20 +74,18 @@ const props = withDefaults(
   },
 );
 
-const emit = defineEmits<{
-  (e: 'select', emoji: string): void;
-}>();
+const emit = defineEmits<(e: 'select', emoji: string) => void>();
 
-const visibleReactions = computed(() => props.reactions.slice(0, props.maxVisible));
-const hiddenReactionsCount = computed(() => Math.max(props.reactions.length - visibleReactions.value.length, 0));
+const visibleReactions = computed(() =>
+  props.reactions.slice(0, props.maxVisible),
+);
+const hiddenReactionsCount = computed(() =>
+  Math.max(props.reactions.length - visibleReactions.value.length, 0),
+);
 </script>
 
 <style scoped lang="less">
 .reaction-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
   cursor: pointer;
 }
 
@@ -77,56 +94,66 @@ const hiddenReactionsCount = computed(() => Math.max(props.reactions.length - vi
 }
 
 .reaction-chip {
-  --reaction-chip-bg: var(--accent-soft);
-  --reaction-chip-text: var(--text-link-secondary);
-  --reaction-chip-hover-bg: var(--accent-soft-hover);
-  --reaction-chip-hover-shadow: var(--shadow-accent-pop);
-  --reaction-chip-active-bg: var(--accent-soft-strong);
-  --reaction-chip-active-shadow: inset 0 0 0 1px var(--accent-soft-ring);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 0 7px;
+  font-size: 10px;
+  --n-color-hover: color-mix(in srgb, var(--accent-soft-hover) 100%, transparent);
+  --n-color-pressed: color-mix(in srgb, var(--accent-soft-hover) 100%, transparent);
+  --n-color-focus: color-mix(in srgb, var(--accent-soft-hover) 100%, transparent);
+  --n-text-color: var(--text-link-secondary);
+  --n-text-color-hover: var(--text-link-secondary);
+  --n-text-color-pressed: var(--text-link-secondary);
+  --n-text-color-focus: var(--text-link-secondary);
+  --n-color: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+  --n-ripple-color: transparent;
+}
+
+.reaction-chip :deep(.n-button__content) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.reaction-chip-body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 3px;
-  min-height: 24px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--reaction-chip-bg);
-  color: var(--reaction-chip-text);
-  font-size: 11px;
-  font-family: var(--emoji-font-stack);
   line-height: 1;
-  vertical-align: middle;
-  transition:
-    transform 0.18s ease,
-    background-color 0.18s ease,
-    box-shadow 0.18s ease;
-
-  &:hover {
-    transform: translateY(-1px);
-    background: var(--reaction-chip-hover-bg);
-    box-shadow: var(--reaction-chip-hover-shadow);
-  }
 }
 
 .reaction-chip-active {
-  background: var(--reaction-chip-active-bg);
-  box-shadow: var(--reaction-chip-active-shadow);
+  --n-color: color-mix(in srgb, var(--accent-soft-strong) 100%, transparent);
+  --n-color-hover: color-mix(in srgb, var(--accent-soft-strong) 100%, transparent);
+  --n-color-pressed: color-mix(in srgb, var(--accent-soft-strong) 100%, transparent);
+  --n-color-focus: color-mix(in srgb, var(--accent-soft-strong) 100%, transparent);
+  box-shadow: inset 0 0 0 1px var(--accent-soft-ring);
 }
 
 .reaction-chip-add,
 .reaction-chip-more {
   font-weight: 700;
+  min-width: 24px;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 .reaction-chip-empty {
   font-weight: 600;
+  min-width: 28px;
 }
 
 .reaction-chip-emoji {
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1;
   font-family: var(--emoji-font-stack);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: 0 0 auto;
 }
 
@@ -134,20 +161,31 @@ const hiddenReactionsCount = computed(() => Math.max(props.reactions.length - vi
 .reaction-chip-label {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   line-height: 1;
 }
 
 .reaction-chip-count {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  transform: translateY(0.5px);
+  font-family: var(--font-family);
+  min-width: 0.75em;
+  transform: translateY(-0.5px);
 }
 
 :global(.dark) .reaction-chip {
-  --reaction-chip-bg: var(--accent-soft-dark);
-  --reaction-chip-hover-bg: var(--accent-soft-hover-dark);
-  --reaction-chip-active-bg: var(--accent-soft-strong-dark);
-  --reaction-chip-active-shadow: inset 0 0 0 1px var(--accent-soft-ring-dark);
+  --n-color: color-mix(in srgb, var(--accent-soft-dark) 100%, transparent);
+  --n-color-hover: color-mix(in srgb, var(--accent-soft-hover-dark) 100%, transparent);
+  --n-color-pressed: color-mix(in srgb, var(--accent-soft-hover-dark) 100%, transparent);
+  --n-color-focus: color-mix(in srgb, var(--accent-soft-hover-dark) 100%, transparent);
+}
+
+:global(.dark) .reaction-chip-active {
+  --n-color: color-mix(in srgb, var(--accent-soft-strong-dark) 100%, transparent);
+  --n-color-hover: color-mix(in srgb, var(--accent-soft-strong-dark) 100%, transparent);
+  --n-color-pressed: color-mix(in srgb, var(--accent-soft-strong-dark) 100%, transparent);
+  --n-color-focus: color-mix(in srgb, var(--accent-soft-strong-dark) 100%, transparent);
+  box-shadow: inset 0 0 0 1px var(--accent-soft-ring-dark);
 }
 </style>

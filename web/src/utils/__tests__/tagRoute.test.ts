@@ -13,7 +13,7 @@ import {
 describe('tag route utils', () => {
   it('preserves the current space when navigating to tag search', () => {
     expect(buildTagSearchRoute('rust', 'team-alpha')).toEqual({
-      name: 'home',
+      name: 'space',
       query: {
         q: 'rust',
         t: 'tag',
@@ -24,7 +24,7 @@ describe('tag route utils', () => {
 
   it('normalizes legacy and empty spaces to public for tag search', () => {
     expect(buildTagSearchRoute('evt', 'square')).toEqual({
-      name: 'home',
+      name: 'space',
       query: {
         q: 'evt',
         t: 'tag',
@@ -33,7 +33,7 @@ describe('tag route utils', () => {
     });
 
     expect(buildTagSearchRoute('evt', '')).toEqual({
-      name: 'home',
+      name: 'space',
       query: {
         q: 'evt',
         t: 'tag',
@@ -44,7 +44,7 @@ describe('tag route utils', () => {
 
   it('builds generic home routes that retain the current space', () => {
     expect(buildHomeRouteWithSpace({ t: 123 }, 'team-alpha')).toEqual({
-      name: 'home',
+      name: 'space',
       query: {
         t: 123,
         space: 'team-alpha',
@@ -91,6 +91,26 @@ describe('tag route utils', () => {
     expect(buildCreateSpaceRoute('team-alpha')).toEqual({
       name: 'create-space',
       query: {
+        space: 'team-alpha',
+      },
+    });
+  });
+
+  it('builds event compose routes with explicit mode', () => {
+    expect(buildComposeRoute('team-alpha', 'event')).toEqual({
+      name: 'compose',
+      query: {
+        mode: 'event',
+        space: 'team-alpha',
+      },
+    });
+  });
+
+  it('builds quick media compose routes', () => {
+    expect(buildComposeRoute('team-alpha', 'post', 'media')).toEqual({
+      name: 'compose',
+      query: {
+        quick: 'media',
         space: 'team-alpha',
       },
     });

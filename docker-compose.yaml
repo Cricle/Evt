@@ -2,7 +2,7 @@ name: evt
 
 services:
   db:
-    image: mysql:8.0
+    image: m.daocloud.io/docker.io/library/mysql:8.0
     restart: always
     environment:
       MYSQL_DATABASE: ${MYSQL_DATABASE}

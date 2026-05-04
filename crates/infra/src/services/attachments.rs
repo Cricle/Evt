@@ -179,6 +179,41 @@ impl AppContext {
             .await?;
         self.download_attachment(resolved_id).await
     }
+
+    pub async fn download_public_media_attachment(
+        &self,
+        attachment_id: i64,
+    ) -> Result<AttachmentDownload, AppError> {
+        let attachment = self
+            .attachments
+            .find_by_id(attachment_id)
+            .await?;
+
+        let Some(attachment) = attachment else {
+            return Err(AppError::NotFound("attachment not found".into()));
+        };
+
+        if attachment.summary.content_type.starts_with("image/")
+            || attachment.summary.content_type.starts_with("video/")
+        {
+            return self.download_attachment(attachment_id).await;
+        }
+
+        let content = self
+            .posts
+            .find_content_by_attachment_id(attachment_id)
+            .await?;
+
+        let Some(content) = content else {
+            return Err(AppError::Unauthorized("attachment requires authentication".into()));
+        };
+
+        if !matches!(content.content_type, 3 | 4) {
+            return Err(AppError::Unauthorized("attachment requires authentication".into()));
+        }
+
+        self.download_attachment(attachment_id).await
+    }
 }
 
 async fn post_attachment_price(post_id: i64, app: &AppContext) -> Result<i64, AppError> {

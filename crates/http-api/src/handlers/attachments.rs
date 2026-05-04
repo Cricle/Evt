@@ -64,22 +64,52 @@ pub async fn download_attachment(
     headers: HeaderMap,
     Path(attachment_id): Path<i64>,
 ) -> Result<Response, HttpApiError> {
-    let actor = authenticate_request(state.app(), &headers).await?;
-    let attachment = state
-        .app()
-        .download_attachment_with_access(&actor, attachment_id)
-        .await?;
+    let (attachment, inline) = match state.app().download_public_media_attachment(attachment_id).await {
+        Ok(attachment) => (attachment, true),
+        Err(AppError::Unauthorized(_)) => {
+            let actor = authenticate_request(state.app(), &headers).await?;
+            (
+                state
+                .app()
+                .download_attachment_with_access(&actor, attachment_id)
+                .await?,
+                false,
+            )
+        }
+        Err(err) => return Err(err.into()),
+    };
     let mut response = Response::new(Body::from(attachment.bytes));
     response.headers_mut().insert(
         header::CONTENT_TYPE,
         HeaderValue::from_str(&attachment.content_type)
             .unwrap_or_else(|_| HeaderValue::from_static("application/octet-stream")),
     );
-    let disposition = format!("attachment; filename=\"{}\"", attachment.file_name);
+    let disposition_kind = if inline { "inline" } else { "attachment" };
+    let disposition = format!("{disposition_kind}; filename=\"{}\"", attachment.file_name);
     response.headers_mut().insert(
         header::CONTENT_DISPOSITION,
         HeaderValue::from_str(&disposition)
-            .unwrap_or_else(|_| HeaderValue::from_static("attachment")),
+            .unwrap_or_else(|_| HeaderValue::from_static("inline")),
+    );
+    Ok(response)
+}
+
+pub async fn preview_attachment(
+    State(state): State<HttpState>,
+    Path(attachment_id): Path<i64>,
+) -> Result<Response, HttpApiError> {
+    let attachment = state.app().download_attachment(attachment_id).await?;
+    let mut response = Response::new(Body::from(attachment.bytes));
+    response.headers_mut().insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_str(&attachment.content_type)
+            .unwrap_or_else(|_| HeaderValue::from_static("application/octet-stream")),
+    );
+    let disposition = format!("inline; filename=\"{}\"", attachment.file_name);
+    response.headers_mut().insert(
+        header::CONTENT_DISPOSITION,
+        HeaderValue::from_str(&disposition)
+            .unwrap_or_else(|_| HeaderValue::from_static("inline")),
     );
     Ok(response)
 }

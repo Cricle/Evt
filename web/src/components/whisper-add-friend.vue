@@ -9,25 +9,27 @@
         :mask-closable="false"
         :bordered="false"
         :style="{
-            width: '360px',
+            width: 'min(92vw, 420px)',
         }"
     >
         <div class="whisper-wrap">
-             <n-alert :show-icon="false">
-                发送添加朋友申请给:
-                <n-ellipsis style="max-width: 100%">
-                    <n-gradient-text type="success">
-                        {{ user.nickname }}@{{ user.username }}
-                    </n-gradient-text>
-                </n-ellipsis>
+            <n-alert :show-icon="false" type="info">
+                <div class="whisper-alert">
+                    <span>发送添加朋友申请给</span>
+                    <n-ellipsis style="max-width: 100%">
+                        <n-gradient-text type="success">
+                            {{ user.nickname }} @{{ user.username }}
+                        </n-gradient-text>
+                    </n-ellipsis>
+                </div>
             </n-alert>
             <div class="whisper-line">
                 <n-input
                     type="textarea"
-                    placeholder="请输入真挚的问候语"
+                    placeholder="请输入问候语，让对方知道你是谁"
                     :autosize="{
-                        minRows: 5,
-                        maxRows: 10,
+                        minRows: 4,
+                        maxRows: 8,
                     }"
                     v-model:value="content"
                     maxlength="120"
@@ -36,13 +38,11 @@
             </div>
             <div class="whisper-line send-wrap">
                 <n-button
-                    strong
-                    secondary
                     type="primary"
                     :loading="loading"
                     @click="sendWhisper"
                 >
-                    发送
+                    发送申请
                 </n-button>
             </div>
         </div>
@@ -65,9 +65,7 @@ const props = withDefaults(
 const content = ref('');
 const loading = ref(false);
 
-const emit = defineEmits<{
-  (e: 'success'): void;
-}>();
+const emit = defineEmits<(e: 'success') => void>();
 const closeModal = () => {
   emit('success');
 };
@@ -77,11 +75,12 @@ const sendWhisper = () => {
     return;
   }
   loading.value = true;
-  Api.v1.friend.post.requesting({
-    user_id: props.user.id,
-    greetings: content.value,
-  })
-    .then((res: any) => {
+  Api.v1.friend.post
+    .requesting({
+      user_id: props.user.id,
+      greetings: content.value,
+    })
+    .then(() => {
       window.$message.success('发送成功');
       loading.value = false;
       content.value = '';
@@ -97,12 +96,11 @@ const sendWhisper = () => {
 
 <style lang="less" scoped>
 .whisper-wrap {
-    --whisper-surface: transparent;
-    background-color: var(--whisper-surface);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
 
     .whisper-line {
-        margin-top: 10px;
-
         &.send-wrap {
             .n-button {
                 width: 100%;
@@ -111,7 +109,9 @@ const sendWhisper = () => {
     }
 }
 
-:global(.dark) .whisper-wrap {
-    --whisper-surface: rgba(16, 16, 20, 0.75);
+.whisper-alert {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 </style>

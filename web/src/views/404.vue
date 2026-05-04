@@ -9,7 +9,7 @@
                 description="再看看其他的吧"
             >
                 <template #footer>
-                    <n-button @click="goHome">回主页</n-button>
+                    <n-button @click="goHome">回首页</n-button>
                 </template>
             </n-result>
         </n-list>
@@ -18,15 +18,10 @@
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
-import { useStoreProfile } from '@/store/profile';
-import { storeToRefs } from 'pinia';
-import { buildHomeRouteWithSpace } from '@/utils/tagRoute';
 
 const router = useRouter();
-const storeProfile = useStoreProfile();
-const { currentSpaceSlug } = storeToRefs(storeProfile);
 const goHome = () => {
-  router.push(buildHomeRouteWithSpace({}, currentSpaceSlug.value));
+  router.push({ name: 'home' });
 };
 </script>
 
@@ -36,8 +31,5 @@ const goHome = () => {
     display: flex;
     align-items: center;
     justify-content: center;
-}
-:global(.dark) .main-content-wrap {
-    background-color: rgba(16, 16, 20, 0.75);
 }
 </style>

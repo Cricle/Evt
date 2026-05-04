@@ -85,6 +85,12 @@ pub struct AdminUserStatusBody {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct AdminUserAdminBody {
+    id: i64,
+    is_admin: bool,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct WalletRechargeBody {
     amount: i64,
 }
@@ -219,6 +225,19 @@ pub async fn admin_user_status(
     state
         .app()
         .update_user_status(payload.id, payload.status == 1)
+        .await?;
+    Ok(Json(success(serde_json::json!({}))))
+}
+
+pub async fn admin_user_admin(
+    State(state): State<HttpState>,
+    headers: HeaderMap,
+    Json(payload): Json<AdminUserAdminBody>,
+) -> Result<Json<ApiEnvelope<serde_json::Value>>, HttpApiError> {
+    require_admin(state.app(), &headers).await?;
+    state
+        .app()
+        .update_user_admin(payload.id, payload.is_admin)
         .await?;
     Ok(Json(success(serde_json::json!({}))))
 }

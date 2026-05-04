@@ -23,10 +23,8 @@ const props = withDefaults(
 
 <style lang="less" scoped>
 .skeleton-item {
-    --post-skeleton-bg: transparent;
     padding: 12px;
     display: flex;
-    background-color: var(--post-skeleton-bg);
 
     .user {
         width: 42px;
@@ -35,9 +33,5 @@ const props = withDefaults(
     .content {
         width: calc(100% - 42px);
     }
-}
-
-:global(.dark) .skeleton-item {
-    --post-skeleton-bg: rgba(16, 16, 20, 0.75);
 }
 </style>

@@ -872,7 +872,7 @@ impl PostRepository {
             r#"
             SELECT id, post_id, user_id, content_type, content, sort_order, created_at
             FROM post_contents
-            WHERE content_type IN (7, 8) AND TRIM(TRAILING '/' FROM content) LIKE CONCAT('%', ?)
+            WHERE content_type IN (3, 4, 7, 8) AND TRIM(TRAILING '/' FROM content) LIKE CONCAT('%', ?)
             ORDER BY id DESC
             LIMIT 1
             "#,

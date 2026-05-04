@@ -1,0 +1,44 @@
+/**
+ * @file 格式化日期
+ */
+import moment from 'moment';
+import 'moment/dist/locale/zh-cn';
+import { setMomentLocale } from '@/i18n';
+import { EVT_LOCALE_KEY } from '@/store/main';
+import { safeLocalStorageGet } from '@/utils/storage';
+setMomentLocale(safeLocalStorageGet(EVT_LOCALE_KEY) === 'en-US' ? 'en-US' : 'zh-CN');
+export const formatTime = (time) => {
+    return moment.unix(time).utc(true).format('YYYY-MM-DD HH:mm');
+};
+export const formatHumanTime = (time) => {
+    return moment().from(moment.unix(time));
+};
+export const formatRelativeTime = (time) => {
+    return moment.unix(time).fromNow();
+};
+export const formatPrettyTime = (time) => {
+    let mt = moment.unix(time);
+    let now = moment();
+    if (mt.year() != now.year()) {
+        return mt.utc(true).format('YYYY-MM-DD HH:mm');
+    }
+    else if (moment().diff(mt, 'month') > 3) {
+        return mt.utc(true).format('MM-DD HH:mm');
+    }
+    return mt.fromNow();
+};
+export const formatPrettyDate = (time) => {
+    let mt = moment.unix(time);
+    let now = moment();
+    if (mt.year() != now.year()) {
+        return mt.utc(true).format('YYYY-MM-DD');
+    }
+    else if (moment().diff(mt, 'month') > 3) {
+        return mt.utc(true).format('MM-DD');
+    }
+    return mt.fromNow();
+};
+export const formatDate = (time) => {
+    return moment.unix(time).utc(true).format('YYYY年MM月');
+};
+//# sourceMappingURL=formatTime.js.map

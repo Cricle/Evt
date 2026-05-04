@@ -3,10 +3,11 @@
         <div class="logo-wrap">
             <n-image class="logo-img" width="36" :src="LOGO" :preview-disabled="true" @click="goHome" />
         </div>
+
         <n-menu :accordion="true" :icon-size="24" :options="menuOptions" :render-label="renderMenuLabel"
             :render-icon="renderMenuIcon" :value="selectedPath" @update:value="goRouter" />
 
-        <div class="user-wrap" v-if="userInfo.id > 0">
+        <div class="user-wrap user-wrap-bottom" v-if="userInfo.id > 0">
             <n-avatar class="user-avatar" round :size="34" :src="userInfo.avatar || DEFAULT_USER_AVATAR" />
 
             <div class="user-info">
@@ -45,7 +46,7 @@
                 <n-button strong secondary round type="primary" @click="goAuth('signin')">
                     登录
                 </n-button>
-                <n-button strong secondary round type="primary" ghost @click="goAuth('signup')">
+                <n-button strong round type="primary" ghost @click="goAuth('signup')">
                     注册
                 </n-button>
             </div>
@@ -54,29 +55,31 @@
 </template>
 
 <script setup lang="ts">
-import { h, ref, watch, computed, onBeforeUnmount } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import LOGO from '@/assets/img/logo.png';
+import { useI18n } from '@/i18n';
 import { useStoreMain } from '@/store/main';
-import { NIcon, NBadge, useMessage } from 'naive-ui';
+import { useStoreProfile } from '@/store/profile';
+import { useStoreUser } from '@/store/user';
+import { type AuthMode, goToAuth } from '@/utils/authRoute';
+import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
+import { unreadLegacyMessageCount } from '@/utils/messageTransport';
+import { buildHomeRouteWithSpace } from '@/utils/tagRoute';
 import {
-  HomeOutline,
-  MegaphoneOutline,
   ChatbubblesOutline,
+  CompassOutline,
   PeopleOutline,
-  WalletOutline,
-  SettingsOutline,
   ConstructOutline,
+  HomeOutline,
   LogOutOutline,
+  MegaphoneOutline,
+  SettingsOutline,
+  WalletOutline,
 } from '@vicons/ionicons5';
 import { Hash } from '@vicons/tabler';
-import LOGO from '@/assets/img/logo.png';
-import { useStoreUser } from '@/store/user';
-import { useStoreProfile } from '@/store/profile';
+import { NBadge, NIcon, useMessage } from 'naive-ui';
 import { storeToRefs } from 'pinia';
-import { Api } from '@/utils/request';
-import { goToAuth, type AuthMode } from '@/utils/authRoute';
-import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
-import { buildHomeRouteWithSpace } from '@/utils/tagRoute';
+import { computed, h, onBeforeUnmount, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 const storeMain = useStoreMain();
 const storeUser = useStoreUser();
@@ -87,8 +90,9 @@ const { profile, currentSpaceSlug } = storeToRefs(storeProfile);
 
 const route = useRoute();
 const router = useRouter();
+const { t } = useI18n();
 const hasUnreadMsg = ref(false);
-const selectedPath = ref<any>(route.name || '');
+const selectedPath = ref<string>((route.name as string) || '');
 const msgLoop = ref<ReturnType<typeof setInterval>>();
 
 const enableAnnouncement =
@@ -99,7 +103,7 @@ watch(route, () => {
   selectedPath.value = route.name;
 });
 const syncUnreadMessages = () => {
-  Api.v1.user.get.msgcount.unread({})
+  unreadLegacyMessageCount()
     .then((res) => {
       hasUnreadMsg.value = res.count > 0;
       storeMain.updateUnreadMsgCount(res.count);
@@ -137,13 +141,19 @@ onBeforeUnmount(() => {
 const menuOptions = computed(() => {
   const options = [
     {
-      label: '广场',
+      label: t('route_landing'),
       key: 'home',
-      icon: () => h(HomeOutline),
+      icon: () => h(CompassOutline),
       href: '/',
     },
     {
-      label: '话题',
+      label: t('nav_home'),
+      key: 'space',
+      icon: () => h(HomeOutline),
+      href: '/space',
+    },
+    {
+      label: t('nav_topic'),
       key: 'topic',
       icon: () => h(Hash),
       href: '/topic',
@@ -151,21 +161,21 @@ const menuOptions = computed(() => {
   ];
   if (enableAnnouncement) {
     options.push({
-      label: '公告',
+      label: t('nav_announcement'),
       key: 'announcement',
       icon: () => h(MegaphoneOutline),
       href: '/announcement',
     });
   }
   options.push({
-    label: '消息',
+    label: t('nav_messages'),
     key: 'messages',
     icon: () => h(ChatbubblesOutline),
     href: '/messages',
   });
   if (profile.value.useFriendship) {
     options.push({
-      label: '好友',
+      label: t('nav_contacts'),
       key: 'contacts',
       icon: () => h(PeopleOutline),
       href: '/contacts',
@@ -173,21 +183,21 @@ const menuOptions = computed(() => {
   }
   if (profile.value.enableWallet) {
     options.push({
-      label: '钱包',
+      label: t('nav_wallet'),
       key: 'wallet',
       icon: () => h(WalletOutline),
       href: '/wallet',
     });
   }
   options.push({
-    label: '设置',
+    label: t('nav_settings'),
     key: 'setting',
     icon: () => h(SettingsOutline),
     href: '/setting',
   });
   if (userInfo.value.is_admin) {
     options.push({
-      label: '系统配置',
+      label: t('nav_admin_settings'),
       key: 'admin-settings',
       icon: () => h(ConstructOutline),
       href: '/admin/settings',
@@ -198,13 +208,19 @@ const menuOptions = computed(() => {
     ? options
     : [
         {
-          label: '广场',
+          label: t('route_landing'),
           key: 'home',
-          icon: () => h(HomeOutline),
+          icon: () => h(CompassOutline),
           href: '/',
         },
         {
-          label: '话题',
+          label: t('nav_home'),
+          key: 'space',
+          icon: () => h(HomeOutline),
+          href: '/space',
+        },
+        {
+          label: t('nav_topic'),
           key: 'topic',
           icon: () => h(Hash),
           href: '/topic',
@@ -245,11 +261,17 @@ const renderMenuIcon = (option: AnyObject) => {
   return h(NIcon, null, { default: option.icon });
 };
 
-const goRouter = (name: string, item: any = {}) => {
+const goRouter = (name: string, item: AnyObject = {}) => {
   selectedPath.value = name;
   const keepSpace =
-    name === 'home' || name === 'topic' || name === 'compose' || name === 'create-space';
+    name === 'space' || name === 'topic' || name === 'compose' || name === 'create-space';
   if (name === 'home') {
+    router.push({
+      name: 'home',
+    });
+    return;
+  }
+  if (name === 'space') {
     router.push(
       buildHomeRouteWithSpace(
         {
@@ -273,7 +295,7 @@ const goRouter = (name: string, item: any = {}) => {
   });
 };
 const goHome = () => {
-  if (route.path === '/') {
+  if (route.name === 'home') {
     storeMain.doRefresh();
   }
   goRouter('home');
@@ -299,15 +321,22 @@ window.$message = useMessage();
 
 .sidebar-wrap {
     z-index: 99;
-    width: 200px;
+    width: var(--layout-sidebar-width);
     height: 100vh;
-    position: fixed;
-    right: calc(50% + var(--content-main) / 2 + 10px);
-    padding: 12px 0;
+    position: sticky;
+    top: 0;
+    right: auto;
+    padding: var(--layout-edge-offset) 0 18px;
     box-sizing: border-box;
-    max-height: calc(100vh);
-    /* 调整高度 */
+    max-height: 100vh;
     overflow: auto;
+    display: flex;
+    flex-direction: column;
+    border-radius: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
 
     .n-menu .n-menu-item-content::before {
         border-radius: 21px;
@@ -316,10 +345,11 @@ window.$message = useMessage();
     .logo-wrap {
         display: flex;
         justify-content: flex-start;
-        margin-bottom: 12px;
+        margin-bottom: 10px;
 
         .logo-img {
             margin-left: 24px;
+            border-radius: 0;
 
             &:hover {
                 cursor: pointer;
@@ -330,10 +360,12 @@ window.$message = useMessage();
     .user-wrap {
         display: flex;
         align-items: center;
-        position: absolute;
-        bottom: 12px;
-        left: 12px;
-        right: 12px;
+        position: static;
+        margin-top: auto;
+        padding: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
 
         .user-mini-wrap {
             display: none;
@@ -341,15 +373,17 @@ window.$message = useMessage();
 
         .user-avatar {
             margin-right: 8px;
+            flex: 0 0 auto;
         }
 
         .user-info {
             display: flex;
             flex-direction: column;
+            min-width: 0;
 
             .nickname {
-                font-size: 16px;
-                font-weight: bold;
+                font-size: 15px;
+                font-weight: 600;
                 line-height: 16px;
                 height: 16px;
                 margin-bottom: 2px;
@@ -372,7 +406,7 @@ window.$message = useMessage();
                 font-size: 14px;
                 line-height: 16px;
                 height: 16px;
-                width: 120px;
+                max-width: 120px;
                 text-overflow: ellipsis;
                 overflow: hidden;
                 white-space: nowrap;
@@ -387,7 +421,7 @@ window.$message = useMessage();
 
             button {
                 margin: 0 4px;
-                width: 80%
+                width: 80%;
             }
         }
 
@@ -409,6 +443,50 @@ window.$message = useMessage();
     }
 }
 
+.mobile .sidebar-wrap {
+    width: 100%;
+    max-width: 100%;
+    right: auto;
+    left: 0;
+    position: relative;
+    top: 0;
+    height: auto;
+    min-height: 100%;
+    max-height: none;
+    padding: 10px 0 16px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+}
+
+.mobile .logo-wrap {
+    .logo-img {
+        margin-left: 10px !important;
+    }
+}
+
+.mobile .user-wrap {
+    position: static;
+    margin-top: auto;
+    padding: 0 10px;
+
+    .user-avatar,
+    .user-info,
+    .login-only-wrap,
+    .login-wrap {
+        margin-bottom: 0;
+    }
+}
+
+.mobile .user-wrap-bottom {
+    display: none !important;
+}
+
 @media screen and (max-width: 821px) {
     .sidebar-wrap {
         width: 100%;
@@ -416,25 +494,31 @@ window.$message = useMessage();
         right: auto;
         left: 0;
         position: relative;
+        top: 0;
         height: auto;
         min-height: 100%;
         max-height: none;
-        padding: 12px 12px 20px;
+        padding: 10px 0 16px;
         display: flex;
         flex-direction: column;
         overflow: hidden;
+        border-radius: 0;
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+        backdrop-filter: none;
     }
 
     .logo-wrap {
         .logo-img {
-            margin-left: 12px !important;
+            margin-left: 10px !important;
         }
     }
 
     .user-wrap {
         position: static;
         margin-top: auto;
-        padding-top: 20px;
+        padding: 0 10px;
 
         .user-avatar,
         .user-info,
@@ -443,8 +527,9 @@ window.$message = useMessage();
             margin-bottom: 0;
         }
 
-        //     .user-mini-wrap {
-        //         display: block !important;
-        //     }
     }
-}</style>
+    .user-wrap-bottom {
+        display: none !important;
+    }
+}
+</style>

@@ -1,102 +1,94 @@
 <template>
   <div class="auth-page">
-    <main-nav :title="mode === 'signin' ? '登录' : '注册'" :back="true" />
+    <main-nav :title="mode === 'signin' ? t('auth_tab_signin') : t('auth_tab_signup')" :back="true" />
     <div class="auth-shell">
-      <section class="auth-panel">
-        <div class="auth-hero">
-          <div class="auth-badge">Evt</div>
-          <h1>{{ mode === 'signin' ? '欢迎回来' : '创建账号' }}</h1>
-          <p>{{ mode === 'signin' ? '登录后继续浏览、发帖和互动。' : '注册后即可加入社区，发布动态和参与回复。' }}</p>
-        </div>
+      <n-card class="auth-panel" :bordered="false" size="large">
+        <n-space vertical :size="18">
+          <div class="auth-hero">
+            <div class="auth-copy">
+              <h1>{{ mode === 'signin' ? '欢迎回来' : '创建账号' }}</h1>
+              <p>{{ mode === 'signin' ? t('auth_signin_desc') : t('auth_signup_desc') }}</p>
+            </div>
+            <n-space size="small">
+              <n-tag round :bordered="false">{{ t('auth_feature_spaces') }}</n-tag>
+              <n-tag round :bordered="false">{{ t('auth_feature_realtime') }}</n-tag>
+              <n-tag round :bordered="false">{{ t('auth_feature_theme') }}</n-tag>
+            </n-space>
+          </div>
 
-        <div class="auth-switch">
-          <button
-            type="button"
-            class="auth-switch-btn"
-            :class="{ active: mode === 'signin', subtle: mode !== 'signin' }"
-            @click="switchMode('signin')"
+          <n-tabs
+            class="auth-tabs"
+            type="segment"
+            animated
+            :value="mode"
+            @update:value="switchMode"
           >
-            登录
-          </button>
-          <button
-            v-if="profile.allowUserRegister"
-            type="button"
-            class="auth-switch-btn"
-            :class="{ active: mode === 'signup', subtle: mode !== 'signup' }"
-            @click="switchMode('signup')"
-          >
-            注册
-          </button>
-        </div>
+            <n-tab-pane name="signin" :tab="t('auth_tab_signin')" />
+            <n-tab-pane v-if="profile.allowUserRegister" name="signup" :tab="t('auth_tab_signup')" />
+          </n-tabs>
 
-        <n-form
-          v-if="mode === 'signin'"
-          ref="loginRef"
-          class="auth-form"
-          :model="loginForm"
-          :rules="loginRules"
-        >
-          <n-form-item label="账户" path="username">
-            <n-input
-              v-model:value="loginForm.username"
-              placeholder="请输入用户名"
-              @keyup.enter.prevent="handleLogin"
-            />
-          </n-form-item>
-          <n-form-item label="密码" path="password">
-            <n-input
-              v-model:value="loginForm.password"
-              type="password"
-              show-password-on="mousedown"
-              placeholder="请输入账户密码"
-              @keyup.enter.prevent="handleLogin"
-            />
-          </n-form-item>
-          <n-button type="primary" block strong secondary :loading="loading" @click="handleLogin">
-            登录
-          </n-button>
-        </n-form>
-
-        <n-form
-          v-else
-          ref="registerRef"
-          class="auth-form"
-          :model="registerForm"
-          :rules="registerRules"
-        >
-          <n-form-item label="用户名" path="username">
-            <n-input v-model:value="registerForm.username" placeholder="用户名注册后无法修改" />
-          </n-form-item>
-          <n-form-item label="密码" path="password">
-            <n-input
-              v-model:value="registerForm.password"
-              type="password"
-              show-password-on="mousedown"
-              placeholder="密码不少于6位"
-              @keyup.enter.prevent="handleRegister"
-            />
-          </n-form-item>
-          <n-form-item label="重复密码" path="repassword">
-            <n-input
-              v-model:value="registerForm.repassword"
-              type="password"
-              show-password-on="mousedown"
-              placeholder="请再次输入密码"
-              @keyup.enter.prevent="handleRegister"
-            />
-          </n-form-item>
-          <n-button
-            type="primary"
-            block
-            strong
-            :loading="loading"
-            class="auth-submit-btn"
-            @click="handleRegister"
+          <n-form
+            v-if="mode === 'signin'"
+            ref="loginRef"
+            class="auth-form"
+            :model="loginForm"
+            :rules="loginRules"
           >
-            注册
-          </n-button>
-        </n-form>
-      </section>
+            <n-form-item :label="t('auth_account')" path="username">
+              <n-input
+                v-model:value="loginForm.username"
+                :placeholder="t('auth_placeholder_username')"
+                @keyup.enter.prevent="handleLogin"
+              />
+            </n-form-item>
+            <n-form-item :label="t('auth_password')" path="password">
+              <n-input
+                v-model:value="loginForm.password"
+                type="password"
+                show-password-on="mousedown"
+                :placeholder="t('auth_placeholder_login_password')"
+                @keyup.enter.prevent="handleLogin"
+              />
+            </n-form-item>
+            <n-button type="primary" block strong :loading="loading" @click="handleLogin">
+              {{ t('auth_action_signin') }}
+            </n-button>
+          </n-form>
+
+          <n-form
+            v-else
+            ref="registerRef"
+            class="auth-form"
+            :model="registerForm"
+            :rules="registerRules"
+          >
+            <n-form-item :label="t('auth_username')" path="username">
+              <n-input v-model:value="registerForm.username" :placeholder="t('auth_placeholder_register_username')" />
+            </n-form-item>
+            <n-form-item :label="t('auth_password')" path="password">
+              <n-input
+                v-model:value="registerForm.password"
+                type="password"
+                show-password-on="mousedown"
+                :placeholder="t('auth_placeholder_register_password')"
+                @keyup.enter.prevent="handleRegister"
+              />
+            </n-form-item>
+            <n-form-item :label="t('auth_repeat_password')" path="repassword">
+              <n-input
+                v-model:value="registerForm.repassword"
+                type="password"
+                show-password-on="mousedown"
+                :placeholder="t('auth_placeholder_repeat_password')"
+                @keyup.enter.prevent="handleRegister"
+              />
+            </n-form-item>
+            <n-button type="primary" block strong :loading="loading" @click="handleRegister">
+              {{ t('auth_action_signup') }}
+            </n-button>
+          </n-form>
+        </n-space>
+      </n-card>
     </div>
   </div>
 </template>
@@ -110,12 +102,14 @@ import { userInfo } from '@/api/auth';
 import { Api } from '@/utils/request';
 import { useStoreProfile } from '@/store/profile';
 import { TOKEN_KEY, useStoreUser } from '@/store/user';
+import { useI18n } from '@/i18n';
 
 const route = useRoute();
 const router = useRouter();
 const storeProfile = useStoreProfile();
 const storeUser = useStoreUser();
 const { profile } = storeToRefs(storeProfile);
+const { t } = useI18n();
 
 const loading = ref(false);
 const loginRef = ref<FormInst>();
@@ -145,52 +139,52 @@ const redirectTarget = computed(() => {
     : '/';
 });
 
-const loginRules = {
+const loginRules = computed(() => ({
   username: {
     required: true,
-    message: '请输入账户名',
+    message: t('auth_error_username_required'),
   },
   password: {
     required: true,
-    message: '请输入密码',
+    message: t('auth_error_password_required'),
   },
-};
+}));
 
-const registerRules = {
+const registerRules = computed(() => ({
   username: {
     required: true,
-    message: '请输入账户名',
+    message: t('auth_error_username_required'),
   },
   password: [
     {
       required: true,
-      message: '请输入密码',
+      message: t('auth_error_password_required'),
     },
     {
       min: 6,
-      message: '密码不少于6位',
+      message: t('auth_error_password_length'),
       trigger: 'input',
     },
   ],
   repassword: [
     {
       required: true,
-      message: '请再次输入密码',
+      message: t('auth_error_repeat_password_required'),
     },
     {
       validator: (_rule: FormItemRule, value: string) => value === registerForm.password,
-      message: '两次密码输入不一致',
+      message: t('auth_error_password_mismatch'),
       trigger: 'input',
     },
   ],
-};
+}));
 
-const switchMode = (nextMode: 'signin' | 'signup') => {
+const switchMode = (nextMode: string) => {
   router.replace({
     name: 'auth',
     query: {
       ...route.query,
-      mode: nextMode,
+      mode: nextMode === 'signup' ? 'signup' : 'signin',
     },
   });
 };
@@ -199,7 +193,7 @@ const finishAuth = async (token: string) => {
   localStorage.setItem(TOKEN_KEY, token);
   const currentUser = await userInfo(token);
   storeUser.updateUserinfo(currentUser);
-  window.$message.success('登录成功');
+  window.$message.success(t('auth_success_signin'));
   await router.replace(redirectTarget.value);
 };
 
@@ -232,7 +226,7 @@ const handleRegister = () => {
         username: registerForm.username,
         password: registerForm.password,
       });
-      window.$message.success('注册成功');
+      window.$message.success(t('auth_success_signup'));
       await finishAuth(loginRes?.token || '');
     } finally {
       loading.value = false;
@@ -243,99 +237,61 @@ const handleRegister = () => {
 
 <style scoped lang="less">
 .auth-page {
-  --auth-panel-border: var(--panel-border);
-  --auth-panel-bg: var(--panel-bg);
-  --auth-panel-shadow: var(--panel-shadow);
-  --auth-input-bg: var(--panel-bg);
-  --auth-input-border: var(--panel-border);
-  --auth-text-main: var(--editor-text-main);
-  --auth-text-subtle: var(--editor-text-subtle);
-  --auth-badge-bg: rgba(24, 160, 88, 0.12);
-  --auth-badge-text: #12895a;
-  --auth-switch-bg: var(--accent-soft-muted);
-  --auth-switch-text: var(--editor-text-main);
-  --auth-switch-hover-bg: var(--accent-soft-hover);
-  --auth-switch-hover-text: var(--accent-primary);
-  --auth-primary-start: #0f9f6e;
-  --auth-primary-end: #34bf82;
-  --auth-active-shadow: rgba(22, 148, 98, 0.22);
-  --auth-submit-shadow: rgba(22, 148, 98, 0.18);
-  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
   background:
     radial-gradient(circle at top left, var(--page-hero-bg-accent), transparent 28%),
+    radial-gradient(circle at 82% 16%, color-mix(in srgb, var(--accent-link) 12%, transparent), transparent 22%),
     linear-gradient(180deg, var(--page-hero-bg-base) 0%, var(--page-hero-bg-bottom) 100%);
 }
 
 .auth-shell {
-  padding: 48px 20px 72px;
+  display: grid;
+  place-items: center;
+  flex: 1 1 auto;
+  min-height: calc(100dvh - 58px);
+  box-sizing: border-box;
+  padding: 10px 16px 14px;
 }
 
 .auth-panel {
+  width: min(100%, 460px);
   max-width: 460px;
-  margin: 0 auto;
-  padding: var(--page-card-padding);
-  border: 1px solid var(--auth-panel-border);
+  background: color-mix(in srgb, var(--panel-bg) 76%, transparent);
+  border: var(--glass-panel-border);
   border-radius: var(--page-card-radius);
-  background: var(--auth-panel-bg);
-  box-shadow: var(--auth-panel-shadow);
-  backdrop-filter: blur(10px);
-  animation: auth-rise 0.28s ease;
+  box-shadow: var(--panel-shadow);
+  backdrop-filter: blur(14px);
 }
 
 .auth-hero {
-  margin-bottom: 20px;
-
-  h1 {
-    margin: 14px 0 8px;
-    font-size: 34px;
-    line-height: 1.05;
-  }
-
-  p {
-    margin: 0;
-    color: var(--auth-text-subtle);
-  }
+  display: grid;
+  gap: 12px;
 }
 
-.auth-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 30px;
-  padding: 0 14px;
-  border-radius: 999px;
-  background: var(--auth-badge-bg);
-  color: var(--auth-badge-text);
-  font-weight: 700;
+.auth-copy {
+  display: grid;
+  gap: 8px;
 }
 
-.auth-switch {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
+.auth-hero h1 {
+  margin: 0;
+  font-size: 32px;
+  line-height: 1.08;
 }
 
-.auth-switch-btn {
-  --auth-switch-btn-text: #fff;
-  flex: 1;
-  height: 44px;
-  border: 0;
-  border-radius: 14px;
-  background: var(--auth-switch-bg);
-  color: var(--auth-switch-text);
-  cursor: pointer;
-  transition: all 0.2s ease;
+.auth-hero p {
+  margin: 0;
+  color: var(--editor-text-subtle);
+}
 
-  &.active {
-    background: linear-gradient(135deg, var(--auth-primary-start), var(--auth-primary-end));
-    color: var(--auth-switch-btn-text);
-    box-shadow: 0 12px 26px var(--auth-active-shadow);
-  }
+.auth-tabs {
+  margin-top: 2px;
+}
 
-  &.subtle:hover {
-    background: var(--auth-switch-hover-bg);
-    color: var(--auth-switch-hover-text);
-  }
+.auth-tabs :deep(.n-tabs-pane-wrapper) {
+  display: none;
 }
 
 .auth-form {
@@ -343,94 +299,55 @@ const handleRegister = () => {
   gap: 8px;
 }
 
-.auth-submit-btn {
-  background: linear-gradient(135deg, var(--auth-primary-start), var(--auth-primary-end));
-  border-color: transparent;
-  box-shadow: 0 14px 30px var(--auth-submit-shadow);
-}
-
 .auth-page :deep(.n-form-item-label__text),
 .auth-page :deep(.n-input__placeholder),
 .auth-page :deep(.n-input__input-el),
 .auth-page :deep(.n-button__content) {
-  color: var(--auth-text-main);
+  color: var(--editor-text-main);
 }
 
 .auth-page :deep(.n-input) {
-  --n-border: var(--auth-input-border);
-  --n-border-hover: var(--auth-primary-start);
-  --n-border-focus: var(--auth-primary-start);
-  --n-border-disabled: var(--auth-input-border);
-  --n-box-shadow-focus: 0 0 0 2px color-mix(in srgb, var(--auth-primary-start) 18%, transparent);
-  --n-color: var(--auth-input-bg);
-  --n-color-focus: var(--auth-input-bg);
-  --n-text-color: var(--auth-text-main);
-  --n-caret-color: var(--auth-primary-start);
-  --n-placeholder-color: var(--auth-text-subtle);
+  --n-border: var(--panel-border);
+  --n-border-hover: var(--accent-primary);
+  --n-border-focus: var(--accent-primary);
+  --n-border-disabled: var(--panel-border);
+  --n-box-shadow-focus: 0 0 0 2px color-mix(in srgb, var(--accent-primary) 18%, transparent);
+  --n-color: color-mix(in srgb, var(--surface-subtle) 84%, transparent);
+  --n-color-focus: color-mix(in srgb, var(--surface-subtle) 92%, transparent);
+  --n-text-color: var(--editor-text-main);
+  --n-caret-color: var(--accent-primary);
+  --n-placeholder-color: var(--editor-text-subtle);
 }
 
+.auth-page :deep(.n-card__content) {
+  padding: 24px;
+}
+
+.auth-page :deep(.n-base-selection),
+.auth-page :deep(.n-tabs-nav-scroll-content),
 .auth-page :deep(.n-input .n-input__input-el),
 .auth-page :deep(.n-input .n-input__textarea-el) {
   color-scheme: light;
 }
 
-.auth-page :deep(.n-button--primary-type) {
-  --n-color: transparent;
-  --n-color-hover: transparent;
-  --n-color-pressed: transparent;
-  --n-color-focus: transparent;
-  --n-border: transparent;
-  --n-border-hover: transparent;
-  --n-border-pressed: transparent;
-  --n-border-focus: transparent;
-  --n-ripple-color: rgba(255, 255, 255, 0.18);
-  color: var(--auth-switch-btn-text);
-}
-
-:global(.dark) .auth-page {
-  --auth-badge-bg: var(--accent-soft-hover-dark);
-  --auth-badge-text: var(--accent-primary);
-  --auth-switch-bg: var(--accent-soft-muted);
-  --auth-switch-text: var(--editor-text-main);
-  --auth-switch-hover-bg: var(--accent-soft-hover-dark);
-  --auth-switch-hover-text: var(--accent-primary);
-  --auth-primary-start: var(--accent-primary);
-  --auth-primary-end: var(--accent-link);
-  --auth-active-shadow: rgba(54, 199, 132, 0.28);
-  --auth-submit-shadow: rgba(54, 199, 132, 0.22);
-}
-
-:global(.dark) .auth-hero h1 {
-  color: var(--auth-text-main);
-}
-
+:global(.dark) .auth-page :deep(.n-base-selection),
+:global(.dark) .auth-page :deep(.n-tabs-nav-scroll-content),
 :global(.dark) .auth-page :deep(.n-input .n-input__input-el),
 :global(.dark) .auth-page :deep(.n-input .n-input__textarea-el) {
   color-scheme: dark;
 }
 
-@keyframes auth-rise {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 @media screen and (max-width: 821px) {
   .auth-shell {
-    padding: 24px 14px 56px;
+    min-height: calc(100dvh - 54px);
+    padding: 8px 10px 10px;
   }
 
-  .auth-panel {
-    padding: 20px;
-    border-radius: 22px;
+  .auth-page :deep(.n-card__content) {
+    padding: 16px;
   }
 
-  .auth-hero h1 {
+  .auth-copy h1 {
     font-size: 28px;
   }
 }

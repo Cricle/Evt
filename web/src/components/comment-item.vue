@@ -1,5 +1,5 @@
 <template>
-    <div class="comment-item">
+    <div class="comment-item" :class="{ compact: props.compact, timeline: props.timeline }">
         <n-thing content-indented>
             <template #avatar>
                 <n-avatar round :size="30" :src="comment.user.avatar || DEFAULT_USER_AVATAR" />
@@ -133,8 +133,13 @@ const props = withDefaults(
   defineProps<{
     comment: Item.CommentProps;
     postUserId: number;
+    compact?: boolean;
+    timeline?: boolean;
   }>(),
-  {},
+  {
+    compact: false,
+    timeline: false,
+  },
 );
 
 const comment = computed(() => {
@@ -210,13 +215,15 @@ const execHightlightAction = () => {
 
 <style lang="less" scoped>
 .comment-item {
-    background-color: var(--surface-base);
     width: 100%;
-    padding: 16px;
+    padding: 16px 18px 14px;
     box-sizing: border-box;
+    border-top: 1px solid var(--panel-border);
+    background: transparent;
 
     .nickname-wrap {
         font-size: 14px;
+        font-weight: 600;
     }
     .username-wrap {
         font-size: 14px;
@@ -242,14 +249,26 @@ const execHightlightAction = () => {
         overflow: hidden;
         white-space: pre-wrap;
         word-break: break-all;
-        line-height: 1.7;
+        line-height: 1.72;
+        color: var(--editor-text-main);
     }
-    .opt-item {
-        display: flex;
-        align-items: center;
-        opacity: 0.7;
-        .opt-item-icon {
+
+    &.compact {
+        padding: 6px 0 2px;
+        border-top: 0;
+    }
+
+    &.timeline {
+        :deep(.n-thing) {
+            width: 100%;
+        }
+
+        :deep(.n-thing-avatar) {
             margin-right: 10px;
+        }
+
+        .opt-wrap .timestamp {
+            display: none;
         }
     }
 }

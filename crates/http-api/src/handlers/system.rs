@@ -1,10 +1,12 @@
-use axum::{Json, extract::State};
-use evt_domain::{SiteProfile, VersionInfo};
+use axum::{Json, extract::State, response::Html};
+use evt_domain::{AppError, SiteProfile, VersionInfo};
 use serde::Serialize;
+use std::fs;
 
 use crate::{
     response::{ApiEnvelope, HttpApiError, success},
     state::HttpState,
+    web_assets::resolve_spa_index_path,
 };
 
 #[derive(Debug, Serialize)]
@@ -36,4 +38,12 @@ pub async fn site_version(State(state): State<HttpState>) -> Json<ApiEnvelope<Ve
 
 pub async fn site_profile(State(state): State<HttpState>) -> Json<ApiEnvelope<SiteProfile>> {
     Json(success(state.app().site_profile()))
+}
+
+pub async fn spa_shell(State(state): State<HttpState>) -> Result<Html<String>, HttpApiError> {
+    let index_path = resolve_spa_index_path(&state.app().settings().web.dist_dir)
+        .map_err(HttpApiError::from)?;
+    let html = fs::read_to_string(&index_path)
+        .map_err(|err| HttpApiError::from(AppError::Internal(format!("read spa shell: {err}"))))?;
+    Ok(Html(html))
 }

@@ -1,6 +1,41 @@
 <template>
     <div>
-        <main-nav title="设置" theme />
+        <main-nav :title="t('route_setting')" theme />
+        <n-card :title="t('settings_theme')" size="small" class="setting-card">
+            <n-space vertical size="small">
+                <div class="setting-copy">{{ t('settings_theme_help') }}</div>
+                <div class="theme-setting-block">
+                    <div class="setting-subtitle">{{ t('settings_theme_mode') }}</div>
+                    <n-radio-group :value="themeMode" @update:value="handleThemeModeChange">
+                        <n-space>
+                            <n-radio value="system">{{ t('settings_theme_mode_system') }}</n-radio>
+                            <n-radio value="light">{{ t('settings_theme_mode_light') }}</n-radio>
+                            <n-radio value="dark">{{ t('settings_theme_mode_dark') }}</n-radio>
+                        </n-space>
+                    </n-radio-group>
+                </div>
+                <div class="theme-setting-block">
+                    <div class="setting-subtitle">{{ t('settings_theme_preset') }}</div>
+                    <div class="setting-copy">{{ t('settings_theme_preset_help') }}</div>
+                    <n-select
+                        :value="themePreset"
+                        :options="themePresetOptions"
+                        @update:value="handleThemePresetChange"
+                    />
+                </div>
+            </n-space>
+        </n-card>
+        <n-card :title="t('settings_language')" size="small" class="setting-card">
+            <n-space vertical size="small">
+                <div class="setting-copy">{{ t('settings_language_help') }}</div>
+                <n-radio-group :value="locale" @update:value="handleLocaleChange">
+                    <n-space>
+                        <n-radio value="zh-CN">{{ t('settings_language_zh') }}</n-radio>
+                        <n-radio value="en-US">{{ t('settings_language_en') }}</n-radio>
+                    </n-space>
+                </n-radio-group>
+            </n-space>
+        </n-card>
         <n-card title="基本信息" size="small" class="setting-card">
             <div class="base-line avatar">
                 <n-avatar
@@ -72,7 +107,12 @@
             </div>
         </n-card>
 
-        <n-card v-if="profile.allowPhoneBind" title="手机号" size="small" class="setting-card">
+        <n-card
+            v-if="profile.allowPhoneBind"
+            title="手机号"
+            size="small"
+            class="setting-card"
+        >
             <div
                 v-if="
                     userInfo.phone &&
@@ -340,9 +380,9 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, reactive } from 'vue';
+import { computed, onMounted, ref, reactive } from 'vue';
 import { useRouter } from 'vue-router';
-import { useStoreMain } from '@/store/main';
+import { useStoreMain, type AppThemeMode, type AppThemePreset } from '@/store/main';
 import { Edit } from '@vicons/tabler';
 import type {
   UploadInst,
@@ -358,6 +398,8 @@ import { Api } from '@/utils/request';
 import { buildApiUrl } from '@/utils/api';
 import { goToAuth } from '@/utils/authRoute';
 import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
+import { persistLocale, setMomentLocale, useI18n } from '@/i18n';
+import { themePresetDefinitions } from '@/theme';
 
 const uploadGateway = buildApiUrl('/v1/attachment');
 const uploadToken = 'Bearer ' + localStorage.getItem(TOKEN_KEY);
@@ -371,6 +413,8 @@ const storeProfile = useStoreProfile();
 const router = useRouter();
 const { userInfo } = storeToRefs(storeUser);
 const { profile } = storeToRefs(storeProfile);
+const { locale, t } = useI18n();
+const { themeMode, themePreset } = storeToRefs(storeMain);
 
 const sending = ref(false);
 const binding = ref(false);
@@ -405,6 +449,13 @@ const activateData = reactive({
   imgCaptcha: '',
   activate_code: '',
 });
+
+const themePresetOptions = computed(() =>
+  (Object.keys(themePresetDefinitions) as AppThemePreset[]).map((key) => ({
+    label: t(themePresetDefinitions[key].labelKey),
+    value: key,
+  })),
+);
 
 const beforeUpload = async (data: any) => {
   // 图片类型校验
@@ -701,6 +752,24 @@ const handleNicknameShow = () => {
     inputInstRef.value?.focus();
   });
 };
+
+const handleLocaleChange = (value: 'zh-CN' | 'en-US') => {
+  storeMain.triggerLocale(value);
+  persistLocale(value);
+  setMomentLocale(value);
+  window.$message.success(t('settings_language_updated'));
+};
+
+const handleThemeModeChange = (value: AppThemeMode) => {
+  storeMain.triggerThemeMode(value);
+  window.$message.success(t('settings_theme_updated'));
+};
+
+const handleThemePresetChange = (value: AppThemePreset) => {
+  storeMain.triggerThemePreset(value);
+  window.$message.success(t('settings_theme_updated'));
+};
+
 onMounted(() => {
   if (userInfo.value.id === 0) {
     goToAuth(router, 'signin', router.currentRoute.value.fullPath);
@@ -712,35 +781,65 @@ onMounted(() => {
 
 <style lang="less" scoped>
 .setting-card {
-    margin-top: -1px;
+    margin-top: 0;
     border-radius: 0;
+
+    :deep(.n-card-header) {
+        padding: 14px 16px 10px;
+    }
+
+    :deep(.n-card__content) {
+        padding: 0 16px 16px;
+    }
+
     .form-submit-wrap {
         display: flex;
         justify-content: flex-end;
+        gap: 12px;
     }
 
     .base-line {
-        line-height: 2;
         display: flex;
         align-items: center;
+        gap: 10px;
+        min-height: 36px;
+        line-height: 1.7;
+
         .base-label {
             opacity: 0.75;
-            margin-right: 12px;
+            min-width: 56px;
         }
 
         .nickname-input {
-            margin-right: 10px;
-            width: 120px;
+            width: 160px;
         }
+    }
+
+    .setting-copy {
+        opacity: 0.72;
+        line-height: 1.7;
+    }
+
+    .setting-subtitle {
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .theme-setting-block {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
     }
 
     .avatar {
         display: flex;
         flex-direction: column;
         align-items: flex-start;
+        gap: 10px;
         margin-bottom: 20px;
+
         .avatar-img {
-            margin-bottom: 10px;
+            box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--panel-border) 92%, transparent);
         }
     }
 
@@ -749,19 +848,25 @@ onMounted(() => {
     }
 
     .phone-bind-wrap {
-        margin-top: 20px;
+        margin-top: 18px;
+        padding: 14px;
+        border-radius: 12px;
+        background: color-mix(in srgb, var(--accent-soft-muted) 42%, transparent);
+
         .captcha-img-wrap {
             width: 100%;
             display: flex;
             align-items: center;
+            gap: 10px;
         }
+
         .captcha-img {
             width: 125px;
             height: 34px;
-            border-radius: 3px;
-            margin-left: 10px;
+            border-radius: 8px;
             overflow: hidden;
             cursor: pointer;
+
             img {
                 width: 100%;
                 height: 100%;
@@ -775,6 +880,33 @@ onMounted(() => {
 }
 
 :global(.dark) .setting-card {
-    --setting-surface-bg: rgba(16, 16, 20, 0.75);
+    --setting-surface-bg: rgba(16, 20, 20, 0.72);
+}
+
+@media screen and (max-width: 821px) {
+    .setting-card {
+        .base-line {
+            flex-wrap: wrap;
+        }
+
+        .base-line .base-label {
+            min-width: auto;
+        }
+
+        .phone-bind-wrap {
+            padding: 12px;
+        }
+
+        .phone-bind-wrap .captcha-img-wrap,
+        .form-submit-wrap {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .phone-bind-wrap .captcha-img {
+            width: 100%;
+            max-width: 180px;
+        }
+    }
 }
 </style>

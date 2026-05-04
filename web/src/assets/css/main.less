@@ -1,18 +1,32 @@
 :root {
     // 如果要变更中间栏的大小，修改此处即可
     --content-main: 620px;
-    --nav-bg: rgba(255, 255, 255, 0.78);
+    --layout-sidebar-width: 200px;
+    --layout-rightbar-width: 240px;
+    --layout-side-gap: 14px;
+    --layout-edge-offset: 12px;
+    --desktop-shell-width: calc(
+        var(--layout-sidebar-width) + var(--content-main) + var(--layout-rightbar-width) + var(--layout-side-gap) * 2
+    );
+    --desktop-shell-width-narrow: calc(
+        var(--layout-sidebar-width) + var(--content-main) + var(--layout-side-gap)
+    );
+    --glass-panel-bg: color-mix(in srgb, var(--panel-bg) 46%, transparent);
+    --glass-panel-border: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
+    --glass-panel-radius: 14px;
+    --glass-panel-blur: blur(8px);
+    --nav-bg: rgba(250, 252, 250, 0.78);
     --surface-base: transparent;
-    --surface-subtle: #f7f9f9;
-    --surface-muted: #fafafc;
+    --surface-subtle: rgba(255, 255, 255, 0.24);
+    --surface-muted: rgba(255, 255, 255, 0.18);
     --surface-elevated: var(--surface-muted);
     --surface-unread: #fcfffc;
-    --surface-dark-base: rgba(16, 16, 20, 0.75);
-    --surface-dark-panel: #18181c;
+    --surface-dark-base: rgba(16, 16, 20, 0.4);
+    --surface-dark-panel: rgba(23, 28, 28, 0.58);
     --surface-dark-unread: #0f180b;
-    --surface-dark-elevated: rgba(24, 28, 32, 0.98);
-    --border-subtle: #f3f3f3;
-    --border-subtle-dark: #262628;
+    --surface-dark-elevated: rgba(24, 28, 32, 0.62);
+    --border-subtle: rgba(18, 75, 51, 0.08);
+    --border-subtle-dark: rgba(148, 163, 184, 0.08);
     --accent-link: #18a058;
     --accent-link-dark: #63e2b7;
     --accent-primary: #18a058;
@@ -31,12 +45,12 @@
     --overlay-strong-dark: rgba(15, 23, 42, 0.72);
     --overlay-soft: rgba(15, 23, 42, 0.08);
     --overlay-soft-dark: rgba(255, 255, 255, 0.08);
-    --panel-bg: rgba(255, 255, 255, 0.9);
-    --panel-bg-dark: rgba(18, 24, 24, 0.9);
-    --panel-border: rgba(18, 75, 51, 0.1);
-    --panel-border-dark: rgba(148, 163, 184, 0.12);
-    --panel-shadow: 0 24px 70px rgba(20, 70, 48, 0.08);
-    --panel-shadow-dark: 0 24px 70px rgba(0, 0, 0, 0.28);
+    --panel-bg: rgba(255, 255, 255, 0.14);
+    --panel-bg-dark: rgba(18, 24, 24, 0.22);
+    --panel-border: rgba(18, 75, 51, 0.08);
+    --panel-border-dark: rgba(148, 163, 184, 0.08);
+    --panel-shadow: 0 6px 18px rgba(20, 70, 48, 0.035);
+    --panel-shadow-dark: 0 6px 18px rgba(0, 0, 0, 0.1);
     --editor-bg: rgba(255, 255, 255, 0.88);
     --editor-bg-dark: rgba(25, 33, 33, 0.92);
     --editor-toolbar-bg: rgba(245, 250, 247, 0.92);
@@ -59,21 +73,66 @@
     --text-link-secondary-dark: #ddd;
     --status-warning: #ff7600;
     --status-warning-dark: #fbbf24;
-    --page-hero-bg-base: #f5f9f5;
+    --page-hero-bg-base: #f3f7f2;
     --page-hero-bg-base-dark: #0d1212;
-    --page-hero-bg-bottom: #edf4ef;
-    --page-hero-bg-bottom-dark: #111818;
-    --page-hero-bg-glow: rgba(255, 255, 255, 0.76);
-    --page-hero-bg-glow-dark: rgba(25, 33, 33, 0.46);
-    --page-hero-bg-accent: rgba(24, 160, 88, 0.14);
-    --page-hero-bg-accent-dark: rgba(99, 226, 183, 0.12);
-    --page-card-radius: 28px;
+    --page-hero-bg-bottom: #edf3ee;
+    --page-hero-bg-bottom-dark: #0f1717;
+    --page-hero-bg-glow: rgba(255, 255, 255, 0.54);
+    --page-hero-bg-glow-dark: rgba(25, 33, 33, 0.28);
+    --page-hero-bg-accent: rgba(24, 160, 88, 0.1);
+    --page-hero-bg-accent-dark: rgba(99, 226, 183, 0.08);
+    --page-card-radius: 20px;
     --page-card-padding: 28px;
+    --page-shell-gap: 14px;
+    --page-shell-width: min(100%, calc(var(--content-main) + 32px));
+    --page-shell-side-pad: 16px;
     --emoji-font-stack: "Noto Color Emoji", "Noto Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+}
+
+html,
+body,
+#app {
+    min-height: 100%;
+}
+
+body {
+    margin: 0;
+    color: var(--editor-text-main);
+    line-height: 1.5;
+    background:
+        radial-gradient(circle at 0% 0%, rgba(24, 160, 88, 0.06), transparent 24%),
+        radial-gradient(circle at 100% 8%, rgba(99, 226, 183, 0.05), transparent 18%),
+        radial-gradient(circle at 50% 100%, rgba(18, 75, 51, 0.035), transparent 24%),
+        linear-gradient(180deg, var(--page-hero-bg-base) 0%, var(--page-hero-bg-bottom) 100%);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    transition:
+        background 0.24s ease,
+        color 0.24s ease;
+    scrollbar-gutter: stable both-edges;
+}
+
+body::selection {
+    background: var(--accent-soft-strong);
 }
 
 .app-container {
     margin: 0;
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+    isolation: isolate;
+
+    &::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background:
+            radial-gradient(circle at top left, rgba(24, 160, 88, 0.035), transparent 20%),
+            radial-gradient(circle at bottom right, rgba(99, 226, 183, 0.03), transparent 18%);
+        z-index: -1;
+    }
 
     .app-wrap {
         width: 100%;
@@ -83,24 +142,74 @@
 
 .main-wrap {
     min-height: 100vh;
-    display: flex;
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: var(--layout-sidebar-width) minmax(0, var(--content-main)) var(--layout-rightbar-width);
+    column-gap: var(--layout-side-gap);
+    align-items: start;
     justify-content: center;
+    width: min(
+        calc(100% - var(--layout-edge-offset) * 2),
+        var(--desktop-shell-width)
+    );
+    margin: 0 auto;
+    padding: 0 var(--layout-edge-offset);
+    box-sizing: border-box;
 
     .content-wrap {
         width: 100%;
-        max-width: var(--content-main);
+        max-width: none;
         position: relative;
+        min-height: 100vh;
+        padding-bottom: 88px;
     }
 
     .main-content-wrap {
         margin: 0;
-        border-top: none;
+        border: 0;
+        border-top: 0;
         border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+        backdrop-filter: none;
+        overflow: hidden;
+        animation: shell-rise 0.24s ease;
 
         .n-list-item {
             padding: 0;
         }
+    }
+}
+
+.app-container.desktop-no-rightbar {
+    .main-wrap {
+        grid-template-columns: var(--layout-sidebar-width) minmax(0, var(--content-main));
+        width: min(
+            calc(100% - var(--layout-edge-offset) * 2),
+            var(--desktop-shell-width-narrow)
+        );
+    }
+}
+
+.app-container.mobile {
+    .main-wrap {
+        display: flex;
+        width: 100%;
+        padding: 0;
+    }
+
+    .content-wrap {
+        top: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        max-width: 100%;
+        position: absolute !important;
+        padding-bottom: 96px;
+    }
+
+    .main-content-wrap {
+        margin-top: 0;
+        border-radius: 0;
     }
 }
 
@@ -109,6 +218,20 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 20px;
+}
+
+.n-card,
+.n-button,
+.n-input,
+.n-base-selection,
+.n-tag {
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        color 0.2s ease,
+        box-shadow 0.2s ease,
+        transform 0.2s ease;
 }
 
 .following-link {
@@ -163,7 +286,7 @@
 }
 
 .dark {
-    --nav-bg: rgba(18, 24, 24, 0.9);
+    --nav-bg: rgba(16, 22, 22, 0.7);
     --surface-base: var(--surface-dark-base);
     --surface-subtle: var(--surface-dark-panel);
     --surface-muted: var(--surface-dark-panel);
@@ -213,9 +336,45 @@
     }
 }
 
+@keyframes shell-rise {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 @media screen and (max-width: 821px) {
+    :root {
+        --page-card-radius: 16px;
+        --page-card-padding: 20px;
+        --page-shell-gap: 10px;
+        --page-shell-side-pad: 0;
+        --layout-edge-offset: 10px;
+    }
+
+    .main-wrap {
+        padding: 0;
+        gap: 0;
+        width: 100%;
+    }
+
     .content-wrap {
         top: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        max-width: 100%;
         position: absolute !important;
+        padding-bottom: 96px;
+    }
+
+    .main-wrap .main-content-wrap {
+        margin-top: 0;
+        border-radius: 0;
     }
 }

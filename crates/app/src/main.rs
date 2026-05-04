@@ -1,6 +1,6 @@
 use anyhow::Context;
 use evt_config::Settings;
-use evt_grpc_api::authenticate_service;
+use evt_grpc_api::{authenticate_service, message_service};
 use evt_http_api::{HttpState, router};
 use evt_infra::AppContext;
 use opentelemetry::trace::TracerProvider as _;
@@ -21,6 +21,7 @@ async fn main() -> anyhow::Result<()> {
 
     let http_addr = settings.http_addr();
     let grpc_addr = settings.grpc_addr();
+    let grpc_app = app.clone();
 
     let http_state = HttpState::new(app.clone());
     let http_listener = TcpListener::bind(&http_addr)
@@ -38,6 +39,7 @@ async fn main() -> anyhow::Result<()> {
         info!("grpc server listening on {}", grpc_addr);
         Server::builder()
             .add_service(authenticate_service(app))
+            .add_service(message_service(grpc_app))
             .serve(grpc_addr.parse()?)
             .await
             .context("run grpc server")

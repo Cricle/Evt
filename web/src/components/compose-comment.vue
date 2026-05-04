@@ -19,7 +19,11 @@
           @search="handleSearch"
           @focus="focusComment"
           :placeholder="
-            props.lock === 1 ? '该动态已被锁定，回复功能已关闭' : '快来评论两句吧...'
+            props.lock === 1
+              ? '该动态已被锁定，回复功能已关闭'
+              : isEventMode
+                ? '添加新的时间节点...'
+                : '快来评论两句吧...'
           "
         />
       </div>
@@ -43,7 +47,7 @@
                 @click="imageInputRef?.click()"
               >
                 <span>🖼️</span>
-                图片
+                {{ isEventMode ? '图片节点' : '图片' }}
               </button>
 
               <n-tooltip trigger="hover" placement="bottom">
@@ -66,7 +70,7 @@
                 取消
               </n-button>
               <n-button :loading="submitting" @click="submitPost" type="primary" secondary size="small" round>
-                发布
+                {{ submitLabel }}
               </n-button>
             </div>
           </div>
@@ -97,7 +101,7 @@
       </div>
       <div v-else class="login-wrap">
         <n-button strong secondary round type="primary" @click="goAuth('signin')">登录</n-button>
-        <n-button strong secondary round type="primary" ghost @click="goAuth('signup')">注册</n-button>
+        <n-button strong round type="primary" ghost @click="goAuth('signup')">注册</n-button>
       </div>
     </div>
   </div>
@@ -130,10 +134,12 @@ const props = withDefaults(
   defineProps<{
     lock: number;
     postId: number;
+    mode?: 'comment' | 'event-node';
   }>(),
   {
     lock: 0,
     postId: 0,
+    mode: 'comment',
   },
 );
 
@@ -153,6 +159,8 @@ const imageInputRef = ref<HTMLInputElement | null>(null);
 const allowUserRegister = ref(import.meta.env.VITE_ALLOW_USER_REGISTER.toLowerCase() === 'true');
 const defaultCommentMaxLength = Number(import.meta.env.VITE_DEFAULT_COMMENT_MAX_LENGTH);
 const uploadGateway = buildApiUrl('/v1/attachment');
+const isEventMode = computed(() => props.mode === 'event-node');
+const submitLabel = computed(() => (isEventMode.value ? '添加节点' : '发布'));
 
 const uploadToken = computed(() => `Bearer ${localStorage.getItem(TOKEN_KEY) || ''}`);
 
@@ -242,7 +250,7 @@ const uploadImage = async (file: File) => {
       created_on: Date.now(),
     });
   } catch (_error) {
-    window.$message.error('评论图片上传失败');
+      window.$message.error(isEventMode.value ? '节点图片上传失败' : '评论图片上传失败');
   } finally {
     uploading.value = uploading.value.filter((item) => item.id !== id);
   }
@@ -267,7 +275,7 @@ const removeUpload = (assetId: number) => {
 
 const submitPost = () => {
   if (content.value.trim().length === 0) {
-    window.$message.warning('请输入内容哦');
+    window.$message.warning(isEventMode.value ? '请填写时间节点内容' : '请输入内容哦');
     return;
   }
 
@@ -297,7 +305,7 @@ const submitPost = () => {
     users: Array.from(new Set(users)),
   })
     .then(() => {
-      window.$message.success('发布成功');
+      window.$message.success(isEventMode.value ? '时间节点已添加' : '发布成功');
       emit('post-success');
       cancelComment();
     })

@@ -194,18 +194,11 @@ watch(
 <style lang="less" scoped>
 
 .main-content-wrap {
-    --following-surface-bg: transparent;
     padding: 20px;
-    background-color: var(--following-surface-bg);
-}
-
-.empty-wrap,
-.skeleton-wrap {
-    background-color: var(--following-surface-bg);
 }
 
 .load-more {
-    margin: 20px;
+    margin: 12px 0 8px;
 
     .load-more-wrap {
         display: flex;
@@ -219,11 +212,5 @@ watch(
             opacity: 0.65;
         }
     }
-}
-
-:global(.dark) .main-content-wrap,
-:global(.dark) .empty-wrap,
-:global(.dark) .skeleton-wrap {
-    --following-surface-bg: rgba(16, 16, 20, 0.75);
 }
 </style>

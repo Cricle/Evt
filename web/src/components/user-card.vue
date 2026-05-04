@@ -1,69 +1,68 @@
 <template>
     <div class="user-card">
-        <n-thing content-indented>
-            <template #avatar>
-                <n-avatar :size="54" :src="contact.avatar || DEFAULT_USER_AVATAR" />
-            </template>
-            <template #header>
-                <span class="nickname-wrap">
-                    <router-link
-                        @click.stop
-                        class="username-link"
-                        :to="{
-                            name: 'user',
-                            query: { s: contact.username },
-                        }"
-                    >
-                        {{ contact.nickname }}
-                    </router-link>
-                </span>
-                <span class="username-wrap"> @{{ contact.username }} </span>
-                <n-tag
-                    v-if="showFollowingTag && contact.is_following"
-                    class="top-tag" type="success" size="small" round>
-                    已关注
-                </n-tag>
+        <div class="user-card-main">
+            <n-avatar class="user-card-avatar" :size="50" :src="contact.avatar || DEFAULT_USER_AVATAR" />
+            <div class="user-card-body">
+                <div class="user-card-head">
+                    <div class="user-card-title">
+                        <router-link
+                            @click.stop
+                            class="username-link user-card-name"
+                            :to="{
+                                name: 'user',
+                                query: { s: contact.username },
+                            }"
+                        >
+                            {{ contact.nickname }}
+                        </router-link>
+                        <span class="user-card-username">@{{ contact.username }}</span>
+                        <n-tag
+                            v-if="showFollowingTag && contact.is_following"
+                            class="top-tag"
+                            type="success"
+                            size="small"
+                            round
+                        >
+                            已关注
+                        </n-tag>
+                    </div>
+                    <div class="item-header-extra">
+                        <n-dropdown
+                            placement="bottom-end"
+                            trigger="click"
+                            size="small"
+                            :options="actionOpts"
+                            @select="handleAction"
+                        >
+                            <n-button quaternary circle>
+                                <template #icon>
+                                    <n-icon>
+                                        <more-horiz-filled />
+                                    </n-icon>
+                                </template>
+                            </n-button>
+                        </n-dropdown>
+                    </div>
+                </div>
                 <div class="user-info">
-                    <span class="info-item">
-                        UID. {{ contact.user_id }}
-                    </span>
-                     <span class="info-item">
-                        {{ formatDate(contact.created_on) }}&nbsp;加入
-                    </span>
+                    <span class="info-item">UID {{ contact.user_id }}</span>
+                    <span class="info-dot">·</span>
+                    <span class="info-item">{{ formatDate(contact.created_on) }} 加入</span>
                 </div>
-            </template>
-            <template #header-extra>
-                <div class="item-header-extra">
-                    <n-dropdown
-                        placement="bottom-end"
-                        trigger="click"
-                        size="small"
-                        :options="actionOpts"
-                        @select="handleAction"
-                    >
-                        <n-button quaternary circle>
-                            <template #icon>
-                                <n-icon>
-                                    <more-horiz-filled />
-                                </n-icon>
-                            </template>
-                        </n-button>
-                    </n-dropdown>
-                </div>
-            </template>
-        </n-thing>
+            </div>
+        </div>
     </div>
 </template>
 
 <script setup lang="ts">
-import { h, computed } from 'vue';
-import type { Component } from 'vue';
-import { NIcon, useDialog, DropdownOption } from 'naive-ui';
-import { formatDate } from '@/utils/formatTime';
-import { MoreHorizFilled } from '@vicons/material';
-import { PaperPlaneOutline, BodyOutline, WalkOutline } from '@vicons/ionicons5';
 import UserAction from '@/composables/useUserAction';
 import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
+import { formatDate } from '@/utils/formatTime';
+import { BodyOutline, PaperPlaneOutline, WalkOutline } from '@vicons/ionicons5';
+import { MoreHorizFilled } from '@vicons/material';
+import { type DropdownOption, NIcon, useDialog } from 'naive-ui';
+import { computed, h } from 'vue';
+import type { Component } from 'vue';
 
 const dialog = useDialog();
 
@@ -95,8 +94,13 @@ const renderIcon = (icon: Component) => {
 
 const handleFollowUser = () => {
   const wasFollowing = props.contact.is_following;
-  UserAction.followAction(dialog, props.contact.user_id, props.contact.username, props.contact.is_following)
-    .then(_action => {
+  UserAction.followAction(
+    dialog,
+    props.contact.user_id,
+    props.contact.username,
+    props.contact.is_following,
+  )
+    .then((_action) => {
       props.contact.is_following = _action;
       if (wasFollowing && !_action) {
         emit('unfollow-success');
@@ -108,9 +112,9 @@ const handleFollowUser = () => {
 };
 
 const actionOpts = computed(() => {
-  let options: DropdownOption[] = [
+  const options: DropdownOption[] = [
     {
-      label: '私信 @' + props.contact.username,
+      label: `私信 @${props.contact.username}`,
       key: 'whisper',
       icon: renderIcon(PaperPlaneOutline),
     },
@@ -119,13 +123,13 @@ const actionOpts = computed(() => {
   if (enableFollowAction.value) {
     if (props.contact.is_following) {
       options.push({
-        label: '取消关注 @' + props.contact.username,
+        label: `取消关注 @${props.contact.username}`,
         key: 'unfollow',
         icon: renderIcon(WalkOutline),
       });
     } else {
       options.push({
-        label: '关注 @' + props.contact.username,
+        label: `关注 @${props.contact.username}`,
         key: 'follow',
         icon: renderIcon(BodyOutline),
       });
@@ -141,7 +145,7 @@ const handleAction = (item: 'follow' | 'unfollow' | 'whisper') => {
     case 'unfollow':
       handleFollowUser();
       break;
-    case 'whisper':
+    case 'whisper': {
       const user: Item.UserInfo = {
         id: props.contact.user_id,
         avatar: props.contact.avatar || DEFAULT_USER_AVATAR,
@@ -157,6 +161,7 @@ const handleAction = (item: 'follow' | 'unfollow' | 'whisper') => {
       };
       emit('send-whisper', user);
       break;
+    }
     default:
       break;
   }
@@ -165,41 +170,93 @@ const handleAction = (item: 'follow' | 'unfollow' | 'whisper') => {
 
 <style lang="less" scoped>
 .user-card {
-    --user-card-hover-bg: var(--surface-subtle);
-    --user-card-bg: var(--surface-base);
     width: 100%;
     box-sizing: border-box;
-    padding: 12px 16px;
-    background-color: var(--user-card-bg);
+    padding: 14px 2px;
+}
 
-    &:hover {
-        background: var(--user-card-hover-bg);
+.user-card-main {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    min-width: 0;
+}
+
+.user-card-avatar {
+    flex-shrink: 0;
+}
+
+.user-card-body {
+    min-width: 0;
+    flex: 1;
+}
+
+.user-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.user-card-title {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    min-width: 0;
+}
+
+.user-card-name {
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.user-card-username {
+    font-size: 13px;
+    opacity: 0.65;
+    min-width: 0;
+    word-break: break-all;
+}
+
+.top-tag {
+    transform: translateY(-1px) scale(0.92);
+    transform-origin: left center;
+}
+
+.user-info {
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.info-item {
+    font-size: 13px;
+    line-height: 1.4;
+    opacity: 0.72;
+}
+
+.info-dot {
+    font-size: 12px;
+    opacity: 0.42;
+}
+
+.item-header-extra {
+    display: flex;
+    align-items: center;
+    opacity: 0.75;
+    flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+    .user-card {
+        padding: 12px 0;
     }
 
-    .nickname-wrap {
-        line-height: 16px;
-        font-size: 16px;
-    }
-    .username-wrap {
-        line-height: 16px;
-        font-size: 16px;
-    }
-
-    .top-tag {
-        transform: scale(0.75);
-    }
-    .user-info {
-        .info-item {
-            font-size: 14px;
-            line-height: 14px;
-            margin-right: 8px;
-            opacity: 0.75;
-        }
-    }
-    .item-header-extra {
-        display: flex;
-        align-items: center;
-        opacity: 0.75;
+    .user-card-head {
+        gap: 8px;
     }
 }
 </style>

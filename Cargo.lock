@@ -674,6 +674,7 @@ dependencies = [
  "chrono",
  "evt-config",
  "evt-domain",
+ "evt-grpc-api",
  "evt-infra",
  "http",
  "rand 0.8.6",

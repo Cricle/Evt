@@ -3,100 +3,168 @@ use serde_json::{Value, json};
 
 use crate::AppContext;
 
-const EDITABLE_KEYS: &[(&str, &str, &str, &str, &str)] = &[
-    ("use_friendship", "web", "profile", "bool", "Use friendship"),
+type SettingCatalogItem = (&'static str, &'static str, &'static str, &'static str, &'static str, &'static str);
+
+const EDITABLE_KEYS: &[SettingCatalogItem] = &[
+    (
+        "enable_spaces",
+        "web",
+        "spaces",
+        "bool",
+        "启用广场体系",
+        "开启后，站点会按广场隔离内容、成员和权限；关闭后，前端仍会回退到默认公共广场视角。",
+    ),
+    (
+        "default_space_slug",
+        "web",
+        "spaces",
+        "string",
+        "默认广场标识",
+        "指定新用户默认进入、系统兜底使用的广场 slug。建议始终指向一个真实存在且可访问的公共广场。",
+    ),
+    (
+        "allow_user_register",
+        "web",
+        "accounts",
+        "bool",
+        "允许新用户注册",
+        "关闭后，未登录访客将不能自行创建账号，只能由已有账号登录或由管理员预置用户。",
+    ),
+    (
+        "allow_phone_bind",
+        "web",
+        "accounts",
+        "bool",
+        "允许绑定手机号",
+        "控制前端是否展示手机号绑定入口，以及用户是否可以通过短信验证码完成手机号绑定。",
+    ),
+    (
+        "use_friendship",
+        "web",
+        "social",
+        "bool",
+        "启用好友关系",
+        "开启后，会显示好友、好友申请、好友可见等社交能力；关闭后，相关入口和交互会一并隐藏。",
+    ),
     (
         "enable_trends_bar",
         "web",
-        "profile",
+        "social",
         "bool",
-        "Enable trends bar",
+        "启用趋势栏",
+        "控制首页是否展示趋势联系人/快捷切换栏。适合强调活跃联系人和关注动态的场景。",
     ),
-    ("enable_wallet", "web", "profile", "bool", "Enable wallet"),
+    (
+        "enable_wallet",
+        "web",
+        "payments",
+        "bool",
+        "启用钱包功能",
+        "开启后，用户将看到钱包入口以及与余额、支付相关的前端能力；关闭后，钱包模块整体隐藏。",
+    ),
     (
         "allow_tweet_attachment",
         "web",
-        "profile",
+        "publishing",
         "bool",
-        "Allow attachments",
+        "允许发布附件",
+        "控制编辑器里是否允许上传并附带文件附件，例如压缩包、文档或二进制文件。",
     ),
     (
         "allow_tweet_attachment_price",
         "web",
-        "profile",
+        "payments",
         "bool",
-        "Allow paid attachments",
+        "允许附件定价",
+        "开启后，发布者可以为附件设置价格；关闭后，附件只能以免费形式发布。",
     ),
     (
         "allow_tweet_video",
         "web",
-        "profile",
+        "publishing",
         "bool",
-        "Allow video posts",
+        "允许发布视频",
+        "控制编辑器中视频上传能力以及服务端对视频附件上传的放行逻辑。",
     ),
     (
         "default_tweet_max_length",
         "web",
-        "profile",
+        "publishing",
         "int",
-        "Default tweet max length",
+        "动态最大字数",
+        "限制一条动态允许输入的最大纯文本长度。前端编辑器和服务端校验都会使用这个值。",
     ),
     (
         "tweet_web_ellipsis_size",
         "web",
-        "profile",
+        "reading",
         "int",
-        "Web ellipsis size",
+        "Web 摘要折叠长度",
+        "控制桌面端信息流里，一条动态在未展开时最多展示多少文本，超过后会折叠显示。",
     ),
     (
         "tweet_mobile_ellipsis_size",
         "web",
-        "profile",
+        "reading",
         "int",
-        "Mobile ellipsis size",
+        "移动端摘要折叠长度",
+        "控制移动端信息流里，一条动态在未展开时最多展示多少文本，超过后会折叠显示。",
     ),
     (
         "default_tweet_visibility",
         "web",
-        "profile",
+        "publishing",
         "string",
-        "Default tweet visibility",
+        "默认可见范围",
+        "指定发布动态时默认选中的可见性，例如公开、关注可见、好友可见或私密。",
     ),
     (
         "default_msg_loop_interval",
         "web",
-        "profile",
+        "reading",
         "int",
-        "Message polling interval",
+        "消息轮询间隔",
+        "前端轮询未读消息的时间间隔，单位为毫秒。值越小越实时，但请求频率也会更高。",
     ),
-    ("copyright_top", "web", "profile", "string", "Copyright top"),
+    (
+        "copyright_top",
+        "web",
+        "branding",
+        "string",
+        "页脚主文案",
+        "显示在站点页脚顶部的主版权或品牌文字，通常用于站点名、年份或备案信息。",
+    ),
     (
         "copyright_left",
         "web",
-        "profile",
+        "branding",
         "string",
-        "Copyright left",
+        "页脚左侧文案",
+        "显示在页脚左侧链接位置的文字。留空则不显示该链接。",
     ),
     (
         "copyright_left_link",
         "web",
-        "profile",
+        "branding",
         "string",
-        "Copyright left link",
+        "页脚左侧链接",
+        "为页脚左侧文案配置跳转地址。通常配合页脚左侧文案一起使用。",
     ),
     (
         "copyright_right",
         "web",
-        "profile",
+        "branding",
         "string",
-        "Copyright right",
+        "页脚右侧文案",
+        "显示在页脚右侧链接位置的文字。留空则不显示该链接。",
     ),
     (
         "copyright_right_link",
         "web",
-        "profile",
+        "branding",
         "string",
-        "Copyright right link",
+        "页脚右侧链接",
+        "为页脚右侧文案配置跳转地址。通常用于项目主页、文档或开源仓库。",
     ),
 ];
 
@@ -104,8 +172,12 @@ impl AppContext {
     pub async fn admin_settings_schema(&self) -> Result<Vec<SiteSettingSchemaItem>, AppError> {
         let current = self.site_profile_snapshot();
         let mut items = Vec::with_capacity(EDITABLE_KEYS.len());
-        for (key, group, section, value_type, label) in EDITABLE_KEYS {
+        for (key, group, section, value_type, label, description) in EDITABLE_KEYS {
             let bootstrap_value = match *key {
+                "enable_spaces" => json!(current.enable_spaces),
+                "default_space_slug" => json!(current.default_space_slug),
+                "allow_user_register" => json!(current.allow_user_register),
+                "allow_phone_bind" => json!(current.allow_phone_bind),
                 "use_friendship" => json!(current.use_friendship),
                 "enable_trends_bar" => json!(current.enable_trends_bar),
                 "enable_wallet" => json!(current.enable_wallet),
@@ -130,7 +202,7 @@ impl AppContext {
                 section: (*section).to_string(),
                 value_type: (*value_type).to_string(),
                 label: (*label).to_string(),
-                description: (*label).to_string(),
+                description: (*description).to_string(),
                 apply_mode: "live".to_string(),
                 secret: false,
                 readonly: false,
@@ -159,7 +231,7 @@ impl AppContext {
             .await?
             .unwrap_or_else(|| json!({}));
         let mut items = Vec::with_capacity(EDITABLE_KEYS.len());
-        for (key, _, _, _, _) in EDITABLE_KEYS {
+        for (key, _, _, _, _, _) in EDITABLE_KEYS {
             let value = payload
                 .get(*key)
                 .cloned()
@@ -204,6 +276,10 @@ impl AppContext {
 
 fn setting_value_from_profile(profile: &evt_domain::SiteProfile, key: &str) -> Value {
     match key {
+        "enable_spaces" => json!(profile.enable_spaces),
+        "default_space_slug" => json!(profile.default_space_slug),
+        "allow_user_register" => json!(profile.allow_user_register),
+        "allow_phone_bind" => json!(profile.allow_phone_bind),
         "use_friendship" => json!(profile.use_friendship),
         "enable_trends_bar" => json!(profile.enable_trends_bar),
         "enable_wallet" => json!(profile.enable_wallet),

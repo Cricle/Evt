@@ -1,0 +1,135 @@
+syntax = "proto3";
+
+package core.v1;
+
+option go_package = "github.com/Cricle/Evt/auto/connect/core/v1;corev1";
+
+message PagingRequest {
+  uint64 page = 1;
+  uint64 page_size = 2;
+}
+
+message MessageActor {
+  string bearer_token = 1;
+}
+
+message MessageSender {
+  int64 id = 1;
+  string username = 2;
+}
+
+message MessageItem {
+  int64 id = 1;
+  int64 sender_user_id = 2;
+  string sender_username = 3;
+  int64 receiver_user_id = 4;
+  string receiver_username = 5;
+  string content = 6;
+  bool is_read = 7;
+  int64 created_at_unix = 8;
+}
+
+message LegacyUser {
+  int64 id = 1;
+  string username = 2;
+  string nickname = 3;
+  string avatar = 4;
+  bool is_following = 5;
+  int64 created_on = 6;
+}
+
+message LegacyMessageItem {
+  int64 id = 1;
+  int32 type = 2;
+  string brief = 3;
+  string content = 4;
+  int32 is_read = 5;
+  int64 sender_user_id = 6;
+  LegacyUser sender_user = 7;
+  int64 receiver_user_id = 8;
+  LegacyUser receiver_user = 9;
+  int64 post_id = 10;
+  int64 comment_id = 11;
+  int64 reply_id = 12;
+  int64 created_on = 13;
+}
+
+message ListMessagesRequest {
+  string bearer_token = 1;
+  uint64 page = 2;
+  uint64 page_size = 3;
+}
+
+message ListMessagesReply {
+  int32 status_code = 1;
+  repeated MessageItem items = 2;
+  uint64 page = 3;
+  uint64 page_size = 4;
+  int64 total = 5;
+  string error_message = 6;
+}
+
+message UnreadCountRequest {
+  string bearer_token = 1;
+}
+
+message UnreadCountReply {
+  int32 status_code = 1;
+  int64 unread_count = 2;
+  string error_message = 3;
+}
+
+message SendMessageRequest {
+  string bearer_token = 1;
+  string receiver_username = 2;
+  string content = 3;
+}
+
+message SendLegacyWhisperRequest {
+  string bearer_token = 1;
+  int64 user_id = 2;
+  string content = 3;
+}
+
+message MessageReply {
+  int32 status_code = 1;
+  MessageItem item = 2;
+  string error_message = 3;
+}
+
+message ActionStatusReply {
+  int32 status_code = 1;
+  string error_message = 2;
+}
+
+message MarkReadRequest {
+  string bearer_token = 1;
+  int64 message_id = 2;
+}
+
+message ListLegacyMessagesRequest {
+  string bearer_token = 1;
+  string style = 2;
+  uint64 page = 3;
+  uint64 page_size = 4;
+}
+
+message ListLegacyMessagesReply {
+  int32 status_code = 1;
+  repeated LegacyMessageItem items = 2;
+  uint64 page = 3;
+  uint64 page_size = 4;
+  int64 total = 5;
+  string error_message = 6;
+}
+
+service MessageService {
+  rpc ListMessages(ListMessagesRequest) returns (ListMessagesReply);
+  rpc UnreadCount(UnreadCountRequest) returns (UnreadCountReply);
+  rpc SendMessage(SendMessageRequest) returns (MessageReply);
+  rpc MarkRead(MarkReadRequest) returns (ActionStatusReply);
+  rpc MarkAllRead(MessageActor) returns (ActionStatusReply);
+  rpc ListLegacyMessages(ListLegacyMessagesRequest) returns (ListLegacyMessagesReply);
+  rpc LegacyUnreadCount(UnreadCountRequest) returns (UnreadCountReply);
+  rpc SendLegacyWhisper(SendLegacyWhisperRequest) returns (ActionStatusReply);
+}

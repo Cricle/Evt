@@ -9,22 +9,25 @@
         :mask-closable="false"
         :bordered="false"
         :style="{
-            width: '360px',
+            width: 'min(92vw, 420px)',
         }"
     >
         <div class="whisper-wrap">
-            <n-alert :show-icon="false">
-                即将发送私信给:
-                <n-ellipsis style="max-width: 100%">
-                    <n-gradient-text type="success">
-                        {{ user.nickname }}@{{ user.username }}
-                    </n-gradient-text>
-                </n-ellipsis>
+            <div class="whisper-hero">
+                <n-avatar round :size="44" :src="user.avatar || DEFAULT_USER_AVATAR" />
+                <div class="whisper-hero-copy">
+                    <span>发送私信给</span>
+                    <strong>{{ user.nickname || user.username }}</strong>
+                    <em>@{{ user.username }}</em>
+                </div>
+            </div>
+            <n-alert :show-icon="false" type="info" class="whisper-tip">
+                保持消息简洁清晰。支持换行，按 `Ctrl/Command + Enter` 可直接发送。
             </n-alert>
             <div class="whisper-line">
                 <n-input
                     type="textarea"
-                    placeholder="请输入私信内容（请勿发送不和谐内容，否则将会被封号）"
+                    placeholder="输入你想说的话…"
                     :autosize="{
                         minRows: 5,
                         maxRows: 10,
@@ -32,12 +35,16 @@
                     v-model:value="content"
                     maxlength="200"
                     show-count
+                    @keydown="handleKeydown"
                 />
             </div>
+            <div class="whisper-meta">
+                <span>将通过消息系统发送给对方</span>
+                <strong>{{ content.trim().length }}/200</strong>
+            </div>
             <div class="whisper-line send-wrap">
+                <n-button quaternary @click="closeModal">取消</n-button>
                 <n-button
-                    strong
-                    secondary
                     type="primary"
                     :loading="loading"
                     @click="sendWhisper"
@@ -50,8 +57,9 @@
 </template>
 
 <script setup lang="ts">
-import { Api } from '@/utils/request';
+import { sendLegacyWhisper } from '@/utils/messageTransport';
 import { ref } from 'vue';
+import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
 
 const props = withDefaults(
   defineProps<{
@@ -65,11 +73,18 @@ const props = withDefaults(
 const content = ref('');
 const loading = ref(false);
 
-const emit = defineEmits<{
-  (e: 'success'): void;
-}>();
+const emit = defineEmits<(e: 'success') => void>();
 const closeModal = () => {
+  if (!loading.value) {
+    content.value = '';
+  }
   emit('success');
+};
+const handleKeydown = (event: KeyboardEvent) => {
+  if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+    event.preventDefault();
+    sendWhisper();
+  }
 };
 const sendWhisper = () => {
   if (!content.value.trim()) {
@@ -77,11 +92,11 @@ const sendWhisper = () => {
     return;
   }
   loading.value = true;
-  Api.v1.user.post.whisper({
+  sendLegacyWhisper({
     user_id: props.user.id,
     content: content.value,
   })
-    .then((res: any) => {
+    .then(() => {
       window.$message.success('发送成功');
       loading.value = false;
       content.value = '';
@@ -97,21 +112,75 @@ const sendWhisper = () => {
 
 <style lang="less" scoped>
 .whisper-wrap {
-    --whisper-surface: transparent;
-    background-color: var(--whisper-surface);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
 
     .whisper-line {
-        margin-top: 10px;
-
         &.send-wrap {
-            .n-button {
-                width: 100%;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+
+            .n-button:last-child {
+                min-width: 124px;
             }
         }
     }
 }
 
-:global(.dark) .whisper-wrap {
-    --whisper-surface: rgba(16, 16, 20, 0.75);
+.whisper-hero {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 18px;
+    background:
+      radial-gradient(circle at top right, color-mix(in srgb, var(--accent-soft) 75%, transparent), transparent 48%),
+      color-mix(in srgb, var(--panel-bg) 88%, transparent);
+    border: 1px solid color-mix(in srgb, var(--panel-border) 78%, transparent);
+}
+
+.whisper-hero-copy {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+
+    span,
+    em {
+        font-size: 12px;
+        line-height: 1.5;
+        opacity: 0.7;
+        font-style: normal;
+    }
+
+    strong {
+        font-size: 16px;
+        line-height: 1.4;
+    }
+}
+
+.whisper-tip {
+    :deep(.n-alert-body) {
+        line-height: 1.6;
+    }
+}
+
+.whisper-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+@media (max-width: 768px) {
+    .whisper-wrap .whisper-line.send-wrap {
+        .n-button {
+            flex: 1 1 0;
+            min-width: 0;
+        }
+    }
 }
 </style>

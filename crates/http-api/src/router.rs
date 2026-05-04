@@ -8,16 +8,36 @@ use tower_http::{
     trace::TraceLayer,
 };
 
-use crate::{handlers, state::HttpState};
+use crate::{handlers, state::HttpState, web_assets::{resolve_spa_index_path, resolve_web_dist_dir}};
 
 pub fn router(state: HttpState) -> Router {
-    let web_dist_dir = state.app().settings().web.dist_dir.clone();
-    let spa_fallback = ServeDir::new(&web_dist_dir)
-        .not_found_service(ServeFile::new(format!("{web_dist_dir}/index.html")));
+    let configured_web_dist_dir = state.app().settings().web.dist_dir.clone();
+    let resolved_web_dist_dir = resolve_web_dist_dir(&configured_web_dist_dir)
+        .unwrap_or_else(|_| configured_web_dist_dir.clone().into());
+    let spa_index_path = resolve_spa_index_path(&configured_web_dist_dir)
+        .unwrap_or_else(|_| resolved_web_dist_dir.join("index.html"));
+    let spa_fallback = ServeDir::new(&resolved_web_dist_dir)
+        .not_found_service(ServeFile::new(spa_index_path));
 
     Router::new()
         .route("/healthz", get(handlers::system::healthz))
         .route("/docs/openapi.json", get(handlers::system::openapi_spec))
+        .route("/", get(handlers::system::spa_shell))
+        .route("/auth", get(handlers::system::spa_shell))
+        .route("/space", get(handlers::system::spa_shell))
+        .route("/compose", get(handlers::system::spa_shell))
+        .route("/spaces/create", get(handlers::system::spa_shell))
+        .route("/post", get(handlers::system::spa_shell))
+        .route("/topic", get(handlers::system::spa_shell))
+        .route("/announcement", get(handlers::system::spa_shell))
+        .route("/profile", get(handlers::system::spa_shell))
+        .route("/u", get(handlers::system::spa_shell))
+        .route("/messages", get(handlers::system::spa_shell))
+        .route("/contacts", get(handlers::system::spa_shell))
+        .route("/following", get(handlers::system::spa_shell))
+        .route("/wallet", get(handlers::system::spa_shell))
+        .route("/setting", get(handlers::system::spa_shell))
+        .route("/admin/settings", get(handlers::system::spa_shell))
         .route("/v1", get(handlers::system::version_root))
         .route("/v1/site/version", get(handlers::system::site_version))
         .route("/v1/site/profile", get(handlers::system::site_profile))
@@ -192,6 +212,10 @@ pub fn router(state: HttpState) -> Router {
             post(handlers::legacy_admin::admin_user_status),
         )
         .route(
+            "/v1/admin/user/admin",
+            post(handlers::legacy_admin::admin_user_admin),
+        )
+        .route(
             "/v1/user/recharge",
             get(handlers::legacy_admin::user_get_recharge)
                 .post(handlers::legacy_admin::user_post_recharge),
@@ -229,6 +253,10 @@ pub fn router(state: HttpState) -> Router {
         .route(
             "/v1/attachments/:attachment_id",
             get(handlers::attachments::download_attachment),
+        )
+        .route(
+            "/v1/media/:attachment_id",
+            get(handlers::attachments::preview_attachment),
         )
         .route(
             "/v1/messages",

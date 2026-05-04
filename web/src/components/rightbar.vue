@@ -206,15 +206,15 @@ watch(currentSpaceSlug, () => {
   height: 0; /* 隐藏滚动条的高度 */
 }
 .rightbar-wrap {
-    --rightbar-panel-bg: transparent;
-    --rightbar-panel-bg-dark: #18181c;
-    width: 240px;
-    position: fixed;
-    left: calc(50% + var(--content-main) / 2 + 10px);
-    max-height: calc(100vh); /* 调整高度 */
+    width: var(--layout-rightbar-width);
+    position: sticky;
+    top: var(--layout-edge-offset);
+    left: auto;
+    max-height: calc(100vh - var(--layout-edge-offset) * 2);
     overflow: auto;
+
     .search-wrap {
-        margin: 12px 0;
+        margin: 0 0 12px;
     }
 
     .hot-tag-item {
@@ -241,14 +241,27 @@ watch(currentSpaceSlug, () => {
     }
 
     .hottopic-wrap {
-        margin-bottom: 10px;
-        background-color: var(--rightbar-panel-bg);
+        margin-bottom: 12px;
+        background: var(--glass-panel-bg);
+        border: var(--glass-panel-border);
+        border-radius: var(--glass-panel-radius);
+        box-shadow: none;
+        backdrop-filter: var(--glass-panel-blur);
+
+        :deep(.n-card-header) {
+            padding-bottom: 6px;
+        }
+
+        :deep(.n-card__content) {
+            padding-top: 0;
+        }
     }
 
     .site-info {
         margin-top: 8px;
-        padding-left: 16px;
-        padding-right: 16px;
+        padding-left: 6px;
+        padding-right: 6px;
+
         .site-info-item {
             font-size: 10px;
             opacity: 0.75;
@@ -256,7 +269,11 @@ watch(currentSpaceSlug, () => {
     }
 
     .copyright-wrap {
-        background-color: var(--rightbar-panel-bg);
+        background: var(--glass-panel-bg);
+        border: var(--glass-panel-border);
+        border-radius: var(--glass-panel-radius);
+        box-shadow: none;
+        backdrop-filter: var(--glass-panel-blur);
 
         .copyright {
             font-size: 12px;
@@ -267,9 +284,5 @@ watch(currentSpaceSlug, () => {
             font-size: 12px;
         }
     }
-}
-:global(.dark) .hottopic-wrap,
-:global(.dark) .copyright-wrap {
-    background-color: var(--rightbar-panel-bg-dark);
 }
 </style>

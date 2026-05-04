@@ -3,13 +3,17 @@ use std::{
     net::TcpListener as StdTcpListener,
     path::PathBuf,
     process::{Child, Command, Stdio},
-    sync::{Mutex, OnceLock},
+    sync::{Mutex, MutexGuard, OnceLock},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use evt_config::{
     AppSettings, DatabaseSettings, GrpcSettings, HttpSettings, JwtSettings, ServerSettings,
     Settings, SiteSettings, StorageSettings, TelemetrySettings, WebSettings,
+};
+use evt_grpc_api::proto::message_service_client::MessageServiceClient;
+use evt_grpc_api::proto::{
+    ListLegacyMessagesRequest, MarkReadRequest, SendLegacyWhisperRequest, UnreadCountRequest,
 };
 use reqwest::StatusCode;
 use reqwest::multipart;
@@ -144,6 +148,12 @@ fn e2e_guard() -> &'static Mutex<()> {
     E2E_GUARD.get_or_init(|| Mutex::new(()))
 }
 
+fn lock_e2e_guard() -> MutexGuard<'static, ()> {
+    e2e_guard()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
 async fn write_test_web_dist(dir: &PathBuf) {
     fs::create_dir_all(dir.join("assets"))
         .await
@@ -161,6 +171,7 @@ async fn write_test_web_dist(dir: &PathBuf) {
 
 struct LocalServer {
     base_url: String,
+    grpc_port: u16,
     child: Child,
     database_name: String,
     isolated_database: bool,
@@ -188,6 +199,10 @@ impl LocalServer {
         } else {
             mysql_env("MYSQL_CLEAN_DATABASE", "evt")
         };
+        let _ = run_mysql(
+            Some(&active_database),
+            "DELETE FROM site_settings WHERE id = 1;",
+        );
 
         let temp_root = std::env::temp_dir().join(format!("evt-http-e2e-{suffix}"));
         let web_dist_dir = temp_root.join("web-dist");
@@ -319,6 +334,7 @@ impl LocalServer {
                 if response.status().is_success() {
                     return Self {
                         base_url,
+                        grpc_port,
                         child,
                         database_name: active_database,
                         isolated_database,
@@ -386,7 +402,7 @@ impl LocalServer {
 
 #[tokio::test]
 async fn local_http_e2e_covers_web_and_legacy_post_comment_flow() {
-    let _guard = e2e_guard().lock().expect("lock e2e guard");
+    let _guard = lock_e2e_guard();
     let mut server = LocalServer::start().await;
     let client = reqwest::Client::new();
     let username = format!("evt_e2e_{}", unique_suffix());
@@ -1329,6 +1345,7 @@ async fn local_http_e2e_covers_web_and_legacy_post_comment_flow() {
         .as_str()
         .expect("attachment content path")
         .to_string();
+    assert!(attachment_path.starts_with("/v1/attachments/"));
     let attachment_id = attachment_path
         .trim_end_matches('/')
         .rsplit('/')
@@ -1336,6 +1353,74 @@ async fn local_http_e2e_covers_web_and_legacy_post_comment_flow() {
         .expect("attachment id segment")
         .parse::<i64>()
         .expect("attachment id");
+
+    let upload_image = client
+        .post(format!("{}/v1/attachment", server.base_url))
+        .bearer_auth(&token)
+        .multipart(
+            multipart::Form::new().text("type", "public/image").part(
+                "file",
+                multipart::Part::bytes(
+                    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDAT\x08\x99c```\x00\x00\x00\x04\x00\x01\xf6\x179U\x00\x00\x00\x00IEND\xaeB`\x82".to_vec(),
+                )
+                .file_name("pixel.png")
+                .mime_str("image/png")
+                .expect("image mime"),
+            ),
+        )
+        .send()
+        .await
+        .expect("upload image response");
+    assert_eq!(upload_image.status(), StatusCode::OK);
+    let upload_image_body: Value = upload_image.json().await.expect("upload image json");
+    let image_path = upload_image_body["data"]["content"]
+        .as_str()
+        .expect("image content path")
+        .to_string();
+    assert!(image_path.starts_with("/v1/media/"));
+    let image_preview = client
+        .get(format!("{}{}", server.base_url, image_path))
+        .send()
+        .await
+        .expect("image preview response");
+    assert_eq!(image_preview.status(), StatusCode::OK);
+    assert_eq!(
+        image_preview
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok()),
+        Some("image/png")
+    );
+    let image_attachment_id = image_path
+        .trim_end_matches('/')
+        .rsplit('/')
+        .next()
+        .expect("image attachment id segment")
+        .parse::<i64>()
+        .expect("image attachment id");
+    let legacy_image_preview = client
+        .get(format!(
+            "{}/v1/attachments/{image_attachment_id}?x-oss-process=image/resize,m_fill,w_300,h_300,limit_0/auto-orient,1/format,webp",
+            server.base_url
+        ))
+        .send()
+        .await
+        .expect("legacy image preview response");
+    assert_eq!(legacy_image_preview.status(), StatusCode::OK);
+    assert_eq!(
+        legacy_image_preview
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok()),
+        Some("image/png")
+    );
+    assert_eq!(
+        legacy_image_preview
+            .headers()
+            .get(reqwest::header::CONTENT_DISPOSITION)
+            .and_then(|value| value.to_str().ok()),
+        Some("inline; filename=\"pixel.png\"")
+    );
 
     let attachment_post = client
         .post(format!("{}/v1/post", server.base_url))
@@ -1441,6 +1526,13 @@ async fn local_http_e2e_covers_web_and_legacy_post_comment_flow() {
     assert_eq!(rest_attachment_download.status(), StatusCode::OK);
     assert_eq!(
         rest_attachment_download
+            .headers()
+            .get(reqwest::header::CONTENT_DISPOSITION)
+            .and_then(|value| value.to_str().ok()),
+        Some("attachment; filename=\"demo.txt\"")
+    );
+    assert_eq!(
+        rest_attachment_download
             .bytes()
             .await
             .expect("rest attachment bytes")
@@ -1524,6 +1616,34 @@ async fn local_http_e2e_covers_web_and_legacy_post_comment_flow() {
             .as_array()
             .expect("admin settings schema items")
             .iter()
+            .any(|item| item["key"].as_str() == Some("web_profile.enable_spaces"))
+    );
+    assert!(
+        admin_settings_schema_body["data"]["items"]
+            .as_array()
+            .expect("admin settings schema items")
+            .iter()
+            .any(|item| item["key"].as_str() == Some("web_profile.default_space_slug"))
+    );
+    assert!(
+        admin_settings_schema_body["data"]["items"]
+            .as_array()
+            .expect("admin settings schema items")
+            .iter()
+            .any(|item| item["key"].as_str() == Some("web_profile.allow_user_register"))
+    );
+    assert!(
+        admin_settings_schema_body["data"]["items"]
+            .as_array()
+            .expect("admin settings schema items")
+            .iter()
+            .any(|item| item["key"].as_str() == Some("web_profile.allow_phone_bind"))
+    );
+    assert!(
+        admin_settings_schema_body["data"]["items"]
+            .as_array()
+            .expect("admin settings schema items")
+            .iter()
             .any(|item| item["key"].as_str() == Some("web_profile.enable_trends_bar"))
     );
 
@@ -1543,6 +1663,34 @@ async fn local_http_e2e_covers_web_and_legacy_post_comment_flow() {
             .as_array()
             .expect("admin settings values items")
             .iter()
+            .any(|item| item["key"].as_str() == Some("web_profile.enable_spaces"))
+    );
+    assert!(
+        admin_settings_values_body["data"]["items"]
+            .as_array()
+            .expect("admin settings values items")
+            .iter()
+            .any(|item| item["key"].as_str() == Some("web_profile.default_space_slug"))
+    );
+    assert!(
+        admin_settings_values_body["data"]["items"]
+            .as_array()
+            .expect("admin settings values items")
+            .iter()
+            .any(|item| item["key"].as_str() == Some("web_profile.allow_user_register"))
+    );
+    assert!(
+        admin_settings_values_body["data"]["items"]
+            .as_array()
+            .expect("admin settings values items")
+            .iter()
+            .any(|item| item["key"].as_str() == Some("web_profile.allow_phone_bind"))
+    );
+    assert!(
+        admin_settings_values_body["data"]["items"]
+            .as_array()
+            .expect("admin settings values items")
+            .iter()
             .any(|item| item["key"].as_str() == Some("web_profile.enable_trends_bar"))
     );
 
@@ -1551,6 +1699,10 @@ async fn local_http_e2e_covers_web_and_legacy_post_comment_flow() {
         .bearer_auth(&token)
         .json(&serde_json::json!({
             "items": [
+                { "key": "web_profile.enable_spaces", "value": true },
+                { "key": "web_profile.default_space_slug", "value": "public" },
+                { "key": "web_profile.allow_user_register", "value": false },
+                { "key": "web_profile.allow_phone_bind", "value": false },
                 { "key": "web_profile.enable_trends_bar", "value": false },
                 { "key": "web_profile.copyright_top", "value": "Evt QA" }
             ]
@@ -1563,6 +1715,13 @@ async fn local_http_e2e_covers_web_and_legacy_post_comment_flow() {
         .json()
         .await
         .expect("admin settings save json");
+    assert!(
+        admin_settings_save_body["data"]["updated_keys"]
+            .as_array()
+            .expect("updated keys")
+            .iter()
+            .any(|item| item.as_str() == Some("web_profile.allow_user_register"))
+    );
     assert!(
         admin_settings_save_body["data"]["updated_keys"]
             .as_array()
@@ -1581,6 +1740,10 @@ async fn local_http_e2e_covers_web_and_legacy_post_comment_flow() {
         .json()
         .await
         .expect("updated site profile json");
+    assert_eq!(updated_site_profile_body["data"]["enable_spaces"], true);
+    assert_eq!(updated_site_profile_body["data"]["default_space_slug"], "public");
+    assert_eq!(updated_site_profile_body["data"]["allow_user_register"], false);
+    assert_eq!(updated_site_profile_body["data"]["allow_phone_bind"], false);
     assert_eq!(
         updated_site_profile_body["data"]["enable_trends_bar"],
         false
@@ -1905,7 +2068,7 @@ async fn local_http_e2e_covers_web_and_legacy_post_comment_flow() {
 
 #[tokio::test]
 async fn local_http_e2e_falls_back_when_runtime_default_space_slug_is_missing() {
-    let _guard = e2e_guard().lock().expect("lock e2e guard");
+    let _guard = lock_e2e_guard();
     let mut server = LocalServer::start().await;
     let client = reqwest::Client::new();
     let username = format!("evt_space_fallback_{}", unique_suffix());
@@ -2033,4 +2196,821 @@ async fn local_http_e2e_falls_back_when_runtime_default_space_slug_is_missing() 
             .any(|item| item["id"].as_i64() == Some(fallback_post_id)),
         "body={list_posts_body}"
     );
+}
+
+#[tokio::test]
+async fn local_http_e2e_first_registered_user_becomes_admin_and_public_space_owner() {
+    let _guard = lock_e2e_guard();
+    let mut server = LocalServer::start().await;
+    if !server.isolated_database {
+        eprintln!("skip strict first-user admin assertion without isolated database support");
+        return;
+    }
+    let client = reqwest::Client::new();
+    let username = format!("evt_admin_{}", unique_suffix());
+    let password = "Passw0rd_123";
+
+    let register = client
+        .post(format!("{}/v1/auth/register", server.base_url))
+        .json(&serde_json::json!({
+            "username": username,
+            "password": password,
+        }))
+        .send()
+        .await
+        .expect("register first user");
+    assert_eq!(register.status(), StatusCode::OK);
+
+    let login = client
+        .post(format!("{}/v1/auth/login", server.base_url))
+        .json(&serde_json::json!({
+            "username": username,
+            "password": password,
+        }))
+        .send()
+        .await
+        .expect("login first user");
+    assert_eq!(login.status(), StatusCode::OK);
+    let login_body: Value = login.json().await.expect("login json");
+    let token = login_body["data"]["token"]
+        .as_str()
+        .expect("login token")
+        .to_string();
+
+    let current_user = client
+        .get(format!("{}/v1/users/me", server.base_url))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .expect("current user response");
+    assert_eq!(current_user.status(), StatusCode::OK);
+    let current_user_body: Value = current_user.json().await.expect("current user json");
+    let user_id = current_user_body["data"]["id"]
+        .as_i64()
+        .expect("current user id");
+    server.register_test_user(user_id);
+    assert_eq!(current_user_body["data"]["is_admin"], true);
+
+    let spaces = client
+        .get(format!("{}/v1/spaces?limit=20", server.base_url))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .expect("list spaces");
+    assert_eq!(spaces.status(), StatusCode::OK);
+    let spaces_body: Value = spaces.json().await.expect("spaces json");
+    let public_space = spaces_body["data"]
+        .as_array()
+        .expect("spaces array")
+        .iter()
+        .find(|item| item["slug"].as_str() == Some("public"))
+        .expect("public space");
+    let public_space_id = public_space["id"].as_i64().expect("public space id");
+    assert_eq!(public_space["owner_user_id"].as_i64(), Some(user_id));
+    assert_eq!(public_space["current_user_role"].as_str(), Some("owner"));
+
+    let list_members = client
+        .get(format!(
+            "{}/v1/spaces/members?space_id={public_space_id}",
+            server.base_url
+        ))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .expect("public space members response");
+    assert_eq!(list_members.status(), StatusCode::OK);
+    let list_members_body: Value = list_members
+        .json()
+        .await
+        .expect("public space members json");
+    assert!(
+        list_members_body["data"]
+            .as_array()
+            .expect("public space members")
+            .iter()
+            .any(|item| {
+                item["user_id"].as_i64() == Some(user_id)
+                    && item["role"].as_str() == Some("owner")
+            })
+    );
+
+    let admin_site_status = client
+        .get(format!("{}/v1/admin/site/status", server.base_url))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .expect("admin site status");
+    assert_eq!(admin_site_status.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn local_http_e2e_post_reactions_persist_and_toggle_without_touching_comment_count() {
+    let _guard = lock_e2e_guard();
+    let mut server = LocalServer::start().await;
+    let client = reqwest::Client::new();
+    let username = format!("evt_reaction_{}", unique_suffix());
+    let password = "Passw0rd_123";
+
+    let register = client
+        .post(format!("{}/v1/auth/register", server.base_url))
+        .json(&serde_json::json!({
+            "username": username,
+            "password": password,
+        }))
+        .send()
+        .await
+        .expect("register response");
+    assert_eq!(register.status(), StatusCode::OK);
+
+    let login = client
+        .post(format!("{}/v1/auth/login", server.base_url))
+        .json(&serde_json::json!({
+            "username": username,
+            "password": password,
+        }))
+        .send()
+        .await
+        .expect("login response");
+    assert_eq!(login.status(), StatusCode::OK);
+    let login_body: Value = login.json().await.expect("login json");
+    let token = login_body["data"]["token"]
+        .as_str()
+        .expect("login token")
+        .to_string();
+
+    let current_user = client
+        .get(format!("{}/v1/users/me", server.base_url))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .expect("current user response");
+    assert_eq!(current_user.status(), StatusCode::OK);
+    let current_user_body: Value = current_user.json().await.expect("current user json");
+    let user_id = current_user_body["data"]["id"]
+        .as_i64()
+        .expect("current user id");
+    server.register_test_user(user_id);
+
+    let create_post = client
+        .post(format!("{}/v1/post", server.base_url))
+        .bearer_auth(&token)
+        .json(&serde_json::json!({
+            "contents": [
+                { "content": "reaction target post", "type": 2, "sort": 100 }
+            ],
+            "tags": [],
+            "users": [],
+            "attachment_price": 0,
+            "visibility": 0
+        }))
+        .send()
+        .await
+        .expect("create post response");
+    assert_eq!(create_post.status(), StatusCode::OK);
+    let create_post_body: Value = create_post.json().await.expect("create post json");
+    let post_id = create_post_body["data"]["id"].as_i64().expect("post id");
+
+    let create_comment = client
+        .post(format!("{}/v1/posts/{post_id}/comments", server.base_url))
+        .bearer_auth(&token)
+        .json(&serde_json::json!({
+            "content": "real comment before reactions"
+        }))
+        .send()
+        .await
+        .expect("create comment before reactions");
+    assert_eq!(create_comment.status(), StatusCode::OK);
+
+    let initial_reactions = client
+        .get(format!("{}/v1/posts/{post_id}/reactions", server.base_url))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .expect("initial reactions response");
+    assert_eq!(initial_reactions.status(), StatusCode::OK);
+    let initial_reactions_body: Value = initial_reactions
+        .json()
+        .await
+        .expect("initial reactions json");
+    assert_eq!(initial_reactions_body["data"], serde_json::json!([]));
+
+    let toggle_on = client
+        .post(format!("{}/v1/posts/{post_id}/reactions", server.base_url))
+        .bearer_auth(&token)
+        .json(&serde_json::json!({
+            "emoji": "😀"
+        }))
+        .send()
+        .await
+        .expect("toggle reaction on");
+    assert_eq!(toggle_on.status(), StatusCode::OK);
+    let toggle_on_body: Value = toggle_on.json().await.expect("toggle on json");
+    assert_eq!(toggle_on_body["data"]["active"], true);
+    assert_eq!(toggle_on_body["data"]["comment_count"], 1);
+    assert!(
+        toggle_on_body["data"]["reactions"]
+            .as_array()
+            .expect("reactions array")
+            .iter()
+            .any(|item| {
+                item["emoji"].as_str() == Some("😀")
+                    && item["count"].as_i64() == Some(1)
+                    && item["active"] == true
+            })
+    );
+
+    let persisted_reactions = client
+        .get(format!("{}/v1/posts/{post_id}/reactions", server.base_url))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .expect("persisted reactions response");
+    assert_eq!(persisted_reactions.status(), StatusCode::OK);
+    let persisted_reactions_body: Value = persisted_reactions
+        .json()
+        .await
+        .expect("persisted reactions json");
+    assert!(
+        persisted_reactions_body["data"]
+            .as_array()
+            .expect("persisted reactions array")
+            .iter()
+            .any(|item| {
+                item["emoji"].as_str() == Some("😀")
+                    && item["count"].as_i64() == Some(1)
+                    && item["active"] == true
+            })
+    );
+
+    let get_post_after_reaction = client
+        .get(format!("{}/v1/posts/{post_id}", server.base_url))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .expect("get post after reaction");
+    assert_eq!(get_post_after_reaction.status(), StatusCode::OK);
+    let get_post_after_reaction_body: Value = get_post_after_reaction
+        .json()
+        .await
+        .expect("get post after reaction json");
+    assert_eq!(get_post_after_reaction_body["data"]["comments_count"], 1);
+
+    let toggle_off = client
+        .post(format!("{}/v1/posts/{post_id}/reactions", server.base_url))
+        .bearer_auth(&token)
+        .json(&serde_json::json!({
+            "emoji": "😀"
+        }))
+        .send()
+        .await
+        .expect("toggle reaction off");
+    assert_eq!(toggle_off.status(), StatusCode::OK);
+    let toggle_off_body: Value = toggle_off.json().await.expect("toggle off json");
+    assert_eq!(toggle_off_body["data"]["active"], false);
+    assert_eq!(toggle_off_body["data"]["comment_count"], 1);
+    assert!(
+        toggle_off_body["data"]["reactions"]
+            .as_array()
+            .expect("reactions array after toggle off")
+            .iter()
+            .all(|item| item["emoji"].as_str() != Some("😀") || item["count"].as_i64() == Some(0))
+    );
+
+    let reactions_after_toggle_off = client
+        .get(format!("{}/v1/posts/{post_id}/reactions", server.base_url))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .expect("reactions after toggle off");
+    assert_eq!(reactions_after_toggle_off.status(), StatusCode::OK);
+    let reactions_after_toggle_off_body: Value = reactions_after_toggle_off
+        .json()
+        .await
+        .expect("reactions after toggle off json");
+    assert!(
+        reactions_after_toggle_off_body["data"]
+            .as_array()
+            .expect("reactions after toggle off array")
+            .iter()
+            .all(|item| item["emoji"].as_str() != Some("😀"))
+    );
+}
+
+#[tokio::test]
+async fn local_http_e2e_admin_settings_disable_registration_takes_effect_immediately() {
+    let _guard = lock_e2e_guard();
+    let mut server = LocalServer::start().await;
+    if !server.isolated_database {
+        eprintln!("skip registration toggle assertion without isolated database support");
+        return;
+    }
+    let _ = run_mysql(
+        Some(&server.database_name),
+        "INSERT INTO site_settings (id, payload) VALUES (1, JSON_OBJECT('allow_user_register', TRUE)) ON DUPLICATE KEY UPDATE payload = JSON_SET(COALESCE(payload, JSON_OBJECT()), '$.allow_user_register', TRUE);",
+    );
+    let client = reqwest::Client::new();
+    let admin_username = format!("evt_admin_toggle_{}", unique_suffix());
+    let password = "Passw0rd_123";
+
+    let register = client
+        .post(format!("{}/v1/auth/register", server.base_url))
+        .json(&serde_json::json!({
+            "username": admin_username,
+            "password": password,
+        }))
+        .send()
+        .await
+        .expect("register admin candidate");
+    assert_eq!(register.status(), StatusCode::OK);
+
+    let login = client
+        .post(format!("{}/v1/auth/login", server.base_url))
+        .json(&serde_json::json!({
+            "username": admin_username,
+            "password": password,
+        }))
+        .send()
+        .await
+        .expect("login admin candidate");
+    assert_eq!(login.status(), StatusCode::OK);
+    let login_body: Value = login.json().await.expect("login json");
+    let token = login_body["data"]["token"]
+        .as_str()
+        .expect("login token")
+        .to_string();
+
+    let current_user = client
+        .get(format!("{}/v1/users/me", server.base_url))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .expect("current user response");
+    assert_eq!(current_user.status(), StatusCode::OK);
+    let current_user_body: Value = current_user.json().await.expect("current user json");
+    let user_id = current_user_body["data"]["id"]
+        .as_i64()
+        .expect("current user id");
+    server.register_test_user(user_id);
+    if current_user_body["data"]["is_admin"] != true {
+        server.promote_user_to_admin(user_id);
+    }
+
+    let save_settings = client
+        .post(format!("{}/v1/admin/settings/save", server.base_url))
+        .bearer_auth(&token)
+        .json(&serde_json::json!({
+            "items": [
+                { "key": "web_profile.allow_user_register", "value": false }
+            ]
+        }))
+        .send()
+        .await
+        .expect("disable registration response");
+    assert_eq!(save_settings.status(), StatusCode::OK);
+
+    let site_profile = client
+        .get(format!("{}/v1/site/profile", server.base_url))
+        .send()
+        .await
+        .expect("site profile response");
+    assert_eq!(site_profile.status(), StatusCode::OK);
+    let site_profile_body: Value = site_profile.json().await.expect("site profile json");
+    assert_eq!(site_profile_body["data"]["allow_user_register"], false);
+
+    let blocked_register = client
+        .post(format!("{}/v1/auth/register", server.base_url))
+        .json(&serde_json::json!({
+            "username": format!("evt_blocked_{}", unique_suffix()),
+            "password": password,
+        }))
+        .send()
+        .await
+        .expect("blocked register response");
+    assert_eq!(blocked_register.status(), StatusCode::BAD_REQUEST);
+    let blocked_register_body: Value = blocked_register
+        .json()
+        .await
+        .expect("blocked register json");
+    assert_eq!(blocked_register_body["code"], 400001);
+    assert_eq!(
+        blocked_register_body["msg"].as_str(),
+        Some("user registration is disabled")
+    );
+}
+
+#[tokio::test]
+async fn local_http_e2e_admin_settings_disable_phone_bind_takes_effect_immediately() {
+    let _guard = lock_e2e_guard();
+    let mut server = LocalServer::start().await;
+    if !server.isolated_database {
+        eprintln!("skip phone bind toggle assertion without isolated database support");
+        return;
+    }
+    let _ = run_mysql(
+        Some(&server.database_name),
+        "INSERT INTO site_settings (id, payload) VALUES (1, JSON_OBJECT('allow_phone_bind', TRUE)) ON DUPLICATE KEY UPDATE payload = JSON_SET(COALESCE(payload, JSON_OBJECT()), '$.allow_phone_bind', TRUE);",
+    );
+    let client = reqwest::Client::new();
+    let admin_username = format!("evt_admin_phone_{}", unique_suffix());
+    let password = "Passw0rd_123";
+
+    let register = client
+        .post(format!("{}/v1/auth/register", server.base_url))
+        .json(&serde_json::json!({
+            "username": admin_username,
+            "password": password,
+        }))
+        .send()
+        .await
+        .expect("register phone-bind admin candidate");
+    assert_eq!(register.status(), StatusCode::OK);
+
+    let login = client
+        .post(format!("{}/v1/auth/login", server.base_url))
+        .json(&serde_json::json!({
+            "username": admin_username,
+            "password": password,
+        }))
+        .send()
+        .await
+        .expect("login phone-bind admin candidate");
+    assert_eq!(login.status(), StatusCode::OK);
+    let login_body: Value = login.json().await.expect("login json");
+    let token = login_body["data"]["token"]
+        .as_str()
+        .expect("login token")
+        .to_string();
+
+    let current_user = client
+        .get(format!("{}/v1/users/me", server.base_url))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .expect("current user response");
+    assert_eq!(current_user.status(), StatusCode::OK);
+    let current_user_body: Value = current_user.json().await.expect("current user json");
+    let user_id = current_user_body["data"]["id"]
+        .as_i64()
+        .expect("current user id");
+    server.register_test_user(user_id);
+    if current_user_body["data"]["is_admin"] != true {
+        server.promote_user_to_admin(user_id);
+    }
+
+    let save_settings = client
+        .post(format!("{}/v1/admin/settings/save", server.base_url))
+        .bearer_auth(&token)
+        .json(&serde_json::json!({
+            "items": [
+                { "key": "web_profile.allow_phone_bind", "value": false }
+            ]
+        }))
+        .send()
+        .await
+        .expect("disable phone bind response");
+    assert_eq!(save_settings.status(), StatusCode::OK);
+
+    let site_profile = client
+        .get(format!("{}/v1/site/profile", server.base_url))
+        .send()
+        .await
+        .expect("site profile response");
+    assert_eq!(site_profile.status(), StatusCode::OK);
+    let site_profile_body: Value = site_profile.json().await.expect("site profile json");
+    assert_eq!(site_profile_body["data"]["allow_phone_bind"], false);
+
+    let blocked_phone_bind = client
+        .post(format!("{}/v1/user/phone", server.base_url))
+        .bearer_auth(&token)
+        .json(&serde_json::json!({
+            "phone": "13800138000",
+            "captcha": "123456",
+        }))
+        .send()
+        .await
+        .expect("blocked phone bind response");
+    assert_eq!(blocked_phone_bind.status(), StatusCode::BAD_REQUEST);
+    let blocked_phone_bind_body: Value = blocked_phone_bind
+        .json()
+        .await
+        .expect("blocked phone bind json");
+    assert_eq!(blocked_phone_bind_body["code"], 400001);
+    assert_eq!(
+        blocked_phone_bind_body["msg"].as_str(),
+        Some("phone binding is disabled")
+    );
+}
+
+#[tokio::test]
+async fn local_http_e2e_message_read_requires_the_receiver() {
+    let _guard = lock_e2e_guard();
+    let mut server = LocalServer::start().await;
+    let client = reqwest::Client::new();
+
+    let sender_username = format!("evt_sender_{}", unique_suffix());
+    let receiver_username = format!("evt_receiver_{}", unique_suffix());
+    let password = "Passw0rd_123";
+
+    for username in [&sender_username, &receiver_username] {
+        let register = client
+            .post(format!("{}/v1/auth/register", server.base_url))
+            .json(&serde_json::json!({
+                "username": username,
+                "password": password,
+            }))
+            .send()
+            .await
+            .expect("register message test user");
+        assert_eq!(register.status(), StatusCode::OK);
+    }
+
+    let sender_login = client
+        .post(format!("{}/v1/auth/login", server.base_url))
+        .json(&serde_json::json!({
+            "username": sender_username,
+            "password": password,
+        }))
+        .send()
+        .await
+        .expect("login sender response");
+    assert_eq!(sender_login.status(), StatusCode::OK);
+    let sender_login_body: Value = sender_login.json().await.expect("sender login json");
+    let sender_token = sender_login_body["data"]["token"]
+        .as_str()
+        .expect("sender token")
+        .to_string();
+
+    let receiver_login = client
+        .post(format!("{}/v1/auth/login", server.base_url))
+        .json(&serde_json::json!({
+            "username": receiver_username,
+            "password": password,
+        }))
+        .send()
+        .await
+        .expect("login receiver response");
+    assert_eq!(receiver_login.status(), StatusCode::OK);
+    let receiver_login_body: Value = receiver_login.json().await.expect("receiver login json");
+    let receiver_token = receiver_login_body["data"]["token"]
+        .as_str()
+        .expect("receiver token")
+        .to_string();
+
+    for token in [&sender_token, &receiver_token] {
+        let current_user = client
+            .get(format!("{}/v1/users/me", server.base_url))
+            .bearer_auth(token)
+            .send()
+            .await
+            .expect("current user response");
+        assert_eq!(current_user.status(), StatusCode::OK);
+        let current_user_body: Value = current_user.json().await.expect("current user json");
+        server.register_test_user(
+            current_user_body["data"]["id"]
+                .as_i64()
+                .expect("current user id"),
+        );
+    }
+
+    let send_message = client
+        .post(format!("{}/v1/messages", server.base_url))
+        .bearer_auth(&sender_token)
+        .json(&serde_json::json!({
+            "receiver_username": receiver_username,
+            "content": "evt direct message permission check"
+        }))
+        .send()
+        .await
+        .expect("send message response");
+    assert_eq!(send_message.status(), StatusCode::OK);
+    let send_message_body: Value = send_message.json().await.expect("send message json");
+    let message_id = send_message_body["data"]["id"]
+        .as_i64()
+        .expect("message id");
+
+    let receiver_unread_before = client
+        .get(format!("{}/v1/messages/unread-count", server.base_url))
+        .bearer_auth(&receiver_token)
+        .send()
+        .await
+        .expect("receiver unread before response");
+    assert_eq!(receiver_unread_before.status(), StatusCode::OK);
+    let receiver_unread_before_body: Value = receiver_unread_before
+        .json()
+        .await
+        .expect("receiver unread before json");
+    assert_eq!(receiver_unread_before_body["data"]["unread_count"], 1);
+
+    let sender_mark_read = client
+        .post(format!(
+            "{}/v1/messages/{message_id}/read",
+            server.base_url
+        ))
+        .bearer_auth(&sender_token)
+        .send()
+        .await
+        .expect("sender mark read response");
+    assert_eq!(sender_mark_read.status(), StatusCode::UNAUTHORIZED);
+
+    let receiver_unread_after_sender_attempt = client
+        .get(format!("{}/v1/messages/unread-count", server.base_url))
+        .bearer_auth(&receiver_token)
+        .send()
+        .await
+        .expect("receiver unread after sender attempt response");
+    assert_eq!(receiver_unread_after_sender_attempt.status(), StatusCode::OK);
+    let receiver_unread_after_sender_attempt_body: Value = receiver_unread_after_sender_attempt
+        .json()
+        .await
+        .expect("receiver unread after sender attempt json");
+    assert_eq!(
+        receiver_unread_after_sender_attempt_body["data"]["unread_count"],
+        1
+    );
+
+    let receiver_mark_read = client
+        .post(format!(
+            "{}/v1/messages/{message_id}/read",
+            server.base_url
+        ))
+        .bearer_auth(&receiver_token)
+        .send()
+        .await
+        .expect("receiver mark read response");
+    assert_eq!(receiver_mark_read.status(), StatusCode::OK);
+
+    let receiver_unread_after_read = client
+        .get(format!("{}/v1/messages/unread-count", server.base_url))
+        .bearer_auth(&receiver_token)
+        .send()
+        .await
+        .expect("receiver unread after read response");
+    assert_eq!(receiver_unread_after_read.status(), StatusCode::OK);
+    let receiver_unread_after_read_body: Value = receiver_unread_after_read
+        .json()
+        .await
+        .expect("receiver unread after read json");
+    assert_eq!(receiver_unread_after_read_body["data"]["unread_count"], 0);
+}
+
+#[tokio::test]
+async fn local_grpc_message_e2e_supports_whisper_unread_and_mark_read() {
+    let _guard = lock_e2e_guard();
+    let mut server = LocalServer::start().await;
+    let client = reqwest::Client::new();
+
+    let first_username = format!("grpc_sender_{}", unique_suffix());
+    let first_password = "evt-password-1";
+    let first_register = client
+        .post(format!("{}/v1/auth/register", server.base_url))
+        .json(&serde_json::json!({
+            "username": first_username,
+            "password": first_password,
+            "nickname": "Grpc Sender"
+        }))
+        .send()
+        .await
+        .expect("register grpc sender");
+    assert_eq!(first_register.status(), StatusCode::OK);
+    let first_register_body: Value = first_register.json().await.expect("sender register json");
+    let first_user_id = first_register_body["data"]["id"]
+        .as_i64()
+        .expect("sender id");
+
+    let second_username = format!("grpc_receiver_{}", unique_suffix());
+    let second_password = "evt-password-2";
+    let second_register = client
+        .post(format!("{}/v1/auth/register", server.base_url))
+        .json(&serde_json::json!({
+            "username": second_username,
+            "password": second_password,
+            "nickname": "Grpc Receiver"
+        }))
+        .send()
+        .await
+        .expect("register grpc receiver");
+    assert_eq!(second_register.status(), StatusCode::OK);
+    let second_register_body: Value = second_register
+        .json()
+        .await
+        .expect("receiver register json");
+    let second_user_id = second_register_body["data"]["id"]
+        .as_i64()
+        .expect("receiver id");
+    server.test_user_ids.extend([first_user_id, second_user_id]);
+
+    let first_login = client
+        .post(format!("{}/v1/auth/login", server.base_url))
+        .json(&serde_json::json!({
+            "username": first_username,
+            "password": first_password
+        }))
+        .send()
+        .await
+        .expect("login grpc sender");
+    assert_eq!(first_login.status(), StatusCode::OK);
+    let first_token = first_login
+        .json::<Value>()
+        .await
+        .expect("sender login json")["data"]["token"]
+        .as_str()
+        .expect("sender token")
+        .to_string();
+
+    let second_login = client
+        .post(format!("{}/v1/auth/login", server.base_url))
+        .json(&serde_json::json!({
+            "username": second_username,
+            "password": second_password
+        }))
+        .send()
+        .await
+        .expect("login grpc receiver");
+    assert_eq!(second_login.status(), StatusCode::OK);
+    let second_token = second_login
+        .json::<Value>()
+        .await
+        .expect("receiver login json")["data"]["token"]
+        .as_str()
+        .expect("receiver token")
+        .to_string();
+
+    let mut grpc_client = MessageServiceClient::connect(format!(
+        "http://127.0.0.1:{}",
+        server.grpc_port
+    ))
+        .await
+        .expect("connect grpc message client");
+
+    let unread_before = grpc_client
+        .legacy_unread_count(UnreadCountRequest {
+            bearer_token: second_token.clone(),
+        })
+        .await
+        .expect("grpc unread before")
+        .into_inner();
+    assert_eq!(unread_before.status_code, 0);
+
+    let whisper = grpc_client
+        .send_legacy_whisper(SendLegacyWhisperRequest {
+            bearer_token: first_token.clone(),
+            user_id: second_user_id,
+            content: "grpc hello from sender".into(),
+        })
+        .await
+        .expect("grpc send whisper")
+        .into_inner();
+    assert_eq!(whisper.status_code, 0);
+
+    let unread_after = grpc_client
+        .legacy_unread_count(UnreadCountRequest {
+            bearer_token: second_token.clone(),
+        })
+        .await
+        .expect("grpc unread after")
+        .into_inner();
+    assert_eq!(unread_after.status_code, 0);
+    assert_eq!(unread_after.unread_count, unread_before.unread_count + 1);
+
+    let messages = grpc_client
+        .list_legacy_messages(ListLegacyMessagesRequest {
+            bearer_token: second_token.clone(),
+            style: "whisper".into(),
+            page: 1,
+            page_size: 20,
+        })
+        .await
+        .expect("grpc list whisper messages")
+        .into_inner();
+    assert_eq!(messages.status_code, 0);
+
+    let whisper_message = messages
+        .items
+        .iter()
+        .find(|item| {
+            item.sender_user_id == first_user_id
+                && item.receiver_user_id == second_user_id
+                && item.content == "grpc hello from sender"
+        })
+        .expect("grpc whisper message");
+
+    let mark_read = grpc_client
+        .mark_read(MarkReadRequest {
+            bearer_token: second_token,
+            message_id: whisper_message.id,
+        })
+        .await
+        .expect("grpc mark read")
+        .into_inner();
+    assert_eq!(mark_read.status_code, 0);
+
+    let unread_after_read = grpc_client
+        .legacy_unread_count(UnreadCountRequest {
+            bearer_token: first_token,
+        })
+        .await
+        .expect("grpc unread after read")
+        .into_inner();
+    assert_eq!(unread_after_read.status_code, 0);
+    assert_eq!(unread_after_read.unread_count, 0);
 }

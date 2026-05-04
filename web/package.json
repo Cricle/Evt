@@ -15,13 +15,13 @@
     "e2e:install": "npm_config_registry=https://mirrors.tuna.tsinghua.edu.cn/npm/ yarn add -D @playwright/test@^1.55.0 && npm_config_registry=https://mirrors.tuna.tsinghua.edu.cn/npm/ yarn playwright install chromium"
   },
   "dependencies": {
-    "@ckeditor/ckeditor5-build-classic": "^44.3.0",
     "@ckeditor/ckeditor5-vue": "^7.4.2",
     "@opentiny/vue-slide-bar": "^3.14.0",
     "@vicons/ionicons5": "^0.13.0",
     "@vicons/material": "^0.13.0",
     "@vicons/tabler": "^0.13.0",
     "axios": "^1.8.4",
+    "ckeditor5": "44.3.0",
     "copy-to-clipboard": "^3.3.3",
     "dompurify": "^3.4.1",
     "less": "^4.3.0",

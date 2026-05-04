@@ -562,52 +562,60 @@ watch(
 
 <style lang="less" scoped>
 .profile-tabs-wrap {
-    padding: 0 16px;
+    padding: 0 16px 4px;
 }
 
 .profile-baseinfo {
     display: flex;
+    align-items: flex-start;
+    gap: 14px;
     padding: 16px;
 
     .avatar {
         width: 72px;
+        flex: 0 0 auto;
     }
 
     .base-info {
         position: relative;
-        margin-left: 12px;
-        width: calc(100% - 84px);
+        width: calc(100% - 86px);
+        min-width: 0;
 
         .username {
-            line-height: 16px;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 6px;
+            line-height: 1.5;
             font-size: 16px;
         }
 
         .userinfo {
             font-size: 14px;
-            line-height: 14px;
+            line-height: 1.5;
             margin-top: 10px;
             opacity: 0.75;
+
             .info-item {
                 margin-right: 12px;
             }
         }
 
         .top-tag {
-            transform: scale(0.75);
+            transform: none;
         }
     }
 
     .user-opts {
         position: absolute;
-        top: 16px;
-        right: 16px;
+        top: 0;
+        right: 0;
         opacity: 0.75;
     }
 }
 
 .load-more {
-    margin: 20px;
+    margin: 12px 0 8px;
 
     .load-more-wrap {
         display: flex;
@@ -623,14 +631,20 @@ watch(
     }
 }
 
-.profile-wrap,
-.pagination-wrap {
-    --user-surface-bg: transparent;
-    background-color: var(--user-surface-bg);
-}
+@media (max-width: 768px) {
+    .profile-tabs-wrap {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
 
-:global(.dark) .profile-wrap,
-:global(.dark) .pagination-wrap {
-    --user-surface-bg: rgba(16, 16, 20, 0.75);
+    .profile-baseinfo {
+        padding: 14px 12px;
+    }
+
+    .profile-baseinfo .base-info .userinfo {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 12px;
+    }
 }
 </style>

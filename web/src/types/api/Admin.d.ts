@@ -7,6 +7,8 @@ declare namespace Api {
                 user: {
                     /** 管理·用户禁言/解禁 */
                     status: (params: NetParams.UserStatusReq) => Promise<NetReq.UserChangeStatus>;
+                    /** 管理·授予/撤销管理员 */
+                    admin: (params: NetParams.UserAdminReq) => Promise<NetReq.UserChangeStatus>;
                 },
                 site: {
                     /** 管理·更新系统配置 */
@@ -38,6 +40,11 @@ declare namespace Api {
             interface UserStatusReq {
                 id: number;
                 status: number;
+            }
+
+            interface UserAdminReq {
+                id: number;
+                is_admin: boolean;
             }
 
             interface SiteProfileReq {

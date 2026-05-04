@@ -1,14 +1,24 @@
 import { createRouter, createWebHashHistory } from 'vue-router';
+import { getRouteTitleKey, translate } from '@/i18n';
+import { useStoreMain } from '@/store/main';
 
 const routes = [
   {
     path: '/',
     name: 'home',
     meta: {
+      title: '首页',
+    },
+    component: () => import('@/views/Home.vue'),
+  },
+  {
+    path: '/space',
+    name: 'space',
+    meta: {
       title: '广场',
       keepAlive: true,
     },
-    component: () => import('@/views/Home.vue'),
+    component: () => import('@/views/Space.vue'),
   },
   {
     path: '/auth',
@@ -146,7 +156,13 @@ const router = createRouter({
 });
 
 router.beforeEach((to, from, next) => {
-  document.title = `${to.meta.title} | Evt - 一个清新文艺的微社区`;
+  const titleKey = getRouteTitleKey(to.name);
+  const locale = useStoreMain().locale;
+  const pageTitle = titleKey
+    ? translate(locale, titleKey, `${to.meta.title ?? ''}`)
+    : `${to.meta.title ?? ''}`;
+  const suffix = `${translate(locale, 'appName', 'Evt')} - ${translate(locale, 'appTagline')}`;
+  document.title = `${pageTitle} | ${suffix}`;
   next();
 });
 

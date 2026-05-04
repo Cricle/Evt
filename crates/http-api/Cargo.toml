@@ -18,6 +18,7 @@ tower-http.workspace = true
 [dev-dependencies]
 chrono.workspace = true
 evt-config = { path = "../config" }
+evt-grpc-api = { path = "../grpc-api" }
 reqwest = { version = "0.12", default-features = false, features = ["json", "multipart", "rustls-tls"] }
 tokio.workspace = true
 tower = { version = "0.5", features = ["util"] }

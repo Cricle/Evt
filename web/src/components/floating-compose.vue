@@ -1,39 +1,163 @@
 <template>
   <transition name="float-compose">
-    <button
-      v-if="userLogined || hasToken"
-      class="floating-compose"
-      type="button"
-      aria-label="发布动态"
-      @click.stop.prevent="goCompose"
-    >
-      <span class="floating-compose-plus">+</span>
-    </button>
+    <div v-if="showFloatingCompose" class="floating-compose-wrap">
+      <n-dropdown
+        placement="top-end"
+        trigger="click"
+        :options="composeOptions"
+        @select="handleComposeSelect"
+      >
+        <button
+          class="floating-compose"
+          type="button"
+          aria-label="创建内容"
+          @click.stop.prevent
+          @pointerdown="handlePointerDown"
+          @pointerup="handlePointerUp"
+          @pointerleave="clearLongPress"
+          @pointercancel="clearLongPress"
+        >
+          <input
+            ref="quickMediaInputRef"
+            class="floating-compose-input"
+            type="file"
+            accept="image/*,video/*"
+            multiple
+            @change="handleQuickMediaPick"
+          />
+          <span class="floating-compose-plus">+</span>
+        </button>
+      </n-dropdown>
+    </div>
   </transition>
 </template>
 
 <script setup lang="ts">
-import { useRouter } from 'vue-router';
+import { computed, h, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { NIcon, type DropdownOption } from 'naive-ui';
 import { TOKEN_KEY, useStoreUser } from '@/store/user';
 import { useStoreProfile } from '@/store/profile';
 import { storeToRefs } from 'pinia';
-import { buildComposeRoute } from '@/utils/tagRoute';
-import { pushWithFallback } from '@/utils/navigation';
+import { buildComposeRoute, type ComposeMode } from '@/utils/tagRoute';
+import { safeLocalStorageGet } from '@/utils/storage';
+import { normalizeResolvedHref } from '@/utils/navigation';
+import { CalendarOutline, CreateOutline, ImagesOutline } from '@vicons/ionicons5';
+import { setPendingAttachmentSelection } from '@/utils/composeDraft';
 
 const router = useRouter();
+const route = useRoute();
 const storeUser = useStoreUser();
 const storeProfile = useStoreProfile();
 const { userLogined } = storeToRefs(storeUser);
 const { currentSpaceSlug } = storeToRefs(storeProfile);
-const hasToken = typeof window !== 'undefined' && !!localStorage.getItem(TOKEN_KEY);
+const hasToken = typeof window !== 'undefined' && !!safeLocalStorageGet(TOKEN_KEY);
+const quickMediaInputRef = ref<HTMLInputElement | null>(null);
+const longPressTimer = ref<number | null>(null);
+const longPressTriggered = ref(false);
+const showFloatingCompose = computed(() => {
+  const routeName = route.name;
+  return routeName === 'space' && (userLogined.value || hasToken);
+});
 
-const goCompose = async () => {
-  const target = buildComposeRoute(currentSpaceSlug.value);
-  await pushWithFallback(
-    router,
-    target,
-    typeof window !== 'undefined' ? window.location : null,
-  );
+const renderIcon = (icon: typeof CalendarOutline) => () =>
+  h(NIcon, null, {
+    default: () => h(icon),
+  });
+
+const composeOptions = computed<DropdownOption[]>(() => [
+  {
+    label: '创建话题',
+    key: 'post',
+    icon: renderIcon(CreateOutline),
+  },
+  {
+    label: '创建事件',
+    key: 'event',
+    icon: renderIcon(CalendarOutline),
+  },
+  {
+    label: '快速图视频话题',
+    key: 'quick-media',
+    icon: renderIcon(ImagesOutline),
+  },
+]);
+
+const goCompose = async (mode: ComposeMode, quick?: 'media') => {
+  const target = buildComposeRoute(currentSpaceSlug.value, mode, quick);
+  const resolved = router.resolve(target);
+  if (route.fullPath === resolved.fullPath) {
+    return;
+  }
+
+  try {
+    await router.push(target);
+  } catch {
+    // fall through to location.assign below
+  }
+
+  if (router.currentRoute.value.fullPath !== resolved.fullPath && typeof window !== 'undefined') {
+    window.location.assign(normalizeResolvedHref(resolved.href, resolved.fullPath));
+  }
+};
+
+const clearLongPress = () => {
+  if (longPressTimer.value !== null) {
+    window.clearTimeout(longPressTimer.value);
+    longPressTimer.value = null;
+  }
+};
+
+const openQuickMediaPicker = () => {
+  longPressTriggered.value = true;
+  clearLongPress();
+  quickMediaInputRef.value?.click();
+};
+
+const handlePointerDown = () => {
+  longPressTriggered.value = false;
+  clearLongPress();
+  longPressTimer.value = window.setTimeout(() => {
+    openQuickMediaPicker();
+  }, 420);
+};
+
+const handlePointerUp = () => {
+  window.setTimeout(() => {
+    longPressTriggered.value = false;
+  }, 0);
+  clearLongPress();
+};
+
+const handleQuickMediaPick = async (event: Event) => {
+  const input = event.target as HTMLInputElement;
+  const files = Array.from(input.files || []);
+  input.value = '';
+  if (files.length === 0) {
+    return;
+  }
+
+  setPendingAttachmentSelection({
+    files,
+    mode: 'post',
+    source: 'quick-media',
+  });
+  await goCompose('post', 'media');
+};
+
+const handleComposeSelect = (key: string | number) => {
+  if (key === 'quick-media') {
+    openQuickMediaPicker();
+    return;
+  }
+  if (key === 'event') {
+    void goCompose('event');
+    return;
+  }
+  if (longPressTriggered.value) {
+    return;
+  }
+  void goCompose('post');
 };
 </script>
 
@@ -79,6 +203,10 @@ const goCompose = async () => {
   font-weight: 500;
   line-height: 1;
   transform: translateY(-1px);
+}
+
+.floating-compose-input {
+  display: none;
 }
 
 .float-compose-enter-active,

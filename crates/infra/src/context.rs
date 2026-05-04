@@ -178,6 +178,18 @@ impl AppContext {
             site.use_friendship = value;
         }
         if let Some(value) = payload
+            .get("allow_user_register")
+            .and_then(serde_json::Value::as_bool)
+        {
+            site.allow_user_register = value;
+        }
+        if let Some(value) = payload
+            .get("allow_phone_bind")
+            .and_then(serde_json::Value::as_bool)
+        {
+            site.allow_phone_bind = value;
+        }
+        if let Some(value) = payload
             .get("enable_trends_bar")
             .and_then(serde_json::Value::as_bool)
         {

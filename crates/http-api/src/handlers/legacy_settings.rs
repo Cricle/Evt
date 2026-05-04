@@ -13,6 +13,7 @@ use axum::{
     response::Response,
 };
 use base64::{Engine as _, engine::general_purpose::STANDARD};
+use evt_domain::AppError;
 use rand::{Rng, distributions::Alphanumeric};
 use serde::{Deserialize, Serialize};
 
@@ -189,6 +190,9 @@ pub async fn user_phone(
     Json(payload): Json<PhoneBody>,
 ) -> Result<Json<ApiEnvelope<serde_json::Value>>, HttpApiError> {
     let actor = authenticate_request(state.app(), &headers).await?;
+    if !state.app().site_profile_snapshot().allow_phone_bind {
+        return Err(AppError::Validation("phone binding is disabled".into()).into());
+    }
     verify_phone_captcha(&payload.phone, &payload.captcha)?;
     state.app().bind_phone(&actor, &payload.phone).await?;
     Ok(Json(success(serde_json::json!({}))))

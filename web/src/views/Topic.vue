@@ -124,16 +124,6 @@ watch(currentSpaceSlug, () => {
 
 <style lang="less" scoped>
 .tags-wrap {
-    --topic-surface-bg: transparent;
     padding: 20px;
-    background-color: var(--topic-surface-bg);
-}
-
-.empty-wrap {
-    background-color: var(--topic-surface-bg);
-}
-:global(.dark) .tags-wrap,
-:global(.dark) .empty-wrap {
-    --topic-surface-bg: rgba(16, 16, 20, 0.75);
 }
 </style>

@@ -5,7 +5,15 @@
         <n-avatar round :size="42" :src="userInfo.avatar || DEFAULT_USER_AVATAR" />
         <div class="editor-title">
           <strong>{{ userInfo.nickname || userInfo.username }}</strong>
-          <span>发布新动态</span>
+          <span>{{ modeLabel }}</span>
+        </div>
+      </div>
+
+      <div v-if="isEventMode" class="event-intro-card">
+        <div class="event-intro-badge">事件</div>
+        <div class="event-intro-content">
+          <strong>先发布事件主题，再逐步追加时间节点</strong>
+          <span>适合记录活动进展、项目里程碑、问题处理过程和持续更新的公共信息。</span>
         </div>
       </div>
 
@@ -44,7 +52,7 @@
               已输入 {{ plainText.length }} 字
             </n-tooltip>
             <n-button type="success" secondary round :loading="submitting" @click="submitPost">
-              发布
+              {{ submitLabel }}
             </n-button>
           </div>
         </div>
@@ -86,10 +94,6 @@
             </template>
           </n-input-number>
         </div>
-
-        <div v-if="mediaHints.length > 0" class="media-hint-list">
-          <div v-for="hint in mediaHints" :key="hint" class="media-hint">{{ hint }}</div>
-        </div>
       </div>
     </div>
 
@@ -97,7 +101,7 @@
       <div class="compose-login-title">登录后，精彩更多</div>
       <div class="compose-login-actions">
         <n-button strong secondary round type="success" @click="goAuth('signin')">登录</n-button>
-        <n-button v-if="profile.allowUserRegister" strong secondary round type="success" ghost @click="goAuth('signup')">
+        <n-button v-if="profile.allowUserRegister" strong round type="success" ghost @click="goAuth('signup')">
           注册
         </n-button>
       </div>
@@ -109,8 +113,25 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { Ckeditor } from '@ckeditor/ckeditor5-vue';
-import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
+import 'ckeditor5/ckeditor5.css';
 import { storeToRefs } from 'pinia';
+import {
+  AutoLink,
+  BlockQuote,
+  Bold,
+  ClassicEditor,
+  Essentials,
+  Heading,
+  Image,
+  ImageToolbar,
+  ImageUpload,
+  Italic,
+  Link,
+  List,
+  MediaEmbed,
+  Paragraph,
+  Undo,
+} from 'ckeditor5';
 import { createPost } from '@/api/post';
 import { useStoreProfile } from '@/store/profile';
 import { useStoreUser } from '@/store/user';
@@ -121,7 +142,10 @@ import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
 import EvtUploadPlugin, {
   EVT_UPLOAD_PLUGIN_OPTIONS,
   type UploadedAsset,
+  uploadFile,
 } from '@/components/ckeditor-upload-plugin';
+import { EVENT_POST_TAG } from '@/utils/postKind';
+import { consumePendingAttachmentSelection } from '@/utils/composeDraft';
 import {
   buildComposePostContents,
   hasComposeContent,
@@ -136,9 +160,13 @@ const emit = defineEmits<{
 const props = withDefaults(
   defineProps<{
     pageMode?: boolean;
+    mode?: 'post' | 'event';
+    quickMode?: '' | 'media';
   }>(),
   {
     pageMode: false,
+    mode: 'post',
+    quickMode: '',
   },
 );
 
@@ -159,12 +187,32 @@ const attachmentPrice = ref(0);
 const visitType = ref<VisibilityEnum>(VisibilityEnum.PUBLIC);
 const defaultVisitType = ref<VisibilityEnum>(VisibilityEnum.PUBLIC);
 const uploading = ref<string[]>([]);
-const mediaHints = ref<string[]>([]);
 
 const allowTweetVisibility = import.meta.env.VITE_ALLOW_TWEET_VISIBILITY.toLowerCase() === 'true';
+const isEventMode = computed(() => props.mode === 'event');
+const modeLabel = computed(() => (isEventMode.value ? '创建事件主题，成员随后可继续追加节点' : '发布到当前广场'));
+const submitLabel = computed(() => (isEventMode.value ? '创建事件' : '发布'));
+const isQuickMediaMode = computed(() => props.quickMode === 'media');
 
 const editorConfig = {
   licenseKey: 'GPL',
+  plugins: [
+    Essentials,
+    Paragraph,
+    Heading,
+    Bold,
+    Italic,
+    BlockQuote,
+    Link,
+    AutoLink,
+    List,
+    Image,
+    ImageUpload,
+    ImageToolbar,
+    MediaEmbed,
+    Undo,
+    EvtUploadPlugin,
+  ],
   toolbar: [
     'heading',
     '|',
@@ -183,8 +231,7 @@ const editorConfig = {
     'undo',
     'redo',
   ],
-  placeholder: '说说您的新鲜事...',
-  extraPlugins: [EvtUploadPlugin],
+  placeholder: isEventMode.value ? '输入事件标题、背景或当前进展...' : '说说您的新鲜事...',
   [EVT_UPLOAD_PLUGIN_OPTIONS]: {
     onStart: (fileName: string) => {
       if (!uploading.value.includes(fileName)) {
@@ -284,6 +331,10 @@ const syncEditorImages = () => {
 
 const handleUploadedAsset = (asset: UploadedAsset) => {
   if (asset.kind === 'public/image') {
+    imageContents.value = [
+      ...imageContents.value,
+      toComposeAsset('image', asset.content, asset.name || `图片 ${imageContents.value.length + 1}`),
+    ];
     return;
   }
 
@@ -329,7 +380,29 @@ const resetEditor = () => {
   editorPanel.value = '';
   visitType.value = defaultVisitType.value;
   uploading.value = [];
-  mediaHints.value = [];
+};
+
+const appendQuickMediaAssets = async () => {
+  const pending = consumePendingAttachmentSelection();
+  if (!pending || pending.files.length === 0) {
+    return;
+  }
+
+  for (const file of pending.files) {
+    const uploadKind = file.type.startsWith('video/') ? 'public/video' : 'public/image';
+    if (uploadKind === 'public/video' && !profile.value.allowTweetVideo) {
+      continue;
+    }
+    try {
+      uploading.value = [...uploading.value, file.name];
+      const asset = await uploadFile(file, uploadKind);
+      handleUploadedAsset(asset);
+    } catch {
+      window.$message.error(`${file.name} 导入失败`);
+    } finally {
+      uploading.value = uploading.value.filter((item) => item !== file.name);
+    }
+  }
 };
 
 const submitPost = async () => {
@@ -359,18 +432,21 @@ const submitPost = async () => {
     attachmentPrice: attachmentPrice.value * 100,
   });
   const { tags, users } = parsePostTag(`${normalizedText || textContent} `);
+  const normalizedTags = Array.from(
+    new Set(isEventMode.value ? [...tags, EVENT_POST_TAG] : tags),
+  );
 
   submitting.value = true;
   try {
     const post = await createPost({
       space_slug: currentSpaceSlug.value,
       contents,
-      tags: Array.from(new Set(tags)),
+      tags: normalizedTags,
       users: Array.from(new Set(users)),
       attachment_price: attachmentPrice.value * 100,
       visibility: visitType.value,
     });
-    window.$message.success('发布成功');
+    window.$message.success(isEventMode.value ? '事件已创建' : '发布成功');
     resetEditor();
     emit('post-success', post);
   } finally {
@@ -390,7 +466,9 @@ onMounted(() => {
     defaultVisitType.value = VisibilityEnum.PRIVATE;
   }
   visitType.value = defaultVisitType.value;
-  mediaHints.value = ['图片、视频、附件和链接都已收进编辑器工具栏'];
+  if (isQuickMediaMode.value) {
+    void appendQuickMediaAssets();
+  }
 });
 
 watch(editorHtml, () => {
@@ -414,6 +492,44 @@ watch(editorHtml, () => {
   --compose-accent-ring: var(--editor-accent-ring);
   width: 100%;
   color: var(--compose-text-main);
+}
+
+.compose-editor :deep(.ck) {
+  --ck-color-base-background: var(--compose-editor-bg);
+  --ck-color-toolbar-background: var(--compose-editor-toolbar-bg);
+  --ck-color-toolbar-border: var(--compose-editor-border);
+  --ck-color-base-border: var(--compose-editor-border);
+  --ck-color-panel-background: var(--compose-editor-bg);
+  --ck-color-panel-border: var(--compose-editor-border);
+  --ck-color-input-background: var(--compose-editor-bg);
+  --ck-color-input-border: var(--compose-editor-border);
+  --ck-color-input-text: var(--compose-text-main);
+  --ck-color-text: var(--compose-text-main);
+  --ck-color-button-default-hover-background: var(--compose-soft-bg);
+  --ck-color-button-default-active-background: var(--compose-soft-bg-strong);
+  --ck-color-button-on-background: var(--compose-soft-bg-strong);
+  --ck-color-button-on-color: var(--compose-accent);
+  --ck-color-focus-border: var(--compose-accent);
+  --ck-color-shadow-drop: transparent;
+  --ck-focus-ring: 0 0 0 3px var(--compose-accent-ring);
+  color: var(--compose-text-main);
+}
+
+.compose-editor :deep(.ck.ck-editor) {
+  display: block;
+}
+
+.compose-editor :deep(.ck.ck-editor__main > .ck-editor__editable) {
+  min-height: 260px;
+  color: var(--compose-text-main);
+  background: var(--compose-editor-bg);
+}
+
+.compose-editor :deep(.ck.ck-toolbar),
+.compose-editor :deep(.ck.ck-editor__main > .ck-editor__editable),
+.compose-editor :deep(.ck.ck-balloon-panel),
+.compose-editor :deep(.ck.ck-dropdown__panel) {
+  border-color: var(--compose-editor-border);
 }
 
 .editor-shell {
@@ -444,6 +560,50 @@ watch(editorHtml, () => {
   border: 1px solid var(--compose-panel-border);
   background: var(--compose-panel-bg);
   box-shadow: var(--compose-panel-shadow);
+}
+
+.event-intro-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--compose-panel-border);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent-soft) 72%, transparent), transparent 62%),
+    var(--compose-panel-bg);
+  box-shadow: var(--compose-panel-shadow);
+}
+
+.event-intro-badge {
+  flex: none;
+  min-width: 44px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--compose-soft-bg-strong);
+  color: var(--compose-accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.event-intro-content {
+  display: grid;
+  gap: 4px;
+
+  strong {
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  span {
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--compose-text-subtle);
+  }
 }
 
 .editor-toolbar {
@@ -483,15 +643,13 @@ watch(editorHtml, () => {
 }
 
 .uploading-list,
-.media-hint-list,
 .asset-pill-list {
   margin-top: 16px;
   display: grid;
   gap: 10px;
 }
 
-.uploading-item,
-.media-hint {
+.uploading-item {
   display: flex;
   align-items: center;
   justify-content: space-between;

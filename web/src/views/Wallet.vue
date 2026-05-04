@@ -330,7 +330,4 @@ onMounted(() => {
     }
 }
 
-:global(.dark) .main-content-wrap {
-    background-color: var(--wallet-surface-bg);
-}
 </style>

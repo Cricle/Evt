@@ -168,9 +168,29 @@ impl AppContext {
             .find_by_id(user_id)
             .await?
             .ok_or_else(|| AppError::NotFound("user not found".into()))?;
+        let current_meta = self
+            .profiles
+            .find_by_user_id(user.id)
+            .await?
+            .unwrap_or(evt_domain::UserMeta {
+                user_id: user.id,
+                nickname: user.username.clone(),
+                avatar: String::new(),
+                activation_code: String::new(),
+                is_admin: false,
+                balance: 0,
+            });
         self.profiles
             .ensure_defaults(user.id, &user.username)
             .await?;
+        if current_meta.is_admin && !is_admin {
+            let admin_count = self.profiles.count_admins().await?;
+            if admin_count <= 1 {
+                return Err(AppError::Validation(
+                    "cannot revoke the last administrator".into(),
+                ));
+            }
+        }
         self.profiles.update_admin(user.id, is_admin).await
     }
 

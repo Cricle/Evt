@@ -2,6 +2,8 @@ import { defineConfig, devices } from '@playwright/test';
 
 const httpPort = process.env.EVT_E2E_HTTP_PORT ?? '18008';
 const grpcPort = process.env.EVT_E2E_GRPC_PORT ?? '19020';
+const executablePath = process.env.PLAYWRIGHT_EXECUTABLE_PATH;
+const launchArgs = process.getuid?.() === 0 ? ['--no-sandbox'] : [];
 
 export default defineConfig({
   testDir: './e2e',
@@ -18,7 +20,13 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: {
+          ...(executablePath ? { executablePath } : {}),
+          ...(launchArgs.length > 0 ? { args: launchArgs } : {}),
+        },
+      },
     },
   ],
   webServer: {

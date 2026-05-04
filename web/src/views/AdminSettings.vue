@@ -2,7 +2,13 @@
     <div>
         <main-nav title="系统配置" />
 
-        <n-card title="系统配置" size="small" class="setting-card">
+        <n-card
+            title="系统配置"
+            size="small"
+            class="setting-card"
+            header-style="padding: 14px 16px 10px;"
+            content-style="padding: 0 16px 16px;"
+        >
             <n-spin :show="loading">
                 <n-space vertical size="large" class="settings-layout">
                     <n-alert
@@ -13,14 +19,190 @@
                         检测到部分配置已经保存，但需要重启服务后才会切换到新值。带有“待重启”标记的配置当前仍在使用旧的生效值。
                     </n-alert>
 
+                    <n-card
+                        size="small"
+                        class="section-card"
+                        embedded
+                        :bordered="false"
+                    >
+                        <template #header>
+                            <div class="section-header">
+                                <div class="section-title">控制台</div>
+                                <div class="section-subtitle">搜索、筛选并聚焦本轮调整项</div>
+                            </div>
+                        </template>
+
+                        <n-space vertical size="medium">
+                            <div class="settings-metrics">
+                                <div class="metric-card">
+                                    <div class="metric-label">运行时配置</div>
+                                    <div class="metric-value">{{ activeItemCount }}</div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-label">当前筛选</div>
+                                    <div class="metric-value">{{ filteredActiveItemCount }}</div>
+                                </div>
+                                <div class="metric-card metric-card-warning">
+                                    <div class="metric-label">未保存变更</div>
+                                    <div class="metric-value">{{ changedItemCount }}</div>
+                                </div>
+                                <div class="metric-card metric-card-warning">
+                                    <div class="metric-label">待重启项</div>
+                                    <div class="metric-value">{{ pendingRestartItemCount }}</div>
+                                </div>
+                            </div>
+
+                            <n-space wrap size="small" class="settings-toolbar">
+                                <n-input
+                                    v-model:value="searchKeyword"
+                                    clearable
+                                    class="settings-search"
+                                    placeholder="搜索配置名、键名、说明"
+                                />
+                                <n-select
+                                    v-model:value="selectedDomainKey"
+                                    class="settings-domain-select"
+                                    :options="domainFilterOptions"
+                                />
+                                <n-checkbox v-model:checked="showOnlyEditable">
+                                    仅看可编辑
+                                </n-checkbox>
+                                <n-checkbox v-model:checked="showOnlyChanged">
+                                    仅看未保存
+                                </n-checkbox>
+                                <n-checkbox v-model:checked="showOnlyPendingRestart">
+                                    仅看待重启
+                                </n-checkbox>
+                                <n-button
+                                    quaternary
+                                    :disabled="!hasActiveFilters"
+                                    @click="clearFilters"
+                                >
+                                    清空筛选
+                                </n-button>
+                            </n-space>
+                        </n-space>
+                    </n-card>
+
+                    <n-card
+                        size="small"
+                        class="section-card"
+                        embedded
+                        :bordered="false"
+                    >
+                        <template #header>
+                            <div class="section-header">
+                                <div class="section-title">用户管理</div>
+                                <div class="section-subtitle">按用户名直接检索并管理权限</div>
+                            </div>
+                        </template>
+
+                        <n-space vertical size="medium" class="user-admin-panel">
+                            <n-space class="user-admin-search" align="center">
+                                <n-input
+                                    v-model:value="userLookupKeyword"
+                                    placeholder="输入用户名"
+                                    @keyup.enter.prevent="handleUserLookup"
+                                />
+                                <n-button
+                                    type="primary"
+                                    secondary
+                                    :loading="userLookupLoading"
+                                    @click="handleUserLookup"
+                                >
+                                    查询用户
+                                </n-button>
+                            </n-space>
+
+                            <n-card
+                                v-if="managedUser"
+                                size="small"
+                                embedded
+                                :bordered="false"
+                                class="managed-user-card"
+                            >
+                                <div class="managed-user-copy">
+                                    <n-avatar
+                                        round
+                                        :size="40"
+                                        :src="managedUser.avatar || DEFAULT_USER_AVATAR"
+                                    />
+                                    <div>
+                                        <div class="managed-user-name">
+                                            {{ managedUser.nickname }}
+                                            <span>@{{ managedUser.username }}</span>
+                                        </div>
+                                        <div class="managed-user-meta">
+                                            UID {{ managedUser.id }} ·
+                                            {{ managedUser.status === 2 ? "已禁用" : "正常" }} ·
+                                            {{ managedUser.is_admin ? "管理员" : "普通用户" }}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <n-space size="small">
+                                    <n-button
+                                        quaternary
+                                        :loading="userActionLoading === 'status'"
+                                        @click="toggleManagedUserStatus"
+                                    >
+                                        {{ managedUser.status === 2 ? "启用用户" : "禁用用户" }}
+                                    </n-button>
+                                    <n-button
+                                        type="primary"
+                                        secondary
+                                        :loading="userActionLoading === 'admin'"
+                                        @click="toggleManagedUserAdmin"
+                                    >
+                                        {{ managedUser.is_admin ? "撤销管理员" : "设为管理员" }}
+                                    </n-button>
+                                </n-space>
+                            </n-card>
+                        </n-space>
+                    </n-card>
+
                     <div v-if="activeDomains.length === 0" class="empty-wrap">
                         <n-empty size="large" description="暂无可显示的配置项" />
                     </div>
 
-                    <div
+                    <n-card
+                        v-if="activeDomains.length > 0"
+                        size="small"
+                        class="section-card"
+                        embedded
+                        :bordered="false"
+                    >
+                        <template #header>
+                            <div class="section-header">
+                                <div class="section-title">配置分类</div>
+                                <div class="section-subtitle">按领域快速定位要调整的系统能力</div>
+                            </div>
+                        </template>
+
+                        <n-space size="small" wrap>
+                            <n-tag
+                                v-for="group in rawActiveDomains"
+                                :key="`summary-${group.key}`"
+                                round
+                                size="small"
+                                :type="selectedDomainKey === group.key ? 'success' : 'default'"
+                                class="clickable-tag"
+                                @click="
+                                    selectedDomainKey =
+                                        selectedDomainKey === group.key ? '' : group.key
+                                "
+                            >
+                                {{ group.label }} · {{ group.itemCount }}
+                            </n-tag>
+                        </n-space>
+                    </n-card>
+
+                    <n-space
                         v-for="group in activeDomains"
                         :key="group.key"
                         class="domain-block"
+                        vertical
+                        size="medium"
                     >
                         <div class="domain-header">
                             <div>
@@ -79,6 +261,14 @@
                                             :type="sourceTagType(entry.value?.source)"
                                         >
                                             {{ sourceLabel(entry.value?.source) }}
+                                        </n-tag>
+                                        <n-tag
+                                            v-if="isEntryChanged(entry)"
+                                            round
+                                            size="small"
+                                            type="warning"
+                                        >
+                                            未保存
                                         </n-tag>
                                         <n-tag
                                             v-if="entry.schema.secret"
@@ -147,10 +337,29 @@
                                         />
                                     </template>
                                     <template v-else-if="entry.schema.type === 'bool'">
-                                        <n-switch
-                                            v-model:value="draftValues[entry.schema.key]"
-                                            :disabled="!isEditable(entry.schema)"
-                                        />
+                                        <n-space align="center" size="small">
+                                            <n-switch
+                                                v-model:value="draftValues[entry.schema.key]"
+                                                :disabled="!isEditable(entry.schema)"
+                                            />
+                                            <n-tag
+                                                round
+                                                size="small"
+                                                :type="
+                                                    draftValues[entry.schema.key]
+                                                        ? 'success'
+                                                        : 'default'
+                                                "
+                                            >
+                                                {{
+                                                    switchStateLabel(
+                                                        Boolean(
+                                                            draftValues[entry.schema.key]
+                                                        )
+                                                    )
+                                                }}
+                                            </n-tag>
+                                        </n-space>
                                     </template>
                                     <template v-else-if="hasOptions(entry.schema)">
                                         <n-select
@@ -199,9 +408,33 @@
                                 <div class="setting-hint">
                                     {{ editorHintText(entry) }}
                                 </div>
+                                <div
+                                    v-if="isBooleanSwitch(entry.schema)"
+                                    class="setting-hint setting-hint-boolean"
+                                >
+                                    {{ booleanSummaryText(entry) }}
+                                </div>
+                                <n-space size="small" class="setting-item-actions">
+                                    <n-button
+                                        quaternary
+                                        size="tiny"
+                                        @click="copySettingKey(entry.schema.key)"
+                                    >
+                                        复制键名
+                                    </n-button>
+                                    <n-button
+                                        v-if="isEditable(entry.schema)"
+                                        quaternary
+                                        size="tiny"
+                                        :disabled="!isEntryChanged(entry)"
+                                        @click="resetEntryDraft(entry)"
+                                    >
+                                        恢复此项
+                                    </n-button>
+                                </n-space>
                             </div>
                         </n-card>
-                    </div>
+                    </n-space>
 
                     <n-collapse
                         v-if="inactiveDomains.length > 0"
@@ -288,7 +521,10 @@
                         </n-collapse-item>
                     </n-collapse>
 
-                    <div class="form-submit-wrap">
+                    <n-space justify="end" class="form-submit-wrap">
+                        <div class="submit-summary">
+                            当前共有 {{ changedItemCount }} 项未保存变更
+                        </div>
                         <n-button
                             round
                             quaternary
@@ -306,7 +542,7 @@
                         >
                             保存配置
                         </n-button>
-                    </div>
+                    </n-space>
                 </n-space>
             </n-spin>
         </n-card>
@@ -324,6 +560,7 @@ import { useStoreMain } from "@/store/main";
 import { useStoreProfile } from "@/store/profile";
 import { TOKEN_KEY, useStoreUser } from "@/store/user";
 import { Api } from "@/utils/request";
+import { DEFAULT_USER_AVATAR } from "@/utils/defaults";
 
 type SettingPrimitive = string | number | boolean | null;
 type SchemaItem = Api.Admin.NetReq.SettingsSchemaItem;
@@ -357,6 +594,12 @@ const sectionLabelMap: Record<string, string> = {
     profile: "站点资料",
     general: "常规设置",
     limits: "限制与阈值",
+    spaces: "广场设置",
+    accounts: "账号设置",
+    social: "社交能力",
+    publishing: "发布能力",
+    reading: "阅读体验",
+    branding: "品牌与页脚",
     bridge: "索引桥接",
     meili: "Meilisearch",
     zinc: "Zinc",
@@ -382,9 +625,18 @@ const saving = ref(false);
 const hasPendingRestart = ref(false);
 const schemaItems = ref<SchemaItem[]>([]);
 const valueItems = ref<ValueItem[]>([]);
+const userLookupKeyword = ref("");
+const userLookupLoading = ref(false);
+const userActionLoading = ref<"" | "status" | "admin">("");
+const managedUser = ref<Item.UserInfo | null>(null);
 const draftValues = reactive<Record<string, SettingPrimitive>>({});
 const initialDraftValues = reactive<Record<string, SettingPrimitive>>({});
 const secretDraftValues = reactive<Record<string, string>>({});
+const searchKeyword = ref("");
+const selectedDomainKey = ref("");
+const showOnlyEditable = ref(false);
+const showOnlyChanged = ref(false);
+const showOnlyPendingRestart = ref(false);
 
 const valueMap = computed(() => {
     const map: Record<string, ValueItem> = {};
@@ -394,11 +646,115 @@ const valueMap = computed(() => {
     return map;
 });
 
-const activeDomains = computed(() => buildDomains(true));
-const inactiveDomains = computed(() => buildDomains(false));
+const rawActiveDomains = computed(() => buildDomains(true));
+const rawInactiveDomains = computed(() => buildDomains(false));
+const domainFilterOptions = computed(() => [
+    { label: "全部领域", value: "" },
+    ...rawActiveDomains.value.map((domain) => ({
+        label: `${domain.label} · ${domain.itemCount}`,
+        value: domain.key,
+    })),
+]);
+const searchKeywordNormalized = computed(() => searchKeyword.value.trim().toLowerCase());
 const inactiveItemCount = computed(() => {
     return inactiveDomains.value.reduce((count, domain) => count + domain.itemCount, 0);
 });
+
+const isEntryChanged = (entry: ViewItem) => {
+    if (entry.schema.secret) {
+        return (secretDraftValues[entry.schema.key] ?? "").trim().length > 0;
+    }
+
+    const nextValue = normalizeDraftValue(entry.schema, draftValues[entry.schema.key]);
+    const initialValue = normalizeDraftValue(
+        entry.schema,
+        initialDraftValues[entry.schema.key]
+    );
+
+    if (entry.schema.type === "string") {
+        return String(nextValue ?? "").trim() !== String(initialValue ?? "").trim();
+    }
+
+    return nextValue !== initialValue;
+};
+
+const matchesEntryFilter = (entry: ViewItem) => {
+    if (selectedDomainKey.value && entry.schema.group !== selectedDomainKey.value) {
+        return false;
+    }
+
+    if (showOnlyEditable.value && !isEditable(entry.schema)) {
+        return false;
+    }
+
+    if (showOnlyChanged.value && !isEntryChanged(entry)) {
+        return false;
+    }
+
+    if (showOnlyPendingRestart.value && !entry.value?.pending_restart) {
+        return false;
+    }
+
+    if (!searchKeywordNormalized.value) {
+        return true;
+    }
+
+    const haystack = [
+        entry.schema.label,
+        entry.schema.key,
+        entry.schema.description,
+        groupLabel(entry.schema.group),
+        sectionLabel(entry.schema.section),
+    ]
+        .join(" ")
+        .toLowerCase();
+
+    return haystack.includes(searchKeywordNormalized.value);
+};
+
+const filterDomains = (domains: GroupedDomain[]) =>
+    domains
+        .map((domain) => {
+            const sections = domain.sections
+                .map((section) => ({
+                    ...section,
+                    items: section.items.filter(matchesEntryFilter),
+                }))
+                .filter((section) => section.items.length > 0);
+
+            return {
+                ...domain,
+                sections,
+                itemCount: sections.reduce((count, section) => count + section.items.length, 0),
+            };
+        })
+        .filter((domain) => domain.itemCount > 0);
+
+const activeDomains = computed(() => filterDomains(rawActiveDomains.value));
+const inactiveDomains = computed(() => filterDomains(rawInactiveDomains.value));
+const activeItems = computed(() =>
+    rawActiveDomains.value.flatMap((domain) =>
+        domain.sections.flatMap((section) => section.items)
+    )
+);
+const activeItemCount = computed(() => activeItems.value.length);
+const filteredActiveItemCount = computed(() =>
+    activeDomains.value.reduce((count, domain) => count + domain.itemCount, 0)
+);
+const changedItemCount = computed(() =>
+    activeItems.value.filter((entry) => isEntryChanged(entry)).length
+);
+const pendingRestartItemCount = computed(() =>
+    activeItems.value.filter((entry) => entry.value?.pending_restart).length
+);
+const hasActiveFilters = computed(
+    () =>
+        !!searchKeyword.value.trim() ||
+        !!selectedDomainKey.value ||
+        showOnlyEditable.value ||
+        showOnlyChanged.value ||
+        showOnlyPendingRestart.value
+);
 
 const buildDomains = (active: boolean): GroupedDomain[] => {
     const domains: GroupedDomain[] = [];
@@ -471,6 +827,8 @@ const isEditable = (schema: SchemaItem) => {
 const hasOptions = (schema: SchemaItem) => {
     return !!schema.options && schema.options.length > 0;
 };
+
+const isBooleanSwitch = (schema: SchemaItem) => schema.type === "bool";
 
 const settingOptions = (schema: SchemaItem) => {
     return schema.options ?? [];
@@ -668,6 +1026,16 @@ const editorHintText = (entry: ViewItem) => {
     return "保存后会立即刷新当前服务中的配置状态。";
 };
 
+const switchStateLabel = (enabled: boolean) => (enabled ? "开启" : "关闭");
+
+const booleanSummaryText = (entry: ViewItem) => {
+    const current = draftValues[entry.schema.key];
+    const enabled = Boolean(current);
+    return enabled
+        ? "当前已开启，保存后站点会对用户暴露这项能力。"
+        : "当前已关闭，保存后相关入口或能力会对普通用户隐藏。";
+};
+
 const refreshPublicSiteProfile = async (updatedKeys: string[]) => {
     if (!updatedKeys.some((key) => key.startsWith("web_profile."))) {
         return;
@@ -712,7 +1080,7 @@ const ensureAdminAccess = async () => {
         } catch (_err) {
             storeUser.userLogout();
             router.replace({
-                name: "home",
+                name: "auth",
             });
             return false;
         }
@@ -826,6 +1194,100 @@ const handleReset = () => {
     rebuildDraftState();
 };
 
+const clearFilters = () => {
+    searchKeyword.value = "";
+    selectedDomainKey.value = "";
+    showOnlyEditable.value = false;
+    showOnlyChanged.value = false;
+    showOnlyPendingRestart.value = false;
+};
+
+const resetEntryDraft = (entry: ViewItem) => {
+    if (entry.schema.secret) {
+        secretDraftValues[entry.schema.key] = "";
+        return;
+    }
+
+    draftValues[entry.schema.key] = initialDraftValues[entry.schema.key];
+};
+
+const copySettingKey = async (key: string) => {
+    try {
+        await navigator.clipboard.writeText(key);
+        window.$message.success("配置键名已复制");
+    } catch (_err) {
+        window.$message.warning("复制失败，请手动复制");
+    }
+};
+
+const handleUserLookup = async () => {
+    const username = userLookupKeyword.value.trim();
+    if (!username) {
+        window.$message.warning("请输入用户名");
+        return;
+    }
+
+    userLookupLoading.value = true;
+    try {
+        managedUser.value = await Api.v1.user.get.profile({ username });
+    } finally {
+        userLookupLoading.value = false;
+    }
+};
+
+const toggleManagedUserStatus = async () => {
+    if (!managedUser.value) {
+        return;
+    }
+    userActionLoading.value = "status";
+    try {
+        const nextStatus = managedUser.value.status === 2 ? 1 : 2;
+        await Api.v1.admin.post.user.status({
+            id: managedUser.value.id,
+            status: nextStatus,
+        });
+        managedUser.value = {
+            ...managedUser.value,
+            status: nextStatus as 1 | 2,
+        };
+        window.$message.success(nextStatus === 2 ? "用户已禁用" : "用户已启用");
+    } finally {
+        userActionLoading.value = "";
+    }
+};
+
+const toggleManagedUserAdmin = async () => {
+    if (!managedUser.value) {
+        return;
+    }
+    userActionLoading.value = "admin";
+    try {
+        const nextAdmin = !managedUser.value.is_admin;
+        await Api.v1.admin.post.user.admin({
+            id: managedUser.value.id,
+            is_admin: nextAdmin,
+        });
+        managedUser.value = {
+            ...managedUser.value,
+            is_admin: nextAdmin,
+        };
+        if (managedUser.value.id === userInfo.value.id) {
+            const currentUser = await fetchUserInfo();
+            storeUser.updateUserinfo(currentUser);
+            if (!currentUser.is_admin) {
+                window.$message.success("已撤销自己的管理员权限");
+                router.replace({
+                    name: "setting",
+                });
+                return;
+            }
+        }
+        window.$message.success(nextAdmin ? "已设为管理员" : "已撤销管理员");
+    } finally {
+        userActionLoading.value = "";
+    }
+};
+
 const handleSave = async (e: MouseEvent) => {
     e.preventDefault();
 
@@ -864,8 +1326,8 @@ onMounted(async () => {
 
 <style lang="less" scoped>
 .setting-card {
-    --admin-settings-section-bg-dark: #18181c;
-    margin-top: -1px;
+    --admin-settings-section-bg-dark: rgba(20, 24, 24, 0.72);
+    margin-top: 0;
     border-radius: 0;
 
     .settings-layout {
@@ -877,10 +1339,6 @@ onMounted(async () => {
     }
 
     .domain-block {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-
         .domain-header {
             display: flex;
             justify-content: space-between;
@@ -899,8 +1357,55 @@ onMounted(async () => {
         }
     }
 
+    .settings-metrics {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .metric-card {
+        padding: 14px 14px 12px;
+        border-radius: 12px;
+        background: color-mix(in srgb, var(--accent-soft-muted) 44%, transparent);
+        border: 1px solid color-mix(in srgb, var(--panel-border) 92%, transparent);
+    }
+
+    .metric-card-warning {
+        background: color-mix(in srgb, rgba(245, 158, 11, 0.16) 100%, transparent);
+    }
+
+    .metric-label {
+        font-size: 12px;
+        opacity: 0.72;
+    }
+
+    .metric-value {
+        margin-top: 8px;
+        font-size: 24px;
+        font-weight: 700;
+        line-height: 1;
+    }
+
+    .settings-toolbar {
+        align-items: center;
+    }
+
+    .settings-search {
+        width: min(100%, 340px);
+    }
+
+    .settings-domain-select {
+        width: 220px;
+    }
+
+    .clickable-tag {
+        cursor: pointer;
+    }
+
     .section-card {
         border-radius: 12px;
+        background: color-mix(in srgb, var(--panel-bg) 82%, transparent);
+        box-shadow: none;
 
         .section-header {
             display: flex;
@@ -918,10 +1423,52 @@ onMounted(async () => {
         }
     }
 
+    .user-admin-panel {
+        width: 100%;
+    }
+
+    .user-admin-search {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .managed-user-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 4px;
+        background: color-mix(in srgb, var(--accent-soft-muted) 42%, transparent);
+    }
+
+    .managed-user-copy {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+    }
+
+    .managed-user-name {
+        font-size: 15px;
+        font-weight: 600;
+
+        span {
+            margin-left: 6px;
+            font-weight: 400;
+            opacity: 0.7;
+        }
+    }
+
+    .managed-user-meta {
+        margin-top: 4px;
+        font-size: 12px;
+        opacity: 0.72;
+    }
+
     .setting-item,
     .inactive-item {
-        padding: 8px 0 18px;
-        border-bottom: 1px solid rgba(127, 127, 127, 0.12);
+        padding: 8px 0 16px;
+        border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 92%, transparent);
 
         &:last-child {
             padding-bottom: 0;
@@ -951,7 +1498,7 @@ onMounted(async () => {
         .setting-item-description {
             margin-top: 8px;
             font-size: 13px;
-            line-height: 1.7;
+            line-height: 1.65;
             opacity: 0.82;
         }
 
@@ -980,6 +1527,10 @@ onMounted(async () => {
             font-size: 12px;
             line-height: 1.7;
             opacity: 0.72;
+        }
+
+        .setting-item-actions {
+            margin-top: 8px;
         }
     }
 
@@ -1019,18 +1570,59 @@ onMounted(async () => {
     }
 
     .form-submit-wrap {
-        display: flex;
-        justify-content: flex-end;
-        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
         padding-top: 4px;
+    }
+
+    .submit-summary {
+        font-size: 12px;
+        opacity: 0.72;
     }
 }
 
 :global(.dark) .setting-card {
-    background-color: rgba(16, 16, 20, 0.75);
+    background-color: rgba(16, 20, 20, 0.72);
 }
 
 :global(.dark) .section-card {
     background-color: var(--admin-settings-section-bg-dark);
+}
+
+@media screen and (max-width: 821px) {
+    .setting-card {
+        .settings-metrics {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .settings-search,
+        .settings-domain-select {
+            width: 100%;
+        }
+
+        .settings-toolbar {
+            align-items: stretch;
+        }
+
+        .user-admin-search,
+        .managed-user-card {
+            align-items: stretch;
+        }
+
+        .user-admin-search {
+            :deep(.n-space-item:first-child) {
+                flex: 1 1 auto;
+            }
+
+            :deep(.n-input) {
+                width: 100%;
+            }
+        }
+
+        .form-submit-wrap {
+            flex-direction: column;
+            align-items: stretch;
+        }
+    }
 }
 </style>

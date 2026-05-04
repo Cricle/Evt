@@ -22,6 +22,9 @@ ENV http_proxy=${HTTP_PROXY}
 ENV https_proxy=${HTTPS_PROXY}
 ENV no_proxy=${NO_PROXY}
 ENV all_proxy=${ALL_PROXY}
+ENV CARGO_BUILD_JOBS=1
+ENV CARGO_INCREMENTAL=0
+ENV RUSTFLAGS="-C debuginfo=0 -C codegen-units=1"
 
 RUN sed -i "s|https://dl-cdn.alpinelinux.org/alpine|${ALPINE_MIRROR}|g" /etc/apk/repositories \
     && HTTP_PROXY=${HTTP_PROXY} HTTPS_PROXY=${HTTPS_PROXY} http_proxy=${HTTP_PROXY} https_proxy=${HTTPS_PROXY} \
@@ -37,10 +40,11 @@ COPY migrations ./migrations
 COPY proto ./proto
 COPY docs ./docs
 
-RUN cargo build --release --bin evt
+RUN cargo build --release --locked --bin evt
 
 FROM node:${NODE_VERSION} AS web-builder
 
+ARG ALPINE_MIRROR=https://mirrors.tuna.tsinghua.edu.cn/alpine
 ARG NPM_REGISTRY=https://mirrors.tuna.tsinghua.edu.cn/npm/
 ARG VITE_HOST=
 ARG HTTP_PROXY=
@@ -59,9 +63,11 @@ ENV https_proxy=${HTTPS_PROXY}
 ENV no_proxy=${NO_PROXY}
 ENV all_proxy=${ALL_PROXY}
 
-RUN npm config set registry "${NPM_REGISTRY}" \
-    && npm config set @opentiny:registry "https://registry.npmjs.org/" \
-    && corepack enable
+RUN sed -i "s|https://dl-cdn.alpinelinux.org/alpine|${ALPINE_MIRROR}|g" /etc/apk/repositories \
+    && HTTP_PROXY=${HTTP_PROXY} HTTPS_PROXY=${HTTPS_PROXY} http_proxy=${HTTP_PROXY} https_proxy=${HTTPS_PROXY} \
+    apk add --no-cache yarn \
+    && npm config set registry "${NPM_REGISTRY}" \
+    && npm config set @opentiny:registry "https://registry.npmjs.org/"
 
 COPY web/package.json web/yarn.lock ./
 COPY .yarnrc /app/.yarnrc
@@ -85,6 +91,7 @@ ENV EVT_RS__SERVER__HTTP__HOST=0.0.0.0
 ENV EVT_RS__SERVER__HTTP__PORT=8008
 ENV EVT_RS__SERVER__GRPC__HOST=0.0.0.0
 ENV EVT_RS__SERVER__GRPC__PORT=18020
+ENV EVT_RS__WEB__DIST_DIR=/app/web/dist
 ENV HTTP_PROXY=${HTTP_PROXY}
 ENV HTTPS_PROXY=${HTTPS_PROXY}
 ENV NO_PROXY=${NO_PROXY}

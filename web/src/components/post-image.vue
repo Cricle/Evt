@@ -9,8 +9,8 @@
                             @click.stop
                             class="post-img x1"
                             object-fit="cover"
-                            :src="img.content + thumbnail"
-                            :preview-src="img.content"
+                            :src="withThumbnail(img.content)"
+                            :preview-src="toMediaUrl(img.content)"
                         />
                     </n-gi>
                 </template>
@@ -26,8 +26,8 @@
                             @click.stop
                             class="post-img x2"
                             object-fit="cover"
-                            :src="img.content + thumbnail"
-                            :preview-src="img.content"
+                            :src="withThumbnail(img.content)"
+                            :preview-src="toMediaUrl(img.content)"
                         />
                     </n-gi>
                 </template>
@@ -43,8 +43,8 @@
                             @click.stop
                             class="post-img x3"
                             object-fit="cover"
-                            :src="img.content + thumbnail"
-                            :preview-src="img.content"
+                            :src="withThumbnail(img.content)"
+                            :preview-src="toMediaUrl(img.content)"
                         />
                     </n-gi>
                 </template>
@@ -60,8 +60,8 @@
                             @click.stop
                             class="post-img x2"
                             object-fit="cover"
-                            :src="img.content + thumbnail"
-                            :preview-src="img.content"
+                            :src="withThumbnail(img.content)"
+                            :preview-src="toMediaUrl(img.content)"
                         />
                     </n-gi>
                 </template>
@@ -74,8 +74,8 @@
                             @click.stop
                             class="post-img x1"
                             object-fit="cover"
-                            :src="img.content + thumbnail"
-                            :preview-src="img.content"
+                            :src="withThumbnail(img.content)"
+                            :preview-src="toMediaUrl(img.content)"
                         />
                     </n-gi>
                 </template>
@@ -91,8 +91,8 @@
                             @click.stop
                             class="post-img x2"
                             object-fit="cover"
-                            :src="img.content + thumbnail"
-                            :preview-src="img.content"
+                            :src="withThumbnail(img.content)"
+                            :preview-src="toMediaUrl(img.content)"
                         />
                     </n-gi>
                 </template>
@@ -105,8 +105,8 @@
                             @click.stop
                             class="post-img x2"
                             object-fit="cover"
-                            :src="img.content + thumbnail"
-                            :preview-src="img.content"
+                            :src="withThumbnail(img.content)"
+                            :preview-src="toMediaUrl(img.content)"
                         />
                     </n-gi>
                 </template>
@@ -122,8 +122,8 @@
                             @click.stop
                             class="post-img x3"
                             object-fit="cover"
-                            :src="img.content + thumbnail"
-                            :preview-src="img.content"
+                            :src="withThumbnail(img.content)"
+                            :preview-src="toMediaUrl(img.content)"
                         />
                     </n-gi>
                 </template>
@@ -136,8 +136,8 @@
                             @click.stop
                             class="post-img x2"
                             object-fit="cover"
-                            :src="img.content + thumbnail"
-                            :preview-src="img.content"
+                            :src="withThumbnail(img.content)"
+                            :preview-src="toMediaUrl(img.content)"
                         />
                     </n-gi>
                 </template>
@@ -153,8 +153,8 @@
                             @click.stop
                             class="post-img x3"
                             object-fit="cover"
-                            :src="img.content + thumbnail"
-                            :preview-src="img.content"
+                            :src="withThumbnail(img.content)"
+                            :preview-src="toMediaUrl(img.content)"
                         />
                     </n-gi>
                 </template>
@@ -167,8 +167,8 @@
                             @click.stop
                             class="post-img x3"
                             object-fit="cover"
-                            :src="img.content + thumbnail"
-                            :preview-src="img.content"
+                            :src="withThumbnail(img.content)"
+                            :preview-src="toMediaUrl(img.content)"
                         />
                     </n-gi>
                 </template>
@@ -184,8 +184,8 @@
                             @click.stop
                             class="post-img x2"
                             object-fit="cover"
-                            :src="img.content + thumbnail"
-                            :preview-src="img.content"
+                            :src="withThumbnail(img.content)"
+                            :preview-src="toMediaUrl(img.content)"
                         />
                     </n-gi>
                 </template>
@@ -198,8 +198,8 @@
                             @click.stop
                             class="post-img x2"
                             object-fit="cover"
-                            :src="img.content + thumbnail"
-                            :preview-src="img.content"
+                            :src="withThumbnail(img.content)"
+                            :preview-src="toMediaUrl(img.content)"
                         />
                     </n-gi>
                 </template>
@@ -212,8 +212,8 @@
                             @click.stop
                             class="post-img x2"
                             object-fit="cover"
-                            :src="img.content + thumbnail"
-                            :preview-src="img.content"
+                            :src="withThumbnail(img.content)"
+                            :preview-src="toMediaUrl(img.content)"
                         />
                     </n-gi>
                 </template>
@@ -223,7 +223,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { buildApiUrl } from '@/utils/api';
 
 const defaultImg = import.meta.env.VITE_DEFAULT_TWEET_IMAGE_404;
 const thumbnail = import.meta.env.VITE_TWEET_IMAGE_THUMBNAIL;
@@ -235,6 +235,25 @@ const props = withDefaults(
     imgs: () => [],
   },
 );
+
+const toMediaUrl = (value: string) => {
+  const normalized = (value || '').trim();
+  if (!normalized) {
+    return defaultImg;
+  }
+  if (/^(https?:)?\/\//i.test(normalized) || normalized.startsWith('data:') || normalized.startsWith('blob:')) {
+    return normalized;
+  }
+  return buildApiUrl(normalized.startsWith('/') ? normalized : `/${normalized}`);
+};
+
+const withThumbnail = (value: string) => {
+  const url = toMediaUrl(value);
+  if (!thumbnail) {
+    return url;
+  }
+  return url.includes('?') ? `${url}&${thumbnail.replace(/^\?/, '')}` : `${url}${thumbnail}`;
+};
 </script>
 
 <style lang="less">

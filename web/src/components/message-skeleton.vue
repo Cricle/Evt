@@ -20,17 +20,11 @@ const props = withDefaults(
 
 <style lang="less" scoped>
 .skeleton-item {
-    --message-skeleton-bg: transparent;
     padding: 12px;
     display: flex;
-    background-color: var(--message-skeleton-bg);
 
     .content {
         width: 100%;
     }
-}
-
-:global(.dark) .skeleton-item {
-    --message-skeleton-bg: rgba(16, 16, 20, 0.75);
 }
 </style>

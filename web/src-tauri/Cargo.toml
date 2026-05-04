@@ -13,6 +13,10 @@ tauri-build = { version = "1.5", features = [] }
 
 [dependencies]
 tauri = { version = "1.5", features = ["api-all", "macos-private-api"] }
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["rt-multi-thread"] }
+tonic = { version = "0.12", features = ["transport"] }
+evt-grpc-api = { path = "../../crates/grpc-api" }
 
 [features]
 # by default Tauri runs in production mode

@@ -547,7 +547,7 @@ pub async fn upload_attachment(
 
         let attachment = state
             .app()
-            .upload_attachment(&actor, &file_name, content_type.as_deref(), &bytes)
+            .upload_attachment_by_kind(&actor, upload_type.as_str(), &file_name, content_type.as_deref(), &bytes)
             .await?;
 
         return Ok(Json(success(to_legacy_attachment_upload_response(
@@ -563,13 +563,18 @@ fn to_legacy_attachment_upload_response(
     attachment: AttachmentSummary,
     upload_type: &str,
 ) -> LegacyUploadAttachmentResponse {
+    let content = match upload_type {
+        "public/image" | "public/video" => format!("/v1/media/{}", attachment.id),
+        _ => format!("/v1/attachments/{}", attachment.id),
+    };
+
     LegacyUploadAttachmentResponse {
         user_id: attachment.user_id,
         file_size: attachment.size_bytes,
         img_width: 0,
         img_height: 0,
         attachment_type: legacy_attachment_type(upload_type),
-        content: format!("/v1/attachments/{}", attachment.id),
+        content,
     }
 }
 
@@ -737,7 +742,7 @@ fn to_legacy_post_contents(
                 id: item.id,
                 content_type: item.content_type,
                 post_id: item.post_id,
-                content: item.content.clone(),
+                content: normalize_legacy_content_url(item.content_type, &item.content),
                 sort: item.sort,
                 created_on: item.created_at.timestamp(),
             })
@@ -769,7 +774,7 @@ fn to_legacy_comment_contents(
                 comment_id: item.comment_id,
                 user_id: item.user_id,
                 content_type: item.content_type,
-                content: item.content.clone(),
+                content: normalize_legacy_content_url(item.content_type, &item.content),
                 sort: item.sort,
                 created_on: item.created_at.timestamp(),
             })
@@ -785,6 +790,33 @@ fn to_legacy_comment_contents(
         sort: 100,
         created_on,
     }]
+}
+
+fn normalize_legacy_content_url(content_type: i32, content: &str) -> String {
+    match content_type {
+        3 | 4 => {
+            if let Some(attachment_id) = parse_attachment_id_from_url(content) {
+                return format!("/v1/media/{attachment_id}");
+            }
+            content.to_string()
+        }
+        _ => content.to_string(),
+    }
+}
+
+fn parse_attachment_id_from_url(content: &str) -> Option<i64> {
+    let trimmed = content.trim();
+    if !trimmed.contains("/v1/attachments/") {
+        return None;
+    }
+    trimmed
+        .split('?')
+        .next()?
+        .trim_end_matches('/')
+        .rsplit('/')
+        .next()?
+        .parse()
+        .ok()
 }
 
 fn legacy_attachment_type(upload_type: &str) -> i32 {
@@ -825,4 +857,47 @@ fn group_comment_contents(
             .push(item);
     }
     grouped
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{normalize_legacy_content_url, parse_attachment_id_from_url};
+
+    #[test]
+    fn legacy_image_and_video_content_urls_are_rewritten_to_public_media_routes() {
+        assert_eq!(
+            normalize_legacy_content_url(3, "/v1/attachments/11"),
+            "/v1/media/11"
+        );
+        assert_eq!(
+            normalize_legacy_content_url(
+                4,
+                "http://115.191.9.128:8008/v1/attachments/12?x-oss-process=image/resize,m_fill,w_300"
+            ),
+            "/v1/media/12"
+        );
+    }
+
+    #[test]
+    fn non_media_content_urls_are_left_unchanged() {
+        assert_eq!(
+            normalize_legacy_content_url(7, "/v1/attachments/21"),
+            "/v1/attachments/21"
+        );
+        assert_eq!(
+            normalize_legacy_content_url(6, "https://evt.example"),
+            "https://evt.example"
+        );
+    }
+
+    #[test]
+    fn parses_attachment_id_from_legacy_urls_with_query_strings() {
+        assert_eq!(
+            parse_attachment_id_from_url(
+                "http://115.191.9.128:8008/v1/attachments/11?x-oss-process=image/resize,m_fill,w_300"
+            ),
+            Some(11)
+        );
+        assert_eq!(parse_attachment_id_from_url("/v1/media/11"), None);
+    }
 }

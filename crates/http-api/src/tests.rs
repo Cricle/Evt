@@ -131,6 +131,103 @@ async fn root_path_serves_web_shell() {
 }
 
 #[tokio::test]
+async fn relative_web_dist_dir_still_serves_spa_shell() {
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let temp_root = std::env::temp_dir().join(format!("evt-relative-web-shell-{unique}"));
+    let web_dist_dir = temp_root.join("web/dist");
+    fs::create_dir_all(web_dist_dir.join("assets")).expect("create relative test web dist");
+    fs::write(
+        web_dist_dir.join("index.html"),
+        "<!doctype html><html><body>evt-relative-web-shell</body></html>",
+    )
+    .expect("write relative index.html");
+
+    let previous_dir = std::env::current_dir().expect("capture current dir");
+    fs::create_dir_all(&temp_root).expect("create temp root");
+    std::env::set_current_dir(&temp_root).expect("enter relative web dist root");
+
+    let settings = Settings {
+        web: WebSettings {
+            dist_dir: "./web/dist".into(),
+        },
+        ..test_settings()
+    };
+
+    let app = evt_infra::AppContext::bootstrap_lazy(settings)
+        .await
+        .expect("build lazy app context with relative dist dir");
+    let router = router(HttpState::new(app));
+    let response = router
+        .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+
+    std::env::set_current_dir(previous_dir).expect("restore current dir");
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let bytes = to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("read response body");
+    let body = String::from_utf8(bytes.to_vec()).expect("decode response body");
+    assert!(body.contains("evt-relative-web-shell"));
+}
+
+#[tokio::test]
+async fn spa_deep_links_serve_web_shell() {
+    let app = test_app().await;
+
+    for path in [
+        "/space",
+        "/setting",
+        "/admin/settings",
+        "/compose",
+        "/spaces/create",
+        "/u",
+        "/messages",
+    ] {
+        let response = app
+            .clone()
+            .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK, "path {path}");
+
+        let bytes = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("read response body");
+        let body = String::from_utf8(bytes.to_vec()).expect("decode response body");
+        assert!(body.contains("evt-web-shell"), "path {path} body={body}");
+    }
+}
+
+#[tokio::test]
+async fn unknown_non_api_path_falls_back_to_web_shell() {
+    let app = test_app().await;
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/space")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let bytes = to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("read response body");
+    let body = String::from_utf8(bytes.to_vec()).expect("decode response body");
+    assert!(body.contains("evt-web-shell"));
+}
+
+#[tokio::test]
 async fn static_asset_path_serves_web_asset() {
     let app = test_app().await;
     let response = app
@@ -172,7 +269,19 @@ async fn version_endpoint_keeps_success_envelope_shape() {
 
 #[tokio::test]
 async fn site_profile_endpoint_keeps_existing_fields() {
-    let app = test_app().await;
+    let app = evt_infra::AppContext::bootstrap_lazy(test_settings())
+        .await
+        .expect("build lazy app context");
+    app.apply_site_profile_payload(&serde_json::json!({
+        "allow_user_register": true,
+        "allow_phone_bind": true,
+        "use_friendship": true,
+        "enable_trends_bar": false,
+        "default_tweet_max_length": 280,
+        "default_tweet_visibility": "public",
+        "copyright_right_link": "https://example.com/right"
+    }));
+    let app = router(HttpState::new(app));
     let response = app
         .oneshot(
             Request::builder()
@@ -189,7 +298,9 @@ async fn site_profile_endpoint_keeps_existing_fields() {
     assert_eq!(body["code"], 0);
     assert_eq!(body["msg"], "success");
     assert_eq!(body["data"]["allow_user_register"], true);
+    assert_eq!(body["data"]["allow_phone_bind"], true);
     assert_eq!(body["data"]["use_friendship"], true);
+    assert_eq!(body["data"]["enable_trends_bar"], false);
     assert_eq!(body["data"]["default_tweet_max_length"], 280);
     assert_eq!(body["data"]["default_tweet_visibility"], "public");
     assert_eq!(

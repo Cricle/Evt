@@ -20,6 +20,7 @@ vi.mock('@ckeditor/ckeditor5-upload/src/filerepository', () => ({
 
 import {
   EvtImageUploadAdapter,
+  normalizeUploadedAssetUrl,
   normalizeLinkInput,
   resolveUploadAuthHeader,
   uploadFilesSequentially,
@@ -28,6 +29,14 @@ import {
 describe('ckeditor upload plugin', () => {
   it('normalizes link input without changing inner url content', () => {
     expect(normalizeLinkInput('  https://evt.example/path?q=1  ')).toBe('https://evt.example/path?q=1');
+  });
+
+  it('normalizes relative uploaded asset urls to api urls', () => {
+    expect(normalizeUploadedAssetUrl('/v1/media/42')).toBe('/v1/media/42');
+    expect(normalizeUploadedAssetUrl('v1/media/42')).toBe('/v1/media/42');
+    expect(normalizeUploadedAssetUrl('https://cdn.evt.example/v1/media/42')).toBe(
+      'https://cdn.evt.example/v1/media/42',
+    );
   });
 
   it('builds the auth header from local storage token', () => {

@@ -140,12 +140,7 @@ impl AppContext {
         username: &str,
         role: SpaceRole,
     ) -> Result<SpaceMemberSummary, AppError> {
-        let actor_member = self
-            .spaces
-            .find_member(space_id, actor.id)
-            .await?
-            .ok_or_else(|| AppError::Unauthorized("space membership required".into()))?;
-
+        let actor_member = self.ensure_space_member(actor, space_id).await?;
         if !actor_member.role.can_manage_members() {
             return Err(AppError::Unauthorized(
                 "space admin permission required".into(),
@@ -250,12 +245,29 @@ impl AppContext {
         actor: &UserIdentity,
         space_id: i64,
     ) -> Result<SpaceMemberSummary, AppError> {
-        self.ensure_can_access_space_id(Some(actor), space_id)
-            .await?;
-        self.spaces
-            .find_member(space_id, actor.id)
+        let space = self
+            .spaces
+            .find_by_id(space_id)
             .await?
-            .ok_or_else(|| AppError::Unauthorized("space membership required".into()))
+            .ok_or_else(|| AppError::NotFound("space not found".into()))?;
+        self.ensure_can_access_space(Some(actor), &space).await?;
+
+        if let Some(member) = self.spaces.find_member(space_id, actor.id).await? {
+            return Ok(member);
+        }
+
+        if actor.id == space.owner_user_id {
+            self.spaces
+                .add_member(space_id, actor.id, SpaceRole::Owner, actor.id)
+                .await?;
+            return self
+                .spaces
+                .find_member(space_id, actor.id)
+                .await?
+                .ok_or_else(|| AppError::Internal("space owner member cannot be loaded".into()));
+        }
+
+        Err(AppError::Unauthorized("space membership required".into()))
     }
 }
 

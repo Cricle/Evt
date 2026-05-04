@@ -5,36 +5,53 @@
         <n-list class="main-content-wrap messages-wrap" bordered>
             <!-- 私信组件 -->
             <whisper :show="showWhisper" :user="whisperReceiver" @success="whisperSuccess" />
-            <n-space justify="space-between">
-				<div class="title title-action">
-					<n-button text size="small" :focusable="false" @click="handleUnreadMessage">
-						<template #icon>
-							<n-icon>
-								<UnreadIcon />
-							</n-icon>
-						</template>
-						{{ unreadMsgCount }} 条未读
-					</n-button>
-					<n-divider vertical />
-					<n-button text size="small" :focusable="false" @click="handleReadAll">全标已读</n-button>
-				</div>
-				<div class="title title-filter">
-					<n-dropdown 
-					placement="bottom-end"
-					trigger="click"
-					size="small"
-					:options="options"
-					@select="handleAction">
-						<n-button text>
-							<template #icon>
-								<n-icon>
-									<OptionsIcon />
-								</n-icon>
-							</template>
-							{{ messageStyle }}
-						</n-button>
-					</n-dropdown>
-				</div>
+            <div class="message-hero">
+                <div class="message-hero-copy">
+                    <strong>消息中心</strong>
+                    <span>集中处理私信、系统提醒、好友申请和未读动态提醒。</span>
+                </div>
+                <div class="message-hero-stats">
+                    <div class="message-stat">
+                        <span>未读</span>
+                        <strong>{{ unreadMsgCount }}</strong>
+                    </div>
+                    <div class="message-stat">
+                        <span>当前筛选</span>
+                        <strong>{{ messageStyle }}</strong>
+                    </div>
+                </div>
+            </div>
+            <n-space justify="space-between" align="center" class="message-toolbar">
+                <div class="title title-action">
+                    <n-button text size="small" :focusable="false" @click="handleUnreadMessage">
+                        <template #icon>
+                            <n-icon>
+                                <UnreadIcon />
+                            </n-icon>
+                        </template>
+                        {{ unreadMsgCount }} 条未读
+                    </n-button>
+                    <n-divider vertical />
+                    <n-button text size="small" :focusable="false" @click="handleReadAll">全标已读</n-button>
+                </div>
+                <div class="title title-filter">
+                    <n-dropdown
+                        placement="bottom-end"
+                        trigger="click"
+                        size="small"
+                        :options="options"
+                        @select="handleAction"
+                    >
+                        <n-button text>
+                            <template #icon>
+                                <n-icon>
+                                    <OptionsIcon />
+                                </n-icon>
+                            </template>
+                            {{ messageStyle }}
+                        </n-button>
+                    </n-dropdown>
+                </div>
             </n-space>
             <div v-if="loading && list.length === 0" class="skeleton-wrap">
                 <message-skeleton :num="pageSize" />
@@ -64,24 +81,24 @@
 </template>
 
 <script setup lang="ts">
-import { h, ref, onMounted, computed } from 'vue';
-import type { Component } from 'vue';
-import { NIcon, DropdownOption } from 'naive-ui';
+import InfiniteLoadMore from '@/components/infinite-load-more.vue';
+import { usePagination } from '@/composables/usePagination';
 import { useStoreMain } from '@/store/main';
-import { useRoute } from 'vue-router';
+import { useStoreUser } from '@/store/user';
+import { listLegacyMessages, markAllLegacyMessagesRead } from '@/utils/messageTransport';
 import {
   LayersOutline as AllIcon,
-  AtOutline as SystemIcon,
-  PaperPlaneOutline as WhisperIcon,
-  PersonAddOutline as RequestingIcon,
-  ChatbubbleEllipsesOutline as UnreadIcon,
   OptionsOutline as OptionsIcon,
+  PersonAddOutline as RequestingIcon,
+  AtOutline as SystemIcon,
+  ChatbubbleEllipsesOutline as UnreadIcon,
+  PaperPlaneOutline as WhisperIcon,
 } from '@vicons/ionicons5';
-import { useStoreUser } from '@/store/user';
+import { type DropdownOption, NIcon } from 'naive-ui';
 import { storeToRefs } from 'pinia';
-import { Api } from '@/utils/request';
-import { usePagination } from '@/composables/usePagination';
-import InfiniteLoadMore from '@/components/infinite-load-more.vue';
+import { computed, h, onMounted, ref } from 'vue';
+import type { Component } from 'vue';
+import { useRoute } from 'vue-router';
 
 const storeMain = useStoreMain();
 const storeUser = useStoreUser();
@@ -288,10 +305,10 @@ const handleUnreadMessage = () => {
 
 const handleReadAll = () => {
   if (unreadMsgCount.value > 0 && list.value.length > 0) {
-    Api.v1.user.message.post.readall()
+    markAllLegacyMessagesRead()
       .then((_res) => {
-        if (messageStyleVal.value != 'unread') {
-          for (let idx in list.value) {
+        if (messageStyleVal.value !== 'unread') {
+          for (const idx in list.value) {
             list.value[idx].is_read = 1;
           }
         } else {
@@ -315,19 +332,19 @@ const whisperSuccess = () => {
 };
 
 const syncFollowState = (payload: { userId: number; isFollowing: boolean }) => {
-  list.value.forEach((message) => {
+  for (const message of list.value) {
     if (message.sender_user?.id === payload.userId) {
       message.sender_user.is_following = payload.isFollowing;
     }
     if (message.receiver_user?.id === payload.userId) {
       message.receiver_user.is_following = payload.isFollowing;
     }
-  });
+  }
 };
 
 const loadMessages = () => {
   loading.value = true;
-  Api.v1.user.get.messages({
+  listLegacyMessages({
     style: messageStyleVal.value,
     page: page.value,
     page_size: pageSize.value,
@@ -353,7 +370,7 @@ const loadMessages = () => {
     });
 };
 const nextPage = () => {
-  if (page.value < totalPage.value || totalPage.value == 0) {
+  if (page.value < totalPage.value || totalPage.value === 0) {
     noMore.value = false;
     page.value++;
     loadMessages();
@@ -367,32 +384,96 @@ onMounted(() => {
 </script>
 
 <style lang="less" scoped>
-.messages-wrap,
-.empty-wrap {
-    --messages-surface: transparent;
-    background-color: var(--messages-surface);
+.message-hero {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 14px 16px 10px;
+    flex-wrap: wrap;
 }
 
-.pagination-wrap {
-    background-color: var(--messages-surface);
+.message-hero-copy {
+    display: grid;
+    gap: 4px;
+
+    strong {
+        font-size: 18px;
+        line-height: 1.35;
+    }
+
+    span {
+        font-size: 13px;
+        line-height: 1.7;
+        opacity: 0.72;
+    }
+}
+
+.message-hero-stats {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.message-stat {
+    min-width: 92px;
+    padding: 10px 12px;
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--panel-bg) 84%, transparent);
+    border: 1px solid color-mix(in srgb, var(--panel-border) 78%, transparent);
+    display: grid;
+    gap: 2px;
+
+    span {
+        font-size: 12px;
+        opacity: 0.64;
+    }
+
+    strong {
+        font-size: 15px;
+        line-height: 1.35;
+    }
+}
+
+.message-toolbar {
+    padding: 4px 16px 2px;
 }
 
 .title {
-    padding-top: 4px;
     opacity: 0.9;
 }
+
 .title-action {
     display: flex;
     align-items: center;
-    margin-left: 20px;
-}
-.title-filter {
-    margin-right: 20px;
+    gap: 0;
 }
 
-:global(.dark) .messages-wrap,
-:global(.dark) .empty-wrap,
-:global(.dark) .pagination-wrap {
-    --messages-surface: rgba(16, 16, 20, 0.75);
+.title-filter {
+    margin-left: auto;
+}
+
+@media (max-width: 768px) {
+    .message-hero {
+        padding: 12px 12px 8px;
+    }
+
+    .message-hero-stats,
+    .message-stat {
+        width: 100%;
+    }
+
+    .message-toolbar {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    .title-action {
+        flex-wrap: wrap;
+    }
+
+    .title-filter {
+        margin-left: 0;
+    }
 }
 </style>

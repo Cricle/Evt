@@ -4,7 +4,11 @@
 
 import moment from 'moment';
 import 'moment/dist/locale/zh-cn';
-moment.locale('zh-cn');
+import { setMomentLocale } from '@/i18n';
+import { EVT_LOCALE_KEY } from '@/store/main';
+import { safeLocalStorageGet } from '@/utils/storage';
+
+setMomentLocale(safeLocalStorageGet(EVT_LOCALE_KEY) === 'en-US' ? 'en-US' : 'zh-CN');
 
 export const formatTime = (time: number) => {
   return moment.unix(time).utc(true).format('YYYY-MM-DD HH:mm');

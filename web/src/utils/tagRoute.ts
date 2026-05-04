@@ -12,7 +12,7 @@ export const buildHomeRouteWithSpace = (
   query: Record<string, string | number>,
   currentSpaceSlug?: string | null,
 ) => ({
-  name: 'home',
+  name: 'space',
   query: withResolvedSpace(query, currentSpaceSlug),
 });
 
@@ -31,9 +31,21 @@ export const buildPostRoute = (id: number, currentSpaceSlug?: string | null) => 
   query: withResolvedSpace({ id }, currentSpaceSlug),
 });
 
-export const buildComposeRoute = (currentSpaceSlug?: string | null) => ({
+export type ComposeMode = 'post' | 'event';
+
+export const buildComposeRoute = (
+  currentSpaceSlug?: string | null,
+  mode: ComposeMode = 'post',
+  quick?: 'media',
+) => ({
   name: 'compose',
-  query: withResolvedSpace({}, currentSpaceSlug),
+  query: withResolvedSpace(
+    {
+      ...(mode === 'event' ? { mode } : {}),
+      ...(quick ? { quick } : {}),
+    },
+    currentSpaceSlug,
+  ),
 });
 
 export const buildCreateSpaceRoute = (currentSpaceSlug?: string | null) => ({

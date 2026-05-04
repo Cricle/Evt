@@ -1,0 +1,1291 @@
+<template>
+    <div>
+        <main-nav
+            title="广场"
+            :space-value="selectedSpaceSlug"
+            :space-options="spaceOptions"
+            :action-label="userInfo.id > 0 ? '新建广场' : ''"
+            action-icon="add"
+            action-icon-only
+            @update:space-value="selectedSpaceSlug = $event"
+            @action="openCreateSpaceDialog"
+        />
+
+        <n-list class="main-content-wrap" bordered>
+            <n-list-item v-if="activeSpace" class="space-overview-item">
+                <div class="space-overview-card">
+                    <div class="space-overview-main">
+                        <div class="space-overview-copy">
+                            <div class="space-overview-topline">
+                                <div class="space-overview-kicker">当前广场</div>
+                                <div class="space-overview-slug">/{{ activeSpace.slug }}</div>
+                            </div>
+                            <div class="space-overview-title-row">
+                                <h2>{{ activeSpace.name }}</h2>
+                                <n-tag size="small" :bordered="false" round :type="activeSpace.visibility === 'private' ? 'warning' : 'success'">
+                                    {{ activeSpace.visibility === 'private' ? '私密' : '公开' }}
+                                </n-tag>
+                            </div>
+                            <p>{{ activeSpace.description || '这里是当前广场的动态时间线、成员范围和话题标签入口。' }}</p>
+                            <div class="space-overview-inline-meta">
+                                <span>{{ activeSpace.visibility === 'private' ? '仅成员可见' : '所有成员默认入口' }}</span>
+                                <span>·</span>
+                                <span>{{ newestTweetsStyle === 'following' ? '当前聚焦关注内容' : newestTweetsStyle === 'hots' ? '当前聚焦热门内容' : '当前浏览全部动态' }}</span>
+                            </div>
+                        </div>
+                        <div class="space-overview-stats">
+                            <div class="space-stat-card">
+                                <strong>{{ activeSpace.members_count }}</strong>
+                                <span>成员</span>
+                            </div>
+                            <div class="space-stat-card">
+                                <strong>{{ list.length }}</strong>
+                                <span>当前已载入</span>
+                            </div>
+                            <div class="space-stat-card">
+                                <strong>{{ newestTweetsStyle === 'following' ? '关注' : newestTweetsStyle === 'hots' ? '热门' : '全部' }}</strong>
+                                <span>当前视图</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-if="canManageActiveSpace" class="space-overview-actions">
+                        <n-button size="small" secondary round @click="openAddMemberDialog">添加成员</n-button>
+                        <n-button size="small" tertiary round @click="openManageMembersDialog">成员管理</n-button>
+                    </div>
+                </div>
+            </n-list-item>
+            <n-list-item v-if="showTrendsBar" >
+            <SlideBar :key="slideBarKey" v-model="slideBarList" :wheel-blocks="wheelBlocks" :init-blocks="initBlocks" @click="handleBarClick" tag="div" sub-tag="div">
+                <template #default="data">
+                    <div class="slide-bar-item">
+                        <n-badge value="1" :offset="[-4, 48]" dot :show="data.slotData.show">
+                            <n-avatar
+                                round
+                                :size="48"
+                                :src="data.slotData.avatar || DEFAULT_USER_AVATAR"
+                                class="slide-bar-item-avatar"
+                            />
+                        </n-badge>
+                        <div class="slide-bar-item-title slide-bar-user-link">
+                            <n-ellipsis :line-clamp="2">
+                                {{ data.slotData.title }}
+                            </n-ellipsis>
+                        </div>
+                    </div>
+                </template>
+            </SlideBar>
+            </n-list-item>
+            <div  class="style-wrap" v-else-if="showTrendsTag">
+            <n-space >
+                <n-button
+                    v-for="btn in filterButtons"
+                    :key="btn.key"
+                    size="small"
+                    :type="newestTweetsStyle === btn.key ? 'success' : undefined"
+                    :bordered="false"
+                    @click="onFilterClick(btn.key, btn.index)"
+                    class="style-item"
+                    secondary
+                    round
+                >
+                    {{ btn.label }}
+                </n-button>
+            </n-space>
+            </div>
+            <div v-if="loading && list.length === 0" class="skeleton-wrap">
+                <post-skeleton :num="pageSize" />
+            </div>
+
+            <div>
+                <div class="empty-wrap" v-if="list.length === 0">
+                    <n-empty size="large" description="暂无数据" />
+                </div>
+                <n-list-item v-for="post in list" :key="post.id">
+                    <post-item :post="post"
+                        :isOwner="userInfo.id == post.user_id"
+                        :isMobile="!desktopModelShow"
+                        addFollowAction
+                        @send-whisper="onSendWhisper"
+                        @post-follow-action="postFollowAction"
+                        @handle-friend-action="onHandleFriendAction" />
+                </n-list-item>
+            </div>
+            <!-- 私信组件 -->
+            <whisper :show="showWhisper" :user="whisperReceiver" @success="whisperSuccess" />
+            <!-- 加好友组件 -->
+            <whisper-add-friend :show="showAddFriendWhisper" :user="user" @success="addFriendWhisperSuccess" />
+        </n-list>
+
+        <n-space v-if="totalPage > 0" justify="center">
+            <InfiniteLoading class="load-more" :slots="{ complete: '没有更多动态了', error: '加载出错' }" @infinite="handleNextPage">
+                <template #spinner>
+                    <div class="load-more-wrap">
+                        <n-spin :size="14" v-if="!noMore" />
+                        <span class="load-more-spinner">{{ noMore ? '没有更多动态了' : '加载更多' }}</span>
+                    </div>
+                </template>
+            </InfiniteLoading>
+        </n-space>
+    </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted, reactive, computed, watch } from 'vue';
+import { useStoreMain } from '@/store/main';
+import { useRoute, useRouter } from 'vue-router';
+import { h } from 'vue';
+import { NButton, NInput, NSelect, NTag, useDialog } from 'naive-ui';
+import InfiniteLoading from 'v3-infinite-loading';
+import { getPosts, getIndexTrends } from '@/api/post';
+import SlideBar from '@opentiny/vue-slide-bar';
+import allTweets from '@/assets/img/fresh-tweets.png';
+import discoverTweets from '@/assets/img/discover-tweets.jpeg';
+import followingTweets from '@/assets/img/following-tweets.jpeg';
+import { useStoreUser } from '@/store/user';
+import { useStoreProfile } from '@/store/profile';
+import { storeToRefs } from 'pinia';
+import { Api } from '@/utils/request';
+import { resolveSpaceSlug } from '@/utils/spaces';
+import { usePagination } from '@/composables/usePagination';
+import UserAction from '@/composables/useUserAction';
+import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
+import { buildCreateSpaceRoute, buildPostRoute } from '@/utils/tagRoute';
+
+const storeMain = useStoreMain();
+const storeUser = useStoreUser();
+const storeProfile = useStoreProfile();
+const { desktopModelShow, refresh } = storeToRefs(storeMain);
+const { userInfo } = storeToRefs(storeUser);
+const { profile, currentSpaceSlug, spaces, activeSpaceMembers } = storeToRefs(storeProfile);
+
+const route = useRoute();
+const router = useRouter();
+const dialog = useDialog();
+
+const newestTweetsStyle = ref<'newest' | 'hots' | 'following'>('newest');
+
+// 筛选按钮配置
+const filterButtons = [
+  { key: 'newest' as const, label: '全部', index: 0 },
+  { key: 'hots' as const, label: '热门推荐', index: 1 },
+  { key: 'following' as const, label: '正在关注', index: 2 },
+];
+
+const onFilterClick = (key: 'newest' | 'hots' | 'following', index: number) => {
+  newestTweetsStyle.value = key;
+  handleBarClick(slideBarList.value[index], index);
+};
+
+// 保留原有的方法以确保兼容性
+const onNewestTweets = () => {
+  newestTweetsStyle.value = 'newest';
+  handleBarClick(slideBarList.value[0], 0);
+};
+const onHotTweets = () => {
+  newestTweetsStyle.value = 'hots';
+  handleBarClick(slideBarList.value[1], 1);
+};
+const onFollowingTweets = () => {
+  newestTweetsStyle.value = 'following';
+  handleBarClick(slideBarList.value[2], 2);
+};
+
+const initBlocks = ref(9);
+const wheelBlocks = ref(8);
+const slideBarKey = ref(0);
+const slideBarList = ref<Item.SlideBarItem[]>([
+  { title: '最新动态', style: 1, username: '', avatar: allTweets, show: true },
+  {
+    title: '热门推荐',
+    style: 2,
+    username: '',
+    avatar: discoverTweets,
+    show: false,
+  },
+  {
+    title: '正在关注',
+    style: 3,
+    username: '',
+    avatar: followingTweets,
+    show: false,
+  },
+]);
+const user = reactive<Item.UserInfo>({
+  id: 0,
+  avatar: '',
+  username: '',
+  nickname: '',
+  is_admin: false,
+  is_friend: false,
+  is_following: false,
+  created_on: 0,
+  follows: 0,
+  followings: 0,
+  status: 1,
+});
+const inActionPost = ref<Item.PostProps | null>(null);
+
+const targetStyle = ref<number>(1);
+const targetUsername = ref<string>('');
+const list = ref<any[]>([]);
+const showAddFriendWhisper = ref(false);
+const selectedSpaceSlug = ref('');
+
+// 使用 usePagination composable
+const { loading, noMore, page, pageSize, totalPage, reset, nextPage } = usePagination(20);
+
+// 使用 UserAction.useWhisper()
+const { showWhisper, whisperReceiver, onSendWhisper, whisperSuccess } = UserAction.useWhisper();
+
+const spaceOptions = computed(() =>
+  spaces.value.map((item) => ({
+    label: `${item.name}${item.visibility === 'private' ? ' · 私密' : ''}`,
+    value: item.slug,
+  })),
+);
+
+const activeSpace = computed(() => {
+  return (
+    spaces.value.find((item) => item.slug === selectedSpaceSlug.value) ||
+    spaces.value.find((item) => item.slug === currentSpaceSlug.value) ||
+    spaces.value[0] ||
+    null
+  );
+});
+
+const canManageActiveSpace = computed(() => {
+  const space = activeSpace.value;
+  if (!space || userInfo.value.id <= 0) {
+    return false;
+  }
+  return (
+    space.owner_user_id === userInfo.value.id ||
+    space.current_user_role === 'owner' ||
+    space.current_user_role === 'admin'
+  );
+});
+const memberRoleOptions = [
+  { label: '普通成员', value: 'member' },
+  { label: '广场管理员', value: 'admin' },
+];
+
+const openAddFriendWhisper = () => {
+  showAddFriendWhisper.value = true;
+};
+
+const openDeleteFriend = (post: Item.PostProps) => {
+  dialog.warning({
+    title: '删除好友',
+    content:
+      '将好友 “' +
+      post.user.nickname +
+      '” 删除，将同时清理你与该好友相关的 “好友可见” 推文访问关系',
+    positiveText: '确定',
+    negativeText: '取消',
+    onPositiveClick: () => {
+      Api.v1.friend.post.delete({
+        user_id: user.id,
+      })
+        .then((res) => {
+          window.$message.success('操作成功');
+          post.user.is_friend = false;
+        })
+        .catch((_err) => {});
+    },
+  });
+};
+
+const addFriendWhisperSuccess = () => {
+  showAddFriendWhisper.value = false;
+  inActionPost.value = null;
+};
+
+const onHandleFriendAction = (post: Item.PostProps) => {
+  inActionPost.value = post;
+  user.id = post.user.id;
+  user.username = post.user.username;
+  user.nickname = post.user.nickname;
+  if (post.user.is_friend) {
+    openDeleteFriend(post);
+  } else {
+    openAddFriendWhisper();
+  }
+};
+
+function postFollowAction(userId: number, isFollowing: boolean) {
+  for (let index in list.value) {
+    if (list.value[index].user_id == userId) {
+      list.value[index].user.is_following = isFollowing;
+    }
+  }
+
+  // 如果是在【正在关注】tab，且是取消关注操作（isFollowing 为 false），则刷新列表
+  if (targetStyle.value === 3 && !isFollowing) {
+    resetAll();
+    loadPosts('following');
+  }
+}
+
+const showTrendsTag = computed(() => {
+  return (
+    userInfo.value.id > 0 &&
+    !profile.value.enableTrendsBar &&
+    desktopModelShow.value
+  );
+});
+const showTrendsBar = computed(() => {
+  return (
+    profile.value.useFriendship &&
+    profile.value.enableTrendsBar &&
+    desktopModelShow.value &&
+    userInfo.value.id > 0
+  );
+});
+
+// 重写 reset 方法以包含 list 的重置
+const resetAll = () => {
+  reset();
+  list.value = [];
+};
+
+const handleBarClick = (data: Item.SlideBarItem, index: number) => {
+  resetAll();
+  targetStyle.value = data.style;
+  if (route.query.q) {
+    route.query.q = null;
+    updateTitle();
+  }
+  switch (data.style) {
+    case 1:
+      loadPosts('newest');
+      break;
+    case 2:
+      loadPosts('hots');
+      break;
+    case 3:
+      route.query.q = null;
+      loadPosts('following');
+      break;
+    case 21:
+      targetUsername.value = data.username;
+      loadUserPosts();
+      break;
+    default:
+      break;
+  }
+  slideBarList.value[index].show = false;
+};
+
+const loadContacts = () => {
+  slideBarList.value = slideBarList.value.slice(0, 3);
+  if (
+    !profile.value.useFriendship ||
+    !profile.value.enableTrendsBar ||
+    userInfo.value.id === 0
+  ) {
+    return;
+  }
+  getIndexTrends({
+    page: 1,
+    page_size: 50,
+  })
+    .then((res) => {
+      var i = 0;
+      const list = res.list || [];
+      let barItems: Item.SlideBarItem[] = [];
+      for (; i < list.length; i++) {
+        let item: Item.IndexTrendsItem = list[i];
+        barItems.push({
+          title: item.nickname,
+          style: 21,
+          username: item.username,
+          avatar: item.avatar || DEFAULT_USER_AVATAR,
+          show: item.is_fresh,
+        });
+      }
+      if (barItems.length > 0) {
+        slideBarList.value = slideBarList.value.concat(barItems);
+        slideBarKey.value++;
+      }
+    })
+    .catch(() => {});
+};
+
+const loadPosts = (style: 'newest' | 'hots' | 'following' | 'search') => {
+  loading.value = true;
+  getPosts({
+    query: route.query.q ? decodeURIComponent(route.query.q as string) : null,
+    type: route.query.t as string,
+    space_slug: selectedSpaceSlug.value || currentSpaceSlug.value,
+    style: style,
+    page: page.value,
+    page_size: pageSize.value,
+  })
+    .then((rsp) => {
+      loading.value = false;
+      if (rsp.list.length === 0) {
+        noMore.value = true;
+      }
+
+      if (page.value > 1) {
+        list.value = list.value.concat(rsp.list);
+      } else {
+        list.value = rsp.list;
+        window.scrollTo(0, 0);
+      }
+
+      totalPage.value = Math.ceil(rsp.pager.total_rows / pageSize.value);
+    })
+    .catch((err) => {
+      loading.value = false;
+      if (page.value > 1) {
+        page.value--;
+      }
+    });
+};
+
+const syncSpaceFromRoute = () => {
+  const routeSpace = typeof route.query.space === 'string' ? route.query.space : '';
+  selectedSpaceSlug.value = resolveSpaceSlug(
+    routeSpace || currentSpaceSlug.value,
+    profile.value.defaultSpaceSlug,
+  );
+  currentSpaceSlug.value = selectedSpaceSlug.value;
+};
+
+const loadSpaces = () => {
+  if (!profile.value.enableSpaces) {
+    return Promise.resolve();
+  }
+  return Api.v1.spaces.get
+    ._self({
+      limit: 100,
+    })
+    .then((res) => {
+      spaces.value = res || [];
+      if (!spaces.value.length) {
+        selectedSpaceSlug.value = profile.value.defaultSpaceSlug;
+        currentSpaceSlug.value = selectedSpaceSlug.value;
+        return;
+      }
+      const candidate =
+        selectedSpaceSlug.value || currentSpaceSlug.value || profile.value.defaultSpaceSlug;
+      selectedSpaceSlug.value =
+        spaces.value.find((item) => item.slug === candidate)?.slug || spaces.value[0].slug;
+      currentSpaceSlug.value = selectedSpaceSlug.value;
+    })
+    .catch(() => {
+      spaces.value = [];
+    });
+};
+
+const loadActiveSpaceMembers = async () => {
+  const space = activeSpace.value;
+  if (!space || !canManageActiveSpace.value) {
+    activeSpaceMembers.value = [];
+    return;
+  }
+  try {
+    activeSpaceMembers.value = await Api.v1.spaces.get.members({
+      space_id: space.id,
+    });
+  } catch {
+    activeSpaceMembers.value = [];
+  }
+};
+
+const openCreateSpaceDialog = () => {
+  const target = buildCreateSpaceRoute(selectedSpaceSlug.value || currentSpaceSlug.value);
+  if (router.currentRoute.value.fullPath === router.resolve(target).fullPath) {
+    return;
+  }
+
+  router.push(target);
+};
+
+const openAddMemberDialog = () => {
+  const space = activeSpace.value;
+  if (!space) {
+    return;
+  }
+
+  let username = '';
+  let role: 'member' | 'admin' = 'member';
+
+  dialog.create({
+    title: `添加成员到 ${space.name}`,
+    content: () =>
+      h('div', { class: 'space-dialog-form' }, [
+        h(NInput, {
+          placeholder: '用户名',
+          onUpdateValue: (value: string) => {
+            username = value;
+          },
+        }),
+        h(NSelect, {
+          style: 'margin-top: 12px;',
+          value: role,
+          options: [
+            { label: '普通成员', value: 'member' },
+            { label: '广场管理员', value: 'admin' },
+          ],
+          'onUpdate:value': (value: 'member' | 'admin') => {
+            role = value;
+          },
+        }),
+      ]),
+    positiveText: '添加',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      await Api.v1.spaces.post.members({
+        space_id: space.id,
+        username,
+        role,
+      });
+      window.$message.success('成员添加成功');
+      await loadSpaces();
+      await loadActiveSpaceMembers();
+    },
+  });
+};
+
+const openManageMembersDialog = async () => {
+  const space = activeSpace.value;
+  if (!space) {
+    return;
+  }
+
+  await loadActiveSpaceMembers();
+
+  dialog.create({
+    title: `${space.name} 成员管理`,
+    content: () =>
+      h('div', { class: 'space-member-dialog' }, [
+        h('div', { class: 'space-member-summary' }, [
+          h('div', { class: 'space-member-summary-copy' }, [
+            h('strong', {}, `${activeSpaceMembers.value.length} 位成员`),
+            h('span', {}, '统一在这里调整角色、移除成员和确认当前管理结构。'),
+          ]),
+          h(
+            NTag,
+            {
+              size: 'small',
+              bordered: false,
+              round: true,
+              type: space.visibility === 'private' ? 'warning' : 'success',
+            },
+            {
+              default: () => (space.visibility === 'private' ? '私密广场' : '公开广场'),
+            },
+          ),
+        ]),
+        activeSpaceMembers.value.length === 0
+          ? h('div', { class: 'space-member-empty' }, '当前广场还没有可管理的成员')
+          : h('div', { class: 'space-member-list' }, [
+              ...activeSpaceMembers.value.map((member) =>
+                h('div', { class: 'space-member-card', key: `${member.space_id}-${member.user_id}` }, [
+                  h('div', { class: 'space-member-copy' }, [
+                    h('img', {
+                      class: 'space-member-avatar',
+                      src: member.avatar || DEFAULT_USER_AVATAR,
+                      alt: member.nickname || member.username,
+                    }),
+                    h('div', { class: 'space-member-meta' }, [
+                      h('div', { class: 'space-member-heading' }, [
+                        h(
+                          'strong',
+                          {},
+                          member.nickname || member.username,
+                        ),
+                        h(
+                          NTag,
+                          {
+                            size: 'small',
+                            bordered: false,
+                            type:
+                              member.role === 'owner'
+                                ? 'warning'
+                                : member.role === 'admin'
+                                  ? 'success'
+                                  : 'default',
+                            round: true,
+                          },
+                          {
+                            default: () =>
+                              member.role === 'owner'
+                                ? '创建者'
+                                : member.role === 'admin'
+                                  ? '管理员'
+                                  : '成员',
+                          },
+                        ),
+                      ]),
+                      h(
+                        'span',
+                        { class: 'space-member-handle' },
+                        `@${member.username}`,
+                      ),
+                      h(
+                        'span',
+                        { class: 'space-member-hint' },
+                        member.user_id === space.owner_user_id
+                          ? '该成员拥有当前广场的最高管理权限'
+                          : member.role === 'admin'
+                            ? '可以协助管理广场成员'
+                            : '普通成员，仅参与当前广场内容',
+                      ),
+                    ]),
+                  ]),
+                  member.user_id === space.owner_user_id
+                    ? h('div', { class: 'space-member-owner' }, '创建者不可修改')
+                    : h('div', { class: 'space-member-actions' }, [
+                        h('div', { class: 'space-member-actions-copy' }, [
+                          h('span', {}, '成员角色'),
+                          h(NSelect, {
+                            value: member.role === 'owner' ? 'admin' : member.role,
+                            options: memberRoleOptions,
+                            class: 'space-member-role-select',
+                            'onUpdate:value': async (value: 'member' | 'admin') => {
+                              await Api.v1.spaces.patch.members({
+                                space_id: space.id,
+                                user_id: member.user_id,
+                                role: value,
+                              });
+                              window.$message.success('角色更新成功');
+                              await loadActiveSpaceMembers();
+                            },
+                          }),
+                        ]),
+                        h(
+                          NButton,
+                          {
+                            class: 'space-member-remove',
+                            tertiary: true,
+                            type: 'error',
+                            round: true,
+                            size: 'small',
+                            onClick: async () => {
+                              dialog.warning({
+                                title: '移除成员',
+                                content: `确认将 @${member.username} 从 ${space.name} 中移除吗？`,
+                                positiveText: '移除',
+                                negativeText: '取消',
+                                onPositiveClick: async () => {
+                                  await Api.v1.spaces.delete.members({
+                                    space_id: space.id,
+                                    user_id: member.user_id,
+                                  });
+                                  window.$message.success('成员已移除');
+                                  await loadSpaces();
+                                  await loadActiveSpaceMembers();
+                                },
+                              });
+                            },
+                          },
+                          {
+                            default: () => '移除成员',
+                          },
+                        ),
+                      ]),
+                ]),
+              ),
+            ]),
+      ]),
+    positiveText: '关闭',
+    showIcon: false,
+    negativeText: undefined,
+    onPositiveClick: () => {
+      activeSpaceMembers.value = [];
+    },
+  });
+};
+
+const loadUserPosts = () => {
+  loading.value = true;
+  Api.v1.user.get.posts({
+    username: targetUsername.value,
+    style: 'post',
+    page: page.value,
+    page_size: pageSize.value,
+  })
+    .then((rsp) => {
+      loading.value = false;
+      if (rsp.list.length === 0) {
+        noMore.value = true;
+      }
+      if (page.value > 1) {
+        list.value = list.value.concat(rsp.list);
+      } else {
+        list.value = rsp.list || [];
+        window.scrollTo(0, 0);
+      }
+      totalPage.value = Math.ceil(rsp.pager.total_rows / pageSize.value);
+    })
+    .catch((err) => {
+      list.value = [];
+      if (page.value > 1) {
+        page.value--;
+      }
+      loading.value = false;
+    });
+};
+
+const onPostSuccess = (post: Item.PostProps) => {
+  // 暂时统统跳到详情页面，后续再精细化分场景优化
+  router.push(buildPostRoute(post.id, selectedSpaceSlug.value || currentSpaceSlug.value));
+  // // 如果不在第一页，需要跳转到详情页面
+  // if (targetStyle.value != 1) {
+  //     router.push({
+  //         name: 'post',
+  //         query: {
+  //             id: post.id,
+  //         },
+  //     });
+  //     return;
+  // }
+
+  // // 如果是在第一页，就地插入新推文到文章列表中
+  // let items = [];
+  // let length = list.value.length;
+  // if (length == pageSize.value) {
+  //     length--;
+  // }
+  // var i = 0;
+  // for (; i < length; i++) {
+  //     let item: Item.PostProps = list.value[i];
+  //     if (!item.is_top) {
+  //         break;
+  //     }
+  //     items.push(item);
+  // }
+  // items.push(post);
+  // for (; i < length; i++) {
+  //     items.push(list.value[i]);
+  // }
+  // list.value = items;
+};
+
+const loadMorePosts = () => {
+  switch (targetStyle.value) {
+    case 1:
+      loadPosts('newest');
+      break;
+    case 2:
+      loadPosts('hots');
+      break;
+    case 3:
+      loadPosts('following');
+      break;
+    case 21:
+      if (route.query.q) {
+        loadPosts('search');
+      } else {
+        loadUserPosts();
+      }
+      break;
+    default:
+      break;
+  }
+};
+
+const handleNextPage = () => {
+  nextPage(loadMorePosts);
+};
+
+onMounted(() => {
+  syncSpaceFromRoute();
+  resetAll();
+  loadSpaces().finally(() => {
+    loadContacts();
+    loadPosts('newest');
+  });
+});
+
+watch(
+  () => ({
+    path: route.path,
+    query: route.query,
+    refresh: refresh.value,
+  }),
+  (to, from) => {
+    syncSpaceFromRoute();
+    if (to.refresh !== from.refresh) {
+      resetAll();
+      loadSpaces();
+      loadContacts();
+      loadMorePosts();
+      return;
+    }
+    if (from.path !== '/post' && to.path === '/') {
+      resetAll();
+      loadSpaces();
+      loadContacts();
+      loadMorePosts();
+    }
+  },
+);
+
+watch(selectedSpaceSlug, (value, oldValue) => {
+  if (!value || value === oldValue) {
+    return;
+  }
+  currentSpaceSlug.value = value;
+  if (route.name !== 'space') {
+    return;
+  }
+  router.replace({
+    name: 'space',
+    query: {
+      ...route.query,
+      space: value,
+    },
+  });
+  resetAll();
+  loadContacts();
+  loadPosts('newest');
+});
+
+watch(
+  () => [activeSpace.value?.id, canManageActiveSpace.value],
+  ([spaceId, canManage]) => {
+    if (!spaceId || !canManage) {
+      activeSpaceMembers.value = [];
+      return;
+    }
+    loadActiveSpaceMembers();
+  },
+  { immediate: true },
+);
+</script>
+
+<style lang="less" scoped>
+.main-content-wrap {
+  overflow: visible;
+  padding-top: 0;
+
+  :deep(.n-list-item:first-child) {
+    border-top-left-radius: inherit;
+    border-top-right-radius: inherit;
+  }
+}
+
+.space-overview-item {
+  padding: 0;
+}
+
+.space-overview-card {
+  margin: 10px 12px 6px;
+  padding: 16px 16px 14px;
+  border-radius: 20px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent-soft) 34%, transparent), transparent 70%),
+    color-mix(in srgb, var(--panel-bg) 90%, transparent);
+  border: 1px solid color-mix(in srgb, var(--panel-border) 74%, transparent);
+  box-shadow:
+    0 16px 34px color-mix(in srgb, var(--shadow-color, #0f172a) 8%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #ffffff 18%, transparent);
+  backdrop-filter: blur(18px) saturate(126%);
+}
+
+.space-overview-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.space-overview-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.space-overview-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.space-overview-kicker {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.62;
+}
+
+.space-overview-slug {
+  font-size: 12px;
+  line-height: 1;
+  opacity: 0.52;
+  font-family: var(--font-family-mono);
+}
+
+.space-overview-title-row {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.space-overview-title-row h2 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.06;
+}
+
+.space-overview-copy p {
+  margin: 12px 0 0;
+  font-size: 13px;
+  line-height: 1.82;
+  opacity: 0.76;
+}
+
+.space-overview-inline-meta {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+  opacity: 0.62;
+}
+
+.space-overview-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(88px, 1fr));
+  gap: 10px;
+  flex: 0 0 auto;
+  padding: 8px;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--panel-bg) 42%, transparent);
+  border: 1px solid color-mix(in srgb, var(--panel-border) 44%, transparent);
+}
+
+.space-stat-card {
+  display: grid;
+  gap: 6px;
+  padding: 13px 14px;
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent-soft) 14%, transparent), transparent 86%),
+    color-mix(in srgb, var(--panel-bg) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--panel-border) 70%, transparent);
+}
+
+.space-stat-card strong {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.space-stat-card span {
+  font-size: 12px;
+  opacity: 0.66;
+}
+
+.space-overview-actions {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--panel-border) 54%, transparent);
+}
+
+.style-wrap,
+:deep(.space-member-dialog),
+:deep(.space-member-list) {
+  --space-accent: var(--accent-primary);
+  --space-danger-bg: rgba(210, 64, 53, 0.12);
+  --space-danger-text: #b42318;
+  --space-member-border: rgba(18, 75, 51, 0.08);
+}
+
+:deep(.space-member-dialog) {
+  display: grid;
+  gap: 14px;
+  width: min(100%, 640px);
+}
+
+:deep(.space-member-summary) {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--panel-bg) 84%, transparent);
+  border: 1px solid color-mix(in srgb, var(--panel-border) 68%, transparent);
+}
+
+:deep(.space-member-summary-copy) {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+:deep(.space-member-summary-copy strong) {
+  font-size: 15px;
+  line-height: 1.3;
+}
+
+:deep(.space-member-summary-copy span) {
+  font-size: 12px;
+  line-height: 1.6;
+  opacity: 0.66;
+}
+
+:deep(.space-member-list) {
+  display: grid;
+  gap: 12px;
+  max-height: min(62vh, 560px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+:deep(.space-member-card) {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid var(--space-member-border);
+  background: color-mix(in srgb, var(--panel-bg) 82%, transparent);
+}
+
+:deep(.space-member-copy) {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+:deep(.space-member-meta) {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+:deep(.space-member-heading) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+:deep(.space-member-handle) {
+  font-size: 13px;
+  opacity: 0.78;
+}
+
+:deep(.space-member-hint) {
+  font-size: 12px;
+  line-height: 1.6;
+  opacity: 0.62;
+}
+
+:deep(.space-member-avatar) {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  object-fit: cover;
+  flex: 0 0 auto;
+}
+
+:deep(.space-member-owner) {
+  font-size: 12px;
+  opacity: 0.68;
+}
+
+:deep(.space-member-actions) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 2px;
+}
+
+:deep(.space-member-actions-copy) {
+  display: grid;
+  gap: 6px;
+  min-width: min(100%, 180px);
+}
+
+:deep(.space-member-actions-copy span) {
+  font-size: 12px;
+  opacity: 0.62;
+}
+
+:deep(.space-member-role-select) {
+  min-width: 148px;
+}
+
+:deep(.space-member-empty) {
+  padding: 30px 12px;
+  text-align: center;
+  font-size: 14px;
+  opacity: 0.72;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--panel-bg) 72%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--panel-border) 76%, transparent);
+}
+
+:deep(.space-member-remove) {
+  --n-color-hover: var(--space-danger-bg);
+  --n-color-pressed: var(--space-danger-bg);
+  --n-text-color: var(--space-danger-text);
+  --n-text-color-hover: var(--space-danger-text);
+  --n-text-color-pressed: var(--space-danger-text);
+  --n-border: 1px solid color-mix(in srgb, var(--space-danger-text) 14%, transparent);
+}
+
+@media (max-width: 768px) {
+  .style-wrap {
+    margin-left: 12px;
+    margin-right: 12px;
+  }
+
+  .space-overview-card {
+    margin: 8px 10px 6px;
+    padding: 14px;
+  }
+
+  .space-overview-main {
+    flex-direction: column;
+  }
+
+  .space-overview-stats {
+    width: 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .space-overview-topline {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .space-overview-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  :deep(.space-member-dialog) {
+    width: 100%;
+  }
+
+  :deep(.space-member-summary) {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  :deep(.space-member-list) {
+    max-height: min(56vh, 480px);
+    padding-right: 0;
+  }
+
+  :deep(.space-member-card) {
+    padding: 13px;
+    border-radius: 16px;
+  }
+
+  :deep(.space-member-actions) {
+    align-items: stretch;
+  }
+
+  :deep(.space-member-actions-copy),
+  :deep(.space-member-role-select),
+  :deep(.space-member-remove) {
+    width: 100%;
+  }
+}
+
+.tiny-slide-bar .tiny-slide-bar__list > 
+div.tiny-slide-bar__select .slide-bar-item .slide-bar-item-title {
+    color: var(--space-accent);
+    opacity: 0.8;
+}
+
+.tiny-slide-bar .tiny-slide-bar__list > 
+div:hover .slide-bar-item {
+    cursor: pointer;
+    .slide-bar-item-avatar {
+        color: var(--space-accent);
+        opacity: 0.8;
+    }
+    .slide-bar-item-title {
+        color: var(--space-accent);
+        opacity: 0.8;
+    }
+}
+.style-wrap {
+    margin: 4px 10px 10px;
+    padding: 2px 2px 2px;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    opacity: 1;
+
+    .style-item {
+        min-width: 72px;
+        --n-color-hover: color-mix(in srgb, var(--accent-soft) 55%, transparent);
+        --n-color-pressed: color-mix(in srgb, var(--accent-soft) 70%, transparent);
+        &.hover {
+            cursor: pointer;
+        }
+    }
+}
+.tiny-slide-bar {
+    margin-top: -4px;
+    margin-bottom: -8px;
+
+    .slide-bar-item {
+        min-height: 148px;
+        width: 72px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        margin-top: 6px;
+
+        .slide-bar-item-title {
+            justify-content: center;
+            font-size: 12px;
+            margin-top: 6px;
+            height: 36px;
+            text-align: center;
+            line-height: 1.4;
+        }
+    }
+}
+
+.load-more {
+    margin: 12px 0 8px;
+
+    .load-more-wrap {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 14px;
+
+        .load-more-spinner {
+            font-size: 14px;
+            opacity: 0.65;
+        }
+    }
+}
+
+:global(.dark) {
+  .style-wrap,
+  :deep(.space-member-dialog),
+  :deep(.space-member-list) {
+    --space-danger-bg: rgba(244, 114, 114, 0.18);
+    --space-danger-text: #fca5a5;
+    --space-member-border: rgba(148, 163, 184, 0.14);
+  }
+
+  .tiny-slide-bar {
+    --ti-slider-progress-box-arrow-hover-text-color: #f2f2f2;
+    --ti-slider-progress-box-arrow-normal-text-color: #808080;
+  }
+}
+</style>

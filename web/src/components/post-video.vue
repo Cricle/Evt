@@ -2,13 +2,15 @@
     <div v-if="props.videos.length > 0">
         <div class="video-grid" :class="{ full }">
             <div v-for="video in props.videos" :key="video.id" class="video-card" @click.stop>
-                <video class="video-player" :src="video.content" controls preload="metadata" playsinline />
+                <video class="video-player" :src="toVideoUrl(video.content)" controls preload="metadata" playsinline />
             </div>
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
+import { buildApiUrl } from '@/utils/api';
+
 const props = withDefaults(
   defineProps<{
     videos: Item.PostItemProps[];
@@ -19,6 +21,17 @@ const props = withDefaults(
     full: false,
   },
 );
+
+const toVideoUrl = (value: string) => {
+  const normalized = (value || '').trim();
+  if (!normalized) {
+    return '';
+  }
+  if (/^(https?:)?\/\//i.test(normalized) || normalized.startsWith('blob:') || normalized.startsWith('data:')) {
+    return normalized;
+  }
+  return buildApiUrl(normalized.startsWith('/') ? normalized : `/${normalized}`);
+};
 </script>
 
 <style scoped lang="less">

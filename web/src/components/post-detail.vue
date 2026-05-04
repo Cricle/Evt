@@ -1,6 +1,6 @@
 <template>
-    <div class="detail-item" @click="goPostDetail(post.id)">
-        <n-thing>
+    <div class="detail-item">
+        <n-thing content-indented>
             <template #avatar>
                 <n-avatar round :size="30" :src="post.user.avatar || DEFAULT_USER_AVATAR" />
             </template>
@@ -16,6 +16,15 @@
                     {{ post.user.nickname }}
                 </router-link>
                 <span class="username-wrap"> @{{ post.user.username }} </span>
+                <n-tag
+                    v-if="isEventMode"
+                    class="top-tag"
+                    type="success"
+                    size="small"
+                    round
+                >
+                    事件
+                </n-tag>
                 <n-tag
                     v-if="post.is_top"
                     class="top-tag"
@@ -138,6 +147,23 @@
                 <whisper :show="showWhisper" :user="whisperReceiver" @success="whisperSuccess" />
             </template>
             <div v-if="post.texts.length > 0">
+                <div v-if="isEventMode" class="event-hero">
+                    <div class="event-hero-main">
+                        <span class="event-hero-kicker">持续更新事件</span>
+                        <strong>{{ eventTitle }}</strong>
+                        <p>{{ eventSummary }}</p>
+                    </div>
+                    <div class="event-hero-stats">
+                        <div class="event-stat-card">
+                            <span>节点</span>
+                            <strong>{{ post.comment_count }}</strong>
+                        </div>
+                        <div class="event-stat-card">
+                            <span>表情</span>
+                            <strong>{{ post.upvote_count }}</strong>
+                        </div>
+                    </div>
+                </div>
                 <span
                     v-for="content in post.texts"
                     :key="content.id"
@@ -158,7 +184,7 @@
                 <post-video :videos="post.videos" :full="true" />
                 <post-link :links="post.links" />
                 <div class="timestamp">
-                    发布于 {{ formatPrettyTime(post.created_on) }}
+                    {{ isEventMode ? '事件创建于' : '发布于' }} {{ formatPrettyTime(post.created_on) }}
                     <span v-if="post.ip_loc">
                         <n-divider vertical />
                         {{ post.ip_loc }}
@@ -170,38 +196,21 @@
                 </div>
             </template>
             <template #action>
-                <div class="opts-wrap">
-                    <n-space justify="space-between">
-                        <n-popover trigger="click" placement="top">
-                            <template #trigger>
-                                <div
-                                    class="opt-item hover"
-                                    @click.stop
-                                >
-                                    <n-icon size="20" class="opt-item-icon">
-                                        <happy-outline />
-                                    </n-icon>
-                                    {{ post.upvote_count }}
-                                </div>
-                            </template>
-                            <emoji-reaction-picker @select="handlePostReaction" />
-                        </n-popover>
-                        <div class="opt-item">
-                            <n-icon size="20" class="opt-item-icon">
-                                <chatbox-outline />
-                            </n-icon>
-                            {{ post.comment_count }}
-                        </div>
-                        <div
-                            class="opt-item hover"
-                            @click.stop="handlePostShare"
-                        >
-                            <n-icon size="20" class="opt-item-icon">
+                <div class="detail-actions">
+                    <post-reaction-bar
+                        :reactions="post.reactions || []"
+                        :count="post.upvote_count"
+                        :max-visible="16"
+                        @select="handlePostReaction"
+                    />
+                    <n-button quaternary class="opt-item" @click.stop="handlePostShare">
+                        <template #icon>
+                            <n-icon size="18">
                                 <share-social-outline />
                             </n-icon>
-                            {{ post.share_count }}
-                        </div>
-                    </n-space>
+                        </template>
+                        分享
+                    </n-button>
                 </div>
             </template>
         </n-thing>
@@ -218,11 +227,7 @@ import { formatPrettyTime } from '@/utils/formatTime';
 import { parsePostTag } from '@/utils/content';
 import {
   PaperPlaneOutline,
-  Bookmark,
-  BookmarkOutline,
   ShareSocialOutline,
-  ChatboxOutline,
-  HappyOutline,
   PushOutline,
   TrashOutline,
   LockClosedOutline,
@@ -251,10 +256,12 @@ import { useStoreProfile } from '@/store/profile';
 import { useStoreUser } from '@/store/user';
 import UserAction from '@/composables/useUserAction';
 import { usePostContent } from '@/composables/usePostContent';
-import EmojiReactionPicker from '@/components/emoji-reaction-picker.vue';
+import PostReactionBar from '@/components/post-reaction-bar.vue';
 import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
 import { goToAuth } from '@/utils/authRoute';
 import { buildHomeRouteWithSpace, buildPostRoute, buildTagSearchRoute } from '@/utils/tagRoute';
+import { isEventPost } from '@/utils/postKind';
+import { resolveEventNarrative, resolveEventTitle } from '@/utils/eventTimeline';
 
 const useFriendship =
   import.meta.env.VITE_USE_FRIENDSHIP.toLowerCase() === 'true';
@@ -312,6 +319,11 @@ const emit = defineEmits<{
 
 // 使用 usePostContent composable (包含额外字段)
 const post = usePostContent(props.post, true);
+const isEventMode = computed(() => isEventPost(post.value));
+const eventTitle = computed(() => resolveEventTitle(post.value.texts || []));
+const eventSummary = computed(() =>
+  resolveEventNarrative(post.value.user.nickname || post.value.user.username, post.value.ip_loc, '创建'),
+);
 
 const renderIcon = (icon: Component) => {
   return () => {
@@ -454,9 +466,6 @@ const onHandleFollowAction = (post: Item.PostProps) => {
 		})
 };
 
-const goPostDetail = (id: number) => {
-  router.push(buildPostRoute(id, currentSpaceSlug.value));
-};
 const doClickText = (e: MouseEvent, id: number) => {
   if ((e.target as any).dataset.detail) {
     const d = (e.target as any).dataset.detail.split(':');
@@ -475,7 +484,7 @@ const doClickText = (e: MouseEvent, id: number) => {
       return;
     }
   }
-  goPostDetail(id);
+  router.push(buildPostRoute(id, currentSpaceSlug.value));
 };
 const handlePostAction = (
   item:
@@ -646,23 +655,22 @@ const handlePostShare = () => {
   copy(
     `${window.location.origin}/#/post?id=${post.value.id}&share=copy_link&t=${new Date().getTime()}`,
   );
-  window.$message.success('链接已复制到剪贴板');
+  window.$message.success(isEventMode.value ? '事件链接已复制到剪贴板' : '链接已复制到剪贴板');
 };
 </script>
 
 <style lang="less">
 .detail-item {
-    --post-detail-bg: var(--surface-subtle);
     width: 100%;
-    padding: 16px;
+    padding: 18px 18px 14px;
     box-sizing: border-box;
-
-    background: var(--post-detail-bg);
+    background: transparent;
     .nickname-wrap {
-        font-size: 14px;
+        font-size: 15px;
+        font-weight: 600;
     }
     .username-wrap {
-        font-size: 14px;
+        font-size: 13px;
         opacity: 0.75;
     }
     .top-tag {
@@ -677,26 +685,7 @@ const handlePostShare = () => {
         overflow: hidden;
         white-space: pre-wrap;
         word-break: break-all;
-        line-height: 1.8;
-    }
-    .opts-wrap {
-        margin-top: 20px;
-        .opt-item {
-            display: flex;
-            align-items: center;
-            opacity: 0.7;
-            transition: transform 0.18s ease, opacity 0.18s ease;
-            .opt-item-icon {
-                margin-right: 10px;
-            }
-            &.hover {
-                cursor: pointer;
-                &:hover {
-                    opacity: 1;
-                    transform: translateY(-1px);
-                }
-            }
-        }
+        line-height: 1.84;
     }
     .n-thing {
         .n-thing-avatar-header-wrapper {
@@ -706,7 +695,93 @@ const handlePostShare = () => {
     .timestamp {
         opacity: 0.75;
         font-size: 12px;
-        margin-top: 10px;
+        margin-top: 14px;
+    }
+    .event-hero {
+        margin-bottom: 18px;
+        display: flex;
+        align-items: stretch;
+        justify-content: space-between;
+        gap: 14px;
+        flex-wrap: wrap;
+        padding: 16px;
+        border-radius: 20px;
+        border: 1px solid var(--panel-border);
+        background:
+          radial-gradient(circle at top right, color-mix(in srgb, var(--accent-soft) 72%, transparent), transparent 42%),
+          var(--accent-soft-muted);
+    }
+    .event-hero-main {
+        display: grid;
+        gap: 6px;
+        min-width: min(100%, 320px);
+
+        strong {
+            font-size: 20px;
+            line-height: 1.4;
+        }
+
+        p {
+            margin: 0;
+            font-size: 13px;
+            line-height: 1.7;
+            color: var(--editor-text-subtle);
+        }
+    }
+    .event-hero-kicker {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        color: var(--accent-primary);
+    }
+    .event-hero-stats {
+        display: flex;
+        align-items: stretch;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    .event-stat-card {
+        min-width: 92px;
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: var(--panel-bg);
+        border: 1px solid var(--panel-border);
+        display: grid;
+        gap: 4px;
+
+        span {
+            font-size: 12px;
+            opacity: 0.68;
+        }
+
+        strong {
+            font-size: 20px;
+            line-height: 1.2;
+        }
+    }
+    .detail-actions {
+        margin-top: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+    .opt-item {
+        min-width: 72px;
+        justify-content: center;
+    }
+}
+
+@media screen and (max-width: 821px) {
+    .detail-item {
+        .event-hero {
+            padding: 14px;
+            border-radius: 18px;
+        }
+
+        .event-hero-main strong {
+            font-size: 18px;
+        }
     }
 }
 </style>

@@ -19,6 +19,15 @@
                     </span>
                     <span class="username-wrap"> @{{ post.user.username }} </span>
                     <n-tag
+                        v-if="isEventMode"
+                        class="top-tag"
+                        type="success"
+                        size="small"
+                        round
+                    >
+                        事件
+                    </n-tag>
+                    <n-tag
                         v-if="post.is_top"
                         class="top-tag"
                         type="warning"
@@ -75,7 +84,19 @@
                 </div>
             </template>
             <template #description v-if="post.texts.length > 0">
-                <div v-if="isMobile" @click="goPostDetail(post.id)">
+                <div v-if="isEventMode" class="event-card-preview">
+                    <div class="event-card-preview-head">
+                        <span class="event-card-preview-kicker">事件时间轴</span>
+                        <span class="event-card-preview-time">{{ formatPrettyDate(post.created_on) }}</span>
+                    </div>
+                    <strong class="event-card-preview-title">{{ eventTitle }}</strong>
+                    <p v-if="eventSummary" class="event-card-preview-summary">{{ eventSummary }}</p>
+                    <div class="event-card-preview-stats">
+                        <span>节点 {{ post.comment_count }}</span>
+                        <span>表情 {{ post.upvote_count }}</span>
+                    </div>
+                </div>
+                <div v-if="!isEventMode && isMobile" @click="goPostDetail(post.id)">
                     <span v-for="content in post.texts"
                         :key="content.id"
                         class="post-text"
@@ -84,7 +105,7 @@
                     ></span>
                 </div>
                 <span
-                    v-else
+                    v-else-if="!isEventMode"
                     v-for="content in post.texts"
                     :key="content.id"
                     class="post-text hover"
@@ -155,6 +176,8 @@ import { buildPostRoute, buildTagSearchRoute } from '@/utils/tagRoute';
 import PostReactionBar from '@/components/post-reaction-bar.vue';
 import type { ReactionGroup } from '@/utils/reactions';
 import { splitCommentReactions } from '@/utils/reactions';
+import { isEventPost } from '@/utils/postKind';
+import { resolveEventSummary, resolveEventTitle } from '@/utils/eventTimeline';
 
 const router = useRouter();
 
@@ -185,6 +208,9 @@ const emit = defineEmits<{
   (e: 'handle-friend-action', user: Item.PostProps): void;
   (e: 'post-follow-action', user_id: number, is_following: boolean): void;
 }>();
+const isEventMode = computed(() => isEventPost(props.post));
+const eventTitle = computed(() => resolveEventTitle(props.post.texts || []));
+const eventSummary = computed(() => resolveEventSummary(props.post.texts || []));
 
 const renderIcon = (icon: Component) => {
   return () => {
@@ -340,18 +366,19 @@ const doClickText = (e: MouseEvent, id: number) => {
 
 <style lang="less">
 .post-item {
-    --post-item-hover-bg: var(--surface-subtle);
-    --post-item-bg: var(--surface-base);
     width: 100%;
-    padding: 16px;
+    padding: 16px 18px 14px;
     box-sizing: border-box;
-    background-color: var(--post-item-bg);
+    border-bottom: 1px solid var(--panel-border);
+    background: transparent;
+    transition: background-color 0.18s ease;
 
     .nickname-wrap {
-        font-size: 14px;
+        font-size: 15px;
+        font-weight: 600;
     }
     .username-wrap {
-        font-size: 14px;
+        font-size: 13px;
         opacity: 0.75;
     }
 
@@ -372,30 +399,88 @@ const doClickText = (e: MouseEvent, id: number) => {
         }
     }
     .post-text {
+        display: block;
         text-align: justify;
         overflow: hidden;
         white-space: pre-wrap;
         word-break: break-all;
-        line-height: 1.7;
+        line-height: 1.78;
+        color: var(--editor-text-main);
+    }
+
+    .event-card-preview {
+        display: grid;
+        gap: 8px;
+        margin-bottom: 12px;
+        padding: 14px 16px;
+        border: 1px solid color-mix(in srgb, var(--panel-border) 84%, transparent);
+        border-radius: 18px;
+        background:
+          radial-gradient(circle at top right, color-mix(in srgb, var(--accent-soft) 62%, transparent), transparent 40%),
+          color-mix(in srgb, var(--surface-subtle) 92%, transparent);
+    }
+
+    .event-card-preview-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .event-card-preview-kicker {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        color: var(--accent-primary);
+    }
+
+    .event-card-preview-time {
+        font-size: 12px;
+        opacity: 0.62;
+    }
+
+    .event-card-preview-title {
+        font-size: 17px;
+        line-height: 1.45;
+        color: var(--editor-text-main);
+    }
+
+    .event-card-preview-summary {
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.72;
+        color: var(--editor-text-subtle);
+    }
+
+    .event-card-preview-stats {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+
+        span {
+            font-size: 12px;
+            color: var(--editor-text-subtle);
+        }
     }
 
     .opt-item {
         display: flex;
         align-items: center;
         opacity: 0.7;
-        transition: transform 0.18s ease, opacity 0.18s ease;
+        transition: opacity 0.18s ease;
         .opt-item-icon {
             margin-right: 10px;
         }
 
         &:hover {
             opacity: 1;
-            transform: translateY(-1px);
         }
     }
     
     &:hover {
-        background: var(--post-item-hover-bg);
+        background: color-mix(in srgb, var(--surface-subtle) 82%, transparent);
     }
     
     &.hover {
@@ -409,6 +494,10 @@ const doClickText = (e: MouseEvent, id: number) => {
         line-height: 16px;
         margin-bottom: 8px !important;
     }
+}
+
+.post-item:last-child {
+    border-bottom: 0;
 }
 
 </style>

@@ -2,25 +2,23 @@
     <div>
         <main-nav title="好友" />
 
-        <n-list class="main-content-wrap" bordered>
-            <n-list-item class="friend-search-panel">
+        <div class="main-content-wrap contacts-page">
+            <section class="contacts-panel friend-search-panel">
                 <div class="friend-search-head">
                     <div class="friend-search-copy">
-                        <h3>搜索用户并添加好友</h3>
-                        <p>按用户名搜索，发送好友申请。</p>
+                        <span class="friend-search-kicker">添加好友</span>
+                        <h3>搜索用户并发送申请</h3>
+                        <p>按用户名查找，发送一条简短问候即可。</p>
                     </div>
                     <div class="friend-search-form">
                         <n-input
                             v-model:value="searchKeyword"
                             clearable
-                            round
                             placeholder="输入用户名"
                             @keyup.enter.prevent="searchUsers"
                         />
                         <n-button
                             type="primary"
-                            secondary
-                            round
                             :loading="searching"
                             :disabled="searchKeyword.trim().length === 0"
                             @click="searchUsers"
@@ -38,72 +36,76 @@
                         <n-empty size="small" description="没有找到相关用户" />
                     </div>
                     <div v-else class="friend-search-list">
-                        <n-list embedded :bordered="false">
-                            <n-list-item
-                                v-for="item in searchResults"
-                                :key="item.user_id"
-                                class="friend-search-item"
-                            >
-                                <div class="friend-search-user">
-                                    <n-avatar round :size="44" :src="item.avatar || DEFAULT_USER_AVATAR" />
-                                    <div class="friend-search-meta">
-                                        <div class="friend-search-name">
-                                            {{ item.nickname }}
-                                        </div>
-                                        <div class="friend-search-username">
-                                            @{{ item.username }}
-                                        </div>
-                                    </div>
+                        <div
+                            v-for="item in searchResults"
+                            :key="item.user_id"
+                            class="friend-search-item"
+                        >
+                            <div class="friend-search-user">
+                                <n-avatar round :size="44" :src="item.avatar || DEFAULT_USER_AVATAR" />
+                                <div class="friend-search-meta">
+                                    <div class="friend-search-name">{{ item.nickname }}</div>
+                                    <div class="friend-search-username">@{{ item.username }}</div>
                                 </div>
-                                <div class="friend-search-actions">
-                                    <n-tag v-if="item.user_id === currentUserId" size="small" round>
-                                        你自己
-                                    </n-tag>
-                                    <n-tag
-                                        v-else-if="item.is_friend || contactUserIds.has(item.user_id)"
-                                        type="success"
-                                        size="small"
-                                        round
-                                    >
-                                        已是好友
-                                    </n-tag>
-                                    <n-button
-                                        v-else
-                                        tertiary
-                                        type="primary"
-                                        round
-                                        size="small"
-                                        @click="openAddFriend(item)"
-                                    >
-                                        添加好友
-                                    </n-button>
-                                </div>
-                            </n-list-item>
-                        </n-list>
+                            </div>
+                            <div class="friend-search-actions">
+                                <n-tag v-if="item.user_id === currentUserId" size="small" round>
+                                    你自己
+                                </n-tag>
+                                <n-tag
+                                    v-else-if="item.is_friend || contactUserIds.has(item.user_id)"
+                                    type="success"
+                                    size="small"
+                                    round
+                                >
+                                    已是好友
+                                </n-tag>
+                                <n-button
+                                    v-else
+                                    tertiary
+                                    type="primary"
+                                    size="small"
+                                    @click="openAddFriend(item)"
+                                >
+                                    添加好友
+                                </n-button>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </n-list-item>
+            </section>
 
-            <div v-if="loading && list.length === 0" class="skeleton-wrap">
-                <post-skeleton :num="pageSize" />
-            </div>
-            <div v-else>
-                <div class="empty-wrap" v-if="list.length === 0">
-                    <n-empty size="large" description="暂无数据" />
+            <section class="contacts-panel contacts-list-panel">
+                <div class="contacts-panel-head">
+                    <div>
+                        <h3>我的好友</h3>
+                        <p>当前共 {{ list.length }} 位联系人</p>
+                    </div>
                 </div>
 
-                <n-list-item class="list-item" v-for="contact in list" :key="contact.user_id">
-                     <user-card type="contact" :contact="contact" @send-whisper="onSendWhisper" />
-                </n-list-item>
-            </div>
-            <!-- 私信组件 -->
+                <div v-if="loading && list.length === 0" class="skeleton-wrap">
+                    <post-skeleton :num="pageSize" />
+                </div>
+                <div v-else>
+                    <div class="empty-wrap" v-if="list.length === 0">
+                        <n-empty size="large" description="还没有好友，先去搜索看看" />
+                    </div>
+
+                    <div v-else class="contacts-list">
+                        <div class="list-item" v-for="contact in list" :key="contact.user_id">
+                            <user-card type="contact" :contact="contact" @send-whisper="onSendWhisper" />
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <whisper :show="showWhisper" :user="whisperReceiver" @success="whisperSuccess" />
             <whisper-add-friend
                 :show="showAddFriendWhisper"
                 :user="selectedFriendCandidate"
                 @success="handleAddFriendSuccess"
             />
-        </n-list>
+        </div>
 
         <infinite-load-more
             :total-page="totalPage"
@@ -115,16 +117,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue';
-import { useRoute } from 'vue-router';
-import { Api } from '@/utils/request';
-import { usePagination } from '@/composables/usePagination';
 import InfiniteLoadMore from '@/components/infinite-load-more.vue';
 import UserCard from '@/components/user-card.vue';
 import WhisperAddFriend from '@/components/whisper-add-friend.vue';
-import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
+import { usePagination } from '@/composables/usePagination';
 import { useStoreUser } from '@/store/user';
+import { DEFAULT_USER_AVATAR } from '@/utils/defaults';
+import { Api } from '@/utils/request';
 import { storeToRefs } from 'pinia';
+import { computed, nextTick, onMounted, ref } from 'vue';
+import { useRoute } from 'vue-router';
 
 type SearchUserItem = Item.ContactItemProps & {
   is_friend: boolean;
@@ -168,7 +170,9 @@ const selectedFriendCandidate = ref<Item.UserInfo>({
   status: 1,
 });
 const currentUserId = computed(() => userInfo.value.id || 0);
-const contactUserIds = computed(() => new Set(list.value.map((item) => item.user_id)));
+const contactUserIds = computed(
+  () => new Set(list.value.map((item) => item.user_id)),
+);
 
 // 初始化页码
 page.value = +(route.query.p as string) || 1;
@@ -212,7 +216,8 @@ const searchUsers = () => {
   }
 
   searching.value = true;
-  Api.v1.suggest.users({ k: keyword })
+  Api.v1.suggest
+    .users({ k: keyword })
     .then(async (res) => {
       const usernames = Array.from(new Set(res.suggest || []));
       const profiles = await Promise.all(
@@ -241,7 +246,7 @@ const searchUsers = () => {
 };
 
 const nextPage = () => {
-  if (page.value < totalPage.value || totalPage.value == 0) {
+  if (page.value < totalPage.value || totalPage.value === 0) {
     noMore.value = false;
     page.value++;
     loadContacts();
@@ -254,14 +259,15 @@ onMounted(() => {
   loadContacts();
 });
 
-const loadContacts = (scrollToBottom: boolean = false) => {
+const loadContacts = (scrollToBottom = false) => {
   if (list.value.length === 0) {
     loading.value = true;
   }
-  Api.v1.user.get.contacts({
-    page: page.value,
-    page_size: pageSize.value,
-  })
+  Api.v1.user.get
+    .contacts({
+      page: page.value,
+      page_size: pageSize.value,
+    })
     .then((res) => {
       loading.value = false;
       if (res.list.length === 0) {
@@ -289,6 +295,20 @@ const loadContacts = (scrollToBottom: boolean = false) => {
 </script>
 
 <style lang="less" scoped>
+.contacts-page {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 0 0;
+}
+
+.contacts-panel {
+    border: 1px solid color-mix(in srgb, var(--panel-border) 94%, transparent);
+    background: color-mix(in srgb, var(--panel-bg) 96%, transparent);
+    box-shadow: var(--panel-shadow);
+    padding: 18px 18px 12px;
+}
+
 .friend-search-panel {
     display: block;
 }
@@ -296,19 +316,31 @@ const loadContacts = (scrollToBottom: boolean = false) => {
 .friend-search-head {
     display: flex;
     flex-wrap: wrap;
-    align-items: end;
+    align-items: flex-start;
     justify-content: space-between;
-    gap: 16px;
+    gap: 14px;
 }
 
 .friend-search-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    .friend-search-kicker {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--accent-primary);
+        letter-spacing: 0.04em;
+    }
+
     h3 {
         margin: 0;
         font-size: 18px;
+        line-height: 1.2;
     }
 
     p {
-        margin: 6px 0 0;
+        margin: 0;
         opacity: 0.7;
         font-size: 13px;
     }
@@ -316,35 +348,53 @@ const loadContacts = (scrollToBottom: boolean = false) => {
 
 .friend-search-form {
     display: flex;
+    align-items: center;
     gap: 10px;
     width: min(100%, 420px);
 
     .n-input {
         flex: 1;
     }
+
+    :deep(.n-button) {
+        min-width: 84px;
+    }
 }
 
 .friend-search-results {
-    margin-top: 16px;
-    border-top: 1px solid var(--n-border-color);
-    padding-top: 16px;
+    margin-top: 14px;
+    border-top: 1px solid color-mix(in srgb, var(--panel-border) 92%, transparent);
+    padding-top: 14px;
 }
 
 .friend-search-loading {
     display: flex;
     justify-content: center;
-    padding: 12px 0;
+    padding: 16px 0;
 }
 
 .friend-search-list {
-    :deep(.n-list) {
-        background: transparent;
-    }
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 .friend-search-item {
-    padding-left: 0;
-    padding-right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 84%, transparent);
+
+    &:last-child {
+        border-bottom: 0;
+        padding-bottom: 0;
+    }
+
+    &:first-child {
+        padding-top: 0;
+    }
 }
 
 .friend-search-user {
@@ -360,9 +410,11 @@ const loadContacts = (scrollToBottom: boolean = false) => {
 .friend-search-name {
     font-size: 15px;
     font-weight: 600;
+    line-height: 1.2;
 }
 
 .friend-search-username {
+    margin-top: 4px;
     opacity: 0.65;
     font-size: 13px;
 }
@@ -371,30 +423,72 @@ const loadContacts = (scrollToBottom: boolean = false) => {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-shrink: 0;
 }
 
-.main-content-wrap,
-.empty-wrap,
-.skeleton-wrap {
-    --contacts-surface-bg: transparent;
-    background-color: var(--contacts-surface-bg);
+.contacts-list-panel {
+    padding-bottom: 6px;
 }
 
-:global(.dark) .main-content-wrap,
-:global(.dark) .empty-wrap,
-:global(.dark) .skeleton-wrap {
-    --contacts-surface-bg: rgba(16, 16, 20, 0.75);
+.contacts-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 10px;
+
+    h3 {
+        margin: 0;
+        font-size: 18px;
+        line-height: 1.2;
+    }
+
+    p {
+        margin: 4px 0 0;
+        font-size: 13px;
+        opacity: 0.68;
+    }
+}
+
+.contacts-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.list-item {
+    border-top: 1px solid color-mix(in srgb, var(--panel-border) 88%, transparent);
+
+    &:first-child {
+        border-top: 0;
+    }
 }
 
 @media (max-width: 768px) {
+    .contacts-page {
+        gap: 10px;
+        padding-top: 10px;
+    }
+
+    .contacts-panel {
+        padding: 16px 14px 10px;
+    }
+
     .friend-search-form {
         width: 100%;
     }
 
+    .friend-search-form,
+    .friend-search-actions {
+        flex-wrap: wrap;
+    }
+
     .friend-search-item {
-        :deep(.n-list-item__main) {
-            gap: 12px;
-        }
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .contacts-panel-head {
+        padding-bottom: 8px;
     }
 }
 </style>

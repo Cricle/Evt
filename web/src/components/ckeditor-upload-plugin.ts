@@ -1,8 +1,10 @@
-import Plugin from '@ckeditor/ckeditor5-core/src/plugin';
-import FileDialogButtonView from '@ckeditor/ckeditor5-ui/src/button/filedialogbuttonview';
-import ButtonView from '@ckeditor/ckeditor5-ui/src/button/buttonview';
-import FileRepository from '@ckeditor/ckeditor5-upload/src/filerepository';
-import type { Editor } from '@ckeditor/ckeditor5-core';
+import {
+  ButtonView,
+  type Editor,
+  FileDialogButtonView,
+  FileRepository,
+  Plugin,
+} from 'ckeditor5';
 
 import { buildApiUrl } from '@/utils/api';
 import { TOKEN_KEY } from '@/store/user';
@@ -30,6 +32,17 @@ export const EVT_UPLOAD_PLUGIN_OPTIONS = 'evtUploadPluginOptions';
 
 const uploadEndpoint = buildApiUrl('/v1/attachment');
 
+export const normalizeUploadedAssetUrl = (value: string) => {
+  const normalized = value.trim();
+  if (!normalized) {
+    return normalized;
+  }
+  if (/^(https?:)?\/\//i.test(normalized) || normalized.startsWith('data:') || normalized.startsWith('blob:')) {
+    return normalized;
+  }
+  return buildApiUrl(normalized.startsWith('/') ? normalized : `/${normalized}`);
+};
+
 export const resolveUploadAuthHeader = () => `Bearer ${localStorage.getItem(TOKEN_KEY) || ''}`;
 
 export const normalizeLinkInput = (value: string) => value.trim();
@@ -52,7 +65,7 @@ export const uploadFile = async (file: File, kind: UploadKind) => {
   }
 
   const payload = await response.json();
-  const content = payload?.data?.content;
+  const content = normalizeUploadedAssetUrl(payload?.data?.content ?? '');
   if (!content) {
     throw new Error('invalid upload response');
   }

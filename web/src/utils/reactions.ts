@@ -1,30 +1,55 @@
 import { CommentItemTypeEnum } from '@/utils/IEnum';
 import { toPlainText } from '@/utils/content';
 
-export const DEFAULT_REACTION_EMOJIS = [
-  '👍',
-  '❤️',
-  '🫶',
-  '👏',
-  '🙌',
-  '🎉',
-  '😂',
-  '🤔',
-  '😮',
-  '😍',
-  '🥳',
-  '😭',
-  '😅',
-  '😢',
-  '😡',
-  '🔥',
-  '💯',
-  '👀',
-  '✅',
-  '🙏',
-  '🤝',
-  '🚀',
+export interface ReactionEmojiGroup {
+  label: string;
+  emojis: string[];
+}
+
+export const REACTION_EMOJI_GROUPS: ReactionEmojiGroup[] = [
+  {
+    label: '常用',
+    emojis: ['😀', '😂', '🥹', '😍', '😎', '🤔', '😮', '😭', '😡', '🥳', '🔥', '💯'],
+  },
+  {
+    label: '手势',
+    emojis: ['👍', '👎', '👏', '🙌', '👌', '✌️', '🤞', '🫶', '🙏', '🤝', '💪', '👀'],
+  },
+  {
+    label: '情绪',
+    emojis: ['🙂', '😊', '😄', '😅', '🤣', '😉', '😇', '🤩', '😘', '😋', '😴', '🤯'],
+  },
+  {
+    label: '爱心',
+    emojis: ['❤️', '🩷', '🧡', '💛', '💚', '🩵', '💙', '💜', '🤍', '🖤', '🤎', '💔'],
+  },
+  {
+    label: '人物',
+    emojis: ['🙋', '🙆', '💁', '🧑‍💻', '👨‍💻', '👩‍💻', '🧠', '🫡', '🤷', '🙍', '🙇', '🕺'],
+  },
+  {
+    label: '自然',
+    emojis: ['🌱', '🌳', '🌸', '🌻', '🍀', '🍁', '🌈', '☀️', '🌙', '⭐', '⚡', '☁️'],
+  },
+  {
+    label: '动物',
+    emojis: ['🐶', '🐱', '🐼', '🐨', '🦊', '🐯', '🐮', '🐸', '🐵', '🐧', '🦄', '🐝'],
+  },
+  {
+    label: '食物',
+    emojis: ['☕', '🍵', '🧋', '🍎', '🍉', '🍇', '🍕', '🍔', '🍟', '🍜', '🍰', '🍻'],
+  },
+  {
+    label: '物件',
+    emojis: ['📌', '📣', '📎', '📷', '🎧', '💡', '🧭', '⌛', '🪄', '🎁', '🏆', '🚀'],
+  },
+  {
+    label: '符号',
+    emojis: ['✅', '❌', '⭕', '❗', '❓', '💬', '🗯️', '♻️', '💤', '🎯', '🔒', '🔔'],
+  },
 ];
+
+export const DEFAULT_REACTION_EMOJIS = REACTION_EMOJI_GROUPS.flatMap((group) => group.emojis);
 
 const EMOJI_ONLY_PATTERN =
   /^(?:\p{Emoji_Presentation}|\p{Extended_Pictographic}|\uFE0F|\u200D)+$/u;
